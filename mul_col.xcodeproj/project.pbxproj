@@ -8,14 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
+		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
+		A4CE9F7C2B6277E700910766 /* model in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7B2B6277E700910766 /* model */; };
+		A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F7D2B63D41400910766 /* matrix.metal */; };
+		A4CE9F802B63D82F00910766 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7F2B63D82F00910766 /* .gitignore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		A4AB4DBF2B6144350098B05D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			buildActionMask = 8;
+			dstPath = "";
+			dstSubfolderSpec = 7;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -25,6 +29,10 @@
 /* Begin PBXFileReference section */
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A4CE9F6E2B626DB500910766 /* model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = model.swift; sourceTree = "<group>"; };
+		A4CE9F7B2B6277E700910766 /* model */ = {isa = PBXFileReference; lastKnownFileType = folder; path = model; sourceTree = "<group>"; };
+		A4CE9F7D2B63D41400910766 /* matrix.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = matrix.metal; sourceTree = "<group>"; };
+		A4CE9F7F2B63D82F00910766 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,7 +49,11 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
-				A4AB4DC32B6144350098B05D /* mul_col */,
+				A4CE9F7F2B63D82F00910766 /* .gitignore */,
+				A4CE9F7D2B63D41400910766 /* matrix.metal */,
+				A4CE9F6E2B626DB500910766 /* model.swift */,
+				A4AB4DC42B6144350098B05D /* main.swift */,
+				A4CE9F7B2B6277E700910766 /* model */,
 				A4AB4DC22B6144350098B05D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,14 +66,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A4AB4DC32B6144350098B05D /* mul_col */ = {
-			isa = PBXGroup;
-			children = (
-				A4AB4DC42B6144350098B05D /* main.swift */,
-			);
-			path = mul_col;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -72,6 +76,7 @@
 				A4AB4DBD2B6144350098B05D /* Sources */,
 				A4AB4DBE2B6144350098B05D /* Frameworks */,
 				A4AB4DBF2B6144350098B05D /* CopyFiles */,
+				A4CE9F742B6270B700910766 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -115,12 +120,26 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		A4CE9F742B6270B700910766 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
+				A4CE9F7C2B6277E700910766 /* model in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A4AB4DBD2B6144350098B05D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
+				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
+				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
