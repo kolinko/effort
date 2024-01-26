@@ -1,10 +1,3 @@
-//
-//  model.swift
-//  mul_col
-//
-//  Created by Tomasz Kolinko on 25/01/2024.
-//
-
 import Foundation
 
 struct Layer {
@@ -25,21 +18,11 @@ import Foundation
 func readJson() -> [String: [Int]] {
     // Get url for file
     let fileUrl = URL(fileURLWithPath: absolutePath + "shape.json")
-    do {
-        // Get data from file
-        let data = try Data(contentsOf: fileUrl)
+    let data = try! Data(contentsOf: fileUrl)
 
-        // Decode data to a Dictionary<String, Any> object
-        guard let dictionary = try JSONSerialization.jsonObject(with: data, options: []) as? [String: [Int]] else {
-            fatalError("Could not cast JSON content as a Dictionary<String, Any>")
-        }
+    let dictionary = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: [Int]]
 
-        // Print result
-        return dictionary
-    } catch {
-        // Print error if something went wrong
-        fatalError("Error: \(error)")
-    }
+    return dictionary
 }
 
 
@@ -68,24 +51,21 @@ func loadModelData(from filePath: String) -> ModelData {
     assert(testLayer.data[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
     assert(testLayer.data[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
 
-    
     return model
-
 }
 
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> Layer {
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
-    guard let fileHandle = FileHandle(forReadingAtPath: fileURL.path) else {
-        fatalError("Cannot open file at \(fileURL.path)")
-    }
-
+    let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
+    
     let data = fileHandle.readDataToEndOfFile()
     let count = data.count / MemoryLayout<Float16>.size
     let pointer = data.withUnsafeBytes {
         $0.bindMemory(to: Float16.self).baseAddress!
     }
+    
     let flatArray = Array(UnsafeBufferPointer(start: pointer, count: count))
 
     switch shape.count {
