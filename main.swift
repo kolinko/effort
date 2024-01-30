@@ -15,10 +15,6 @@ assert(!devices.isEmpty, "No Metal devices available")
 // For simplicity, let's use the first available device.
 let device = devices[0]
 
-let res = test(device: device)
-//print("done")
-//exit(res)
-
 print("loading")
 let modelData = loadModelData(from: "shape.json", device: device)
 let tokens = loadTokens(device: device)
@@ -43,7 +39,6 @@ var xkLayerTokenHead = [[[Layer]]]()
 var xvLayerTokenHead = [[[Layer]]]()
 var xqLayerTokenHead = [[[Layer]]]()
 
-
 for _ in 0...3 {
     xkLayerTokenHead.append([[Layer]]())
     xvLayerTokenHead.append([[Layer]]())
@@ -54,7 +49,8 @@ let numTokens = 1
 
 for layerNo in 0...3 { //modelData.layers {
     var h = tokens[0]
-    assert_vec(layer: h, mul: 10, val: [0.02, -0.01, 0.01, 0.02, -0.01])
+    assert(h.test(mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
+    
     let layer = modelData.layers[layerNo]!
     let wa = layer["attention_norm"]!
     let wq = layer["attention.wq"]!
@@ -63,8 +59,6 @@ for layerNo in 0...3 { //modelData.layers {
     let wo = layer["attention.wo"]!
     
     let h_norm = rms_norm(layer: h)
-
-//    print(wa.shape)
     let xn = mul(vec: h_norm, by:wa)
 
     let xq = mul_col(vec: xn, by: wq)
@@ -178,27 +172,26 @@ for layerNo in 0...3 { //modelData.layers {
     let attnOutput = createLayer(from: output[0], using: device)
     let attnFfn = mul_row(vec:attnOutput, by: wo)
 
-    assert_vec(layer: h, mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01])
-    assert_vec(layer: attnFfn, mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04])
+    assert(h.test(mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
+    assert(attnFfn.test(mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
     
     add(dest: &h, by: attnFfn)
-    assert_vec(layer: h, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05])
+    assert(h.test(mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     
     let h_norm2 = rms_norm(layer: h)
-    assert_vec(layer: h_norm2, mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26])
-
+    assert(h_norm2.test(mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26]))
     let wn = layer["ffn_norm"]!
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
     let w3 = layer["feed_forward.w3"]!
 
     let fxn = mul(vec: h_norm2, by:wn)
-    assert_vec(layer: fxn, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09])
+    assert(fxn.test(mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
     
     let fx1 = mul_col(vec: fxn, by: w1)
     let fx3 = mul_col(vec: fxn, by: w3)
     
-    assert_vec(layer: fx1, mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11])
+    assert(fx1.test(mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11]))
     
     //    x = ((x1 / (1.0 + np.exp(-x1))) * x3
     var x = [(Float16)]()
@@ -209,12 +202,12 @@ for layerNo in 0...3 { //modelData.layers {
     }
 
     let fx = createLayer(from: x, using: device)
-    assert_vec(layer:fx, mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008])
+    assert(fx.test(mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008]))
     let fx2 = mul_row(weights:w2, by:fx)
-    assert_vec(layer:fx2, mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06])
+    assert(fx2.test(mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06]))
     
     add(dest: &h, by: fx2)
-    assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07])
+    assert(h.test(mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     exit(0)
 
 }

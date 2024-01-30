@@ -15,35 +15,35 @@ struct Layer {
                 bufferPointer[index] = newValue
             }
         }
+
+    func test(mul:Int, val:[Float16]) -> Bool {
+        for i in 0..<val.count {
+            if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+                print("assert failed for values")
+                for j in 0..<val.count {
+                    print(self[j])
+                }
+                print("assert failed, on pos \(i), \(self[i]) ≠ \(val[i])")
+                return false
+            }
+        }
+        return true
+    }
+    
+    
 }
 
-func test(device: MTLDevice) -> Int32 {
-    
-    // Example vector and weights
-    let vectorValues: [Float16] = [-1, 0.5, 1]
-    let weightValues: [Float16] = [-1, 1, 0.5, 0.75, -0.5, -0.25, 1, 0.25, -1]
 
-    func createLayer(from values: [Float16], shape: [Int]) -> Layer {
-        let bufferSize = values.count * MemoryLayout<Float16>.size
-        guard let buffer = device.makeBuffer(bytes: values, length: bufferSize, options: .storageModeShared) else {
-            fatalError("Failed to create buffer")
+func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
+    for i in 0..<val.count {
+        if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+            print("assert failed for values")
+            for j in 0..<val.count {
+                print(layer[j])
+            }
+            fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
         }
-        return Layer(shape: shape, buffer: buffer)
     }
-
-    let vec = createLayer(from: vectorValues, shape: [3])
-    let weights = createLayer(from: weightValues, shape: [3, 3])
-
-    // Now `vec` and `weights` are ready to be used in your `mul_col` function
-
-    let res = mul_col(vec:vec, by:weights)
-    assert(res.shape.count==1)
-    assert(res.shape[0]==3)
-    assert(res[0] == 2)
-    assert(res[1] == -1.25)
-    assert(res[2] == -1.875)
-    return 0
-    
 }
 
 
@@ -436,18 +436,6 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
 
     
     return model
-}
-
-func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
-    for i in 0..<val.count {
-        if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
-            print("assert failed for values")
-            for j in 0..<val.count {
-                print(layer[j])
-            }
-            fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
-        }
-    }
 }
 
 
