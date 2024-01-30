@@ -181,8 +181,6 @@ func mul_row(vec: Layer, by weights: Layer) -> Layer {
 
 func mul_row(weights: Layer, by vec:Layer) -> Layer {
     // Validate shapes
-    print(weights.shape)
-    print(vec.shape)
     assert(weights.shape[1] == vec.shape[0], "Weights row count must match vec length")
 
     let rows = weights.shape[0]
@@ -222,8 +220,6 @@ func mul_row(weights: Layer, by vec:Layer) -> Layer {
 
 
 func add(dest: inout Layer, by vector: Layer) {
-    print(dest.shape)
-    print(vector.shape)
     assert(dest.shape == vector.shape, "Shapes of both layers must match")
 
     let count = dest.shape[0]
