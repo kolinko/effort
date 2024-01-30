@@ -54,19 +54,14 @@ let numTokens = 1
 
 for layerNo in 0...3 { //modelData.layers {
     var h = tokens[0]
+    assert_vec(layer: h, mul: 10, val: [0.02, -0.01, 0.01, 0.02, -0.01])
     let layer = modelData.layers[layerNo]!
     let wa = layer["attention_norm"]!
     let wq = layer["attention.wq"]!
     let wk = layer["attention.wk"]!
     let wv = layer["attention.wv"]!
     let wo = layer["attention.wo"]!
-    print(h[0])
-    print(h[1])
-    print(h[2])
-    print(h[3])
-    print(h[4])
-    print("hhhh")
-
+    
     let h_norm = rms_norm(layer: h)
 
 //    print(wa.shape)
@@ -219,17 +214,6 @@ for layerNo in 0...3 { //modelData.layers {
     assert_vec(layer:fx2, mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06])
     
     add(dest: &h, by: fx2)
-    func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
-        for i in 0..<val.count {
-            if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
-                print("assert failed for values")
-                for j in 0..<val.count {
-                    print(layer[j])
-                }
-                fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
-            }
-        }
-    }
     assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07])
     exit(0)
 
