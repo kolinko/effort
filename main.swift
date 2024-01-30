@@ -131,7 +131,6 @@ for layerNo in 0...3 { //modelData.layers {
     
     
     var out = makeArray(dims: [numTokens, numHeads, headDim], value: Float16(0.0)) as! [[[Float16]]]
-//    var out = [[[(Float16)]]]()
     
     for tok1 in 0..<numTokens {
         for headNo in 0..<numHeads {
