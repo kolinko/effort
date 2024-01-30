@@ -107,19 +107,13 @@ for layerNo in 0...3 { //modelData.layers {
     // calculate scores
     //scores = np.matmul(xk, xq, axes=[(0,2),(2,0),(2,1)]) / np.sqrt(head_dim)
 
-    print(xqTokenHeads[0][1][2])
-    print(xkTokenHeads[0][1][2])
-
-    
     for t1 in 0..<numTokens {
         for t2 in 0..<numTokens {
             for headNo in 0..<numHeads {
                 var sum: Float16 = 0.0;
                 for i in 0..<headDim {
-                    print(xkTokenHeads[t2][headNo][i])
                     sum += xkTokenHeads[t2][headNo][i] * xqTokenHeads[t1][headNo][i]
                 }
-                print(sum)
                 scores[headNo][t1][t2] = sum / sqrt(Float16(headDim))
             }
         }
@@ -188,36 +182,15 @@ for layerNo in 0...3 { //modelData.layers {
     // ffn output
     let attnOutput = createLayer(from: output[0], using: device)
     let attnFfn = mul_row(vec:attnOutput, by: wo)
-    print(h[0])
-    print(h[1])
-    print(h[2])
-    print(h[3])
-    print(h[4])
-    print("hhhh")
 
-    print(attnFfn[0])
-    print(attnFfn[1])
-    print(attnFfn[2])
-    print(attnFfn[3])
-    print(attnFfn[4])
-    print("attn")
-
+    assert_vec(layer: h, mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01])
+    assert_vec(layer: attnFfn, mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04])
+    
     add(dest: &h, by: attnFfn)
-    print(h[0])
-    print(h[1])
-    print(h[2])
-    print(h[3])
-    print(h[4])
-    print("^h_add")
-
+    assert_vec(layer: h, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05])
     
     let h_norm2 = rms_norm(layer: h)
-    print(h_norm2[0])
-    print(h_norm2[1])
-    print(h_norm2[2])
-    print(h_norm2[3])
-    print(h_norm2[4])
-    print("^h_norm")
+    assert_vec(layer: h_norm2, mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26])
 
     let wn = layer["ffn_norm"]!
     let w1 = layer["feed_forward.w1"]!
@@ -225,24 +198,14 @@ for layerNo in 0...3 { //modelData.layers {
     let w3 = layer["feed_forward.w3"]!
 
     let fxn = mul(vec: h_norm2, by:wn)
-    print(fxn[0])
-    print(fxn[1])
-    print(fxn[2])
-    print(fxn[3])
-    print(fxn[4])
-    print("***")
-
+    assert_vec(layer: fxn, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09])
+    
     let fx1 = mul_col(vec: fxn, by: w1)
     let fx3 = mul_col(vec: fxn, by: w3)
     
-    print(fx1[0])
-    print(fx1[1])
-    print(fx1[2])
-    print(fx1[3])
-    print(fx1[4])
-
-    print("!!!")
-//    x = ((x1 / (1.0 + np.exp(-x1))) * x3
+    assert_vec(layer: fx1, mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11])
+    
+    //    x = ((x1 / (1.0 + np.exp(-x1))) * x3
     var x = [(Float16)]()
     assert(fx3.shape[0] == 11008)
     for i in 0..<fx3.shape[0] {
@@ -250,42 +213,23 @@ for layerNo in 0...3 { //modelData.layers {
         x.append(Float16(val))
     }
 
-    print(x[0])
-    print(x[1])
-    print(x[2])
-    print(x[3])
-    print(x[4]) // ok until here
-    
     let fx = createLayer(from: x, using: device)
-    
-    
-    print(fx.shape)
-    print(w2.shape)
+    assert_vec(layer:fx, mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008])
     let fx2 = mul_row(weights:w2, by:fx)
-    print("fx2")
-    print(fx2[0])
-    print(fx2[1])
-    print(fx2[2])
-    print(fx2[3])
-    print(fx2[4])
-
-    add(dest: &h, by: fx2)
+    assert_vec(layer:fx2, mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06])
     
-    print("output ")
+    add(dest: &h, by: fx2)
     func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
         for i in 0..<val.count {
             if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+                print("assert failed for values")
+                for j in 0..<val.count {
+                    print(layer[j])
+                }
                 fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
             }
         }
     }
-    print(h[0])
-    print(h[1])
-    print(h[2])
-    print(h[3])
-    print(h[4])
-    print(h[5])
-    print(h[6])
     assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07])
     exit(0)
 
