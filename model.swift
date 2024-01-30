@@ -3,12 +3,7 @@ import Metal
 
 struct Layer {
     let shape: [Int]
-    let buffer: MTLBuffer //[Float16]
-    
-    func data(at index: Int) -> Float16 {
-        let bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: shape[0])
-        return bufferPointer[index]
-    }
+    let buffer: MTLBuffer
     
     subscript(index: Int) -> Float16 {
             get {
@@ -67,7 +62,6 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
     for i in 0..<(2 * maxSeqLen) {
         heads.append([])
         for freq in freqs {
-//            var freqsCis: [(Float, Float)] = []
             let angle = Float(i) * Float(freq)
             let realPart = cos(angle)
             let imagPart = sin(angle)
@@ -77,6 +71,7 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
     assert(heads[1][1]==((0.6479058, 0.7617204)))
     return heads
 }
+
 func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     // Ensure that the original layer can be evenly divided by the new dimension size
     assert(vec.shape[0] % newDimSize == 0, "Original layer size must be divisible by new dimension size")
@@ -89,12 +84,9 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     var newLayers: [Layer] = []
 
     for i in 0..<numNewLayers {
-        let offset = i * newDimSize// * MemoryLayout<Float16>.size
         let newBuffer = device.makeBuffer(length: newDimSize * MemoryLayout<Float16>.size, options: .storageModeShared)!
-         let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: newDimSize)
+        let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: newDimSize)
         memcpy(newBufferPointer, vecBufferPointer + i * newDimSize, newDimSize * MemoryLayout<Float16>.size)
-
-        
         newLayers.append(Layer(shape: [newDimSize], buffer: newBuffer))
     }
 
@@ -434,11 +426,10 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
         layers: layers
     )
     
-    assert(model.norm.data(at: 5)==1.544, "data seems loaded incorrectly?")
+    assert(model.norm[5]==1.544, "data seems loaded incorrectly?")
     let testLayer = model.layers[0]!["feed_forward.w1"]!
     assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
-    assert(testLayer.data(at: 4*testLayer.shape[1] + 10) == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
-    assert(testLayer.data(at: 10*testLayer.shape[1] + 4) == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
+    assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
 
     let endTime = Date()
     print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
@@ -447,33 +438,18 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     return model
 }
 
-/*
-func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Layer {
-    let fileURL = URL(fileURLWithPath: absolutePath + fileName)
-
-    let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
-    
-    let data = fileHandle.readDataToEndOfFile()
-    let count = data.count / MemoryLayout<Float16>.size
-    let pointer = data.withUnsafeBytes {
-        $0.bindMemory(to: Float16.self).baseAddress!
+func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
+    for i in 0..<val.count {
+        if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+            print("assert failed for values")
+            for j in 0..<val.count {
+                print(layer[j])
+            }
+            fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
+        }
     }
-    
-    let flatArray = Array(UnsafeBufferPointer(start: pointer, count: count))
+}
 
-    switch shape.count {
-    case 1:
-        // One-dimensional shape, return a flat array
-        assert(count == shape[0], "Data size does not match shape")
-        return Layer(shape: shape, data: flatArray)
-    case 2:
-        // Two-dimensional shape, return a flat array representing 2D data
-        assert(count == shape[0] * shape[1], "Data size does not match shape in \(fileName). \(shape) vs \(count) vs \(data.count)")
-        return Layer(shape: shape, data: flatArray)
-    default:
-        fatalError("Unsupported shape dimensionality")
-    }
-}*/
 
 func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Layer {
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
