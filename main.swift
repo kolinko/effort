@@ -81,21 +81,9 @@ for layerNo in 0...3 { //modelData.layers {
     let xkTokenHeads = xkLayerTokenHead[layerNo]
     let xvTokenHeads = xvLayerTokenHead[layerNo]
     let xqTokenHeads = xqLayerTokenHead[layerNo]
-
-    var scores = [[[Float16]]]()
-    for head in 0..<numHeads {
-        scores.append([[Float16]]())
-        for t1 in 0..<numTokens {
-            scores[head].append([Float16]())
-            for _ in 0..<numTokens {
-                scores[head][t1].append(-100)
-            }
-        }
-    }
-
-    // calculate scores
-    //scores = np.matmul(xk, xq, axes=[(0,2),(2,0),(2,1)]) / np.sqrt(head_dim)
-
+    
+    var scores = makeArray(dims: [numHeads, numTokens, numTokens], value: Float16(-100)) as! [[[Float16]]]
+    
     for t1 in 0..<numTokens {
         for t2 in 0..<numTokens {
             for headNo in 0..<numHeads {
@@ -141,18 +129,18 @@ for layerNo in 0...3 { //modelData.layers {
         }
     }
     
-    var out = [[[(Float16)]]]()
+    
+    var out = makeArray(dims: [numTokens, numHeads, headDim], value: Float16(0.0)) as! [[[Float16]]]
+//    var out = [[[(Float16)]]]()
     
     for tok1 in 0..<numTokens {
-        out.append([[(Float16)]]())
         for headNo in 0..<numHeads {
-            out[tok1].append([(Float16)]())
             for i in 0..<headDim {
                 var suma: Float16 = 0.0
                 for tok2 in 0..<numTokens {
                     suma += scores[headNo][tok1][tok2] * xvTokenHeads[tok1][headNo][i]
                 }
-                out[tok1][headNo].append(suma)
+                out[tok1][headNo][i] = suma
             }
         }
     }
@@ -214,7 +202,7 @@ for layerNo in 0...3 { //modelData.layers {
 
 print("done")
 exit(0)
-
+/*
 let pipelineState = try device.makeComputePipelineState(function: computeFunction)
 
 let vector = Array(repeating: Float(0.0), count: 4096)
@@ -260,3 +248,4 @@ let buffer = resultBuffer!
 let data = NSData(bytesNoCopy: buffer.contents(), length: 10096 * MemoryLayout<Float>.size, freeWhenDone: false)
 var resultArray = [Float](repeating: 0, count: 10096)
 data.getBytes(&resultArray, length: resultArray.count * MemoryLayout<Float>.size)
+*/

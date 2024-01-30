@@ -33,6 +33,10 @@ struct Layer {
     
 }
 
+func makeArray<T>(dims: [Int], value: T) -> Any {
+    guard !dims.isEmpty else { return value }
+    return Array(repeating: makeArray(dims: Array(dims.dropFirst()), value: value), count: dims.first!)
+}
 
 func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
     for i in 0..<val.count {
