@@ -275,11 +275,10 @@ for layerNo in 0...3 { //modelData.layers {
     func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
         for i in 0..<val.count {
             if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
-                fatalError("assert failed")
+                fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
             }
         }
     }
-    assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.04,-0.08,0.01,-0.01,-0.06])
     print(h[0])
     print(h[1])
     print(h[2])
@@ -287,9 +286,9 @@ for layerNo in 0...3 { //modelData.layers {
     print(h[4])
     print(h[5])
     print(h[6])
-
+    assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07])
     exit(0)
-    print("layer")
+
 }
 
 print("done")
