@@ -4,50 +4,79 @@ import Metal
 struct Layer {
     let shape: [Int]
     let buffer: MTLBuffer
+    let bufferPointer: UnsafeMutablePointer<Float16>
+    
+    init(shape: [Int], device: MTLDevice) {
+        self.shape = shape
+        let numElements = shape.reduce(1, *)
+        let bufferSize = numElements * MemoryLayout<Float16>.size
+        self.buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+    }
+
+    init(shape: [Int], with: Float16, device: MTLDevice) {
+        self.init(shape: shape, device: device)
+        for i in 0..<self.count() {
+            self[i] = with
+        }
+    }
+    
+    init(shape: [Int], buffer: MTLBuffer) {
+        self.shape = shape
+        self.buffer = buffer
+        self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+
+    }
+    
+    init(from array: [Float16], using device: MTLDevice) {
+        assert(!array.isEmpty, "Array must not be empty")
+        let length = array.count * MemoryLayout<Float16>.size
+        let buffer = device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
+        self.init(shape: [array.count], buffer: buffer)
+    }
+        
+    func count() -> Int {
+        return self.shape.reduce(1, *)
+    }
     
     func rmsNorm() -> Layer {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
-
-        let count = layer.shape.reduce(1, *)
-        let bufferPointer = layer.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-
+        
         // Calculate the mean of the squares of the elements
         var sum: Float32 = 0.0
-        for i in 0..<count {
-            let value = Float32(bufferPointer[i])
-            sum += value * value
+        for i in 0..<layer.count() {
+            sum += pow(Float32(layer[i]), 2)
         }
-        let mean = sum / Float32(count)
+        let mean = sum / Float32(layer.count())
 
         // Calculate the square root of the mean
         let sqrtMean = sqrt(mean + 1e-6)
 
-        // Prepare a new buffer for the normalized data
-        let device = layer.buffer.device
-        let newBuffer = device.makeBuffer(length: layer.buffer.length, options: .storageModeShared)!
-        let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: count)
+        var output = Layer(shape: layer.shape, device: layer.buffer.device)
 
         // Normalize each element and store in the new buffer
-        for i in 0..<count {
-            newBufferPointer[i] = Float16(Float32(bufferPointer[i]) / sqrtMean)
+        for i in 0..<layer.count() {
+            output[i] = Float16(Float32(layer[i]) / sqrtMean)
         }
 
-        return Layer(shape: layer.shape, buffer: newBuffer)
+        return output
     }
     
     subscript(index: Int) -> Float16 {
             get {
-                let bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: shape[0])
+                let bufferPointer = self.bufferPointer
                 return bufferPointer[index]
             }
             set(newValue) {
-                let bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: shape[0])
+                let bufferPointer = self.bufferPointer
                 bufferPointer[index] = newValue
             }
         }
 
     func test(mul:Int, val:[Float16]) -> Bool {
+        // tests if the buffer is equal to values with a given accuracy
+        
         for i in 0..<val.count {
             if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
                 print("assert failed for values")
@@ -69,27 +98,16 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
     return Array(repeating: makeArray(dims: Array(dims.dropFirst()), value: value), count: dims.first!)
 }
 
-func assert_vec(layer: Layer, mul: Int, val: [Float16]) {
-    for i in 0..<val.count {
-        if round(layer[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
-            print("assert failed for values")
-            for j in 0..<val.count {
-                print(layer[j])
-            }
-            fatalError("assert failed, on pos \(i), \(layer[i]) ≠ \(val[i])")
-        }
-    }
-}
-
-
 /// freqs
-func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
-    assert(num>1)
-    let step = (end - start) / Double(num)
-    return (0..<num).map { pow(base, start + Double($0) * step) }
-}
 
 func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
+    func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
+        assert(num>1)
+        let step = (end - start) / Double(num)
+        return (0..<num).map { pow(base, start + Double($0) * step) }
+    }
+
+
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
@@ -113,7 +131,6 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
 
     let numNewLayers = vec.shape[0] / newDimSize
     let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: vec.shape[0])
-
     let device = vec.buffer.device
 
     var newLayers: [Layer] = []
@@ -132,6 +149,13 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
 
 func multiplyLayerByComplexArray(layer: Layer, complexArray: [(Float, Float)]) -> Layer {
     // Ensure the layer has the correct number of elements
+    
+    func multiplyComplex(_ num1: (Float, Float), _ num2: (Float, Float)) -> (Float, Float) {
+        let (a, b) = num1
+        let (c, d) = num2
+        return (a * c - b * d, a * d + b * c)
+    }
+    
     assert(layer.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
 
     let count = layer.shape[0] / 2
@@ -151,114 +175,38 @@ func multiplyLayerByComplexArray(layer: Layer, complexArray: [(Float, Float)]) -
     return Layer(shape: [128], buffer: resultBuffer)
 }
 
-func createLayer(from array: [Float16], using device: MTLDevice) -> Layer {
-    assert(!array.isEmpty, "Array must not be empty")
 
-    let length = array.count * MemoryLayout<Float16>.size
-    let buffer = device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
-    return Layer(shape: [array.count], buffer: buffer)
-}
-
-// Function to multiply two complex numbers (as provided earlier)
-func multiplyComplex(_ num1: (Float, Float), _ num2: (Float, Float)) -> (Float, Float) {
-    let (a, b) = num1
-    let (c, d) = num2
-    return (a * c - b * d, a * d + b * c)
-}
-
-// possibly wrong?
-func mul_row(vec: Layer, by weights: Layer) -> Layer {
-    // Validate shapes
-    assert(weights.shape[0] == vec.shape[0], "Weights row count must match vec length")
-
-    let rows = weights.shape[0]
-    let cols = weights.shape[1]
-
-    // Prepare the output buffer
-    let device = weights.buffer.device
-    let outputBuffer = device.makeBuffer(length: cols * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let outputBufferPointer = outputBuffer.contents().bindMemory(to: Float16.self, capacity: cols)
-    
-    // Initialize output buffer with zeroes
-    for i in 0..<cols {
-        outputBufferPointer[i] = 0
-    }
-
-    let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: rows)
-    let weightsBufferPointer = weights.buffer.contents().bindMemory(to: Float16.self, capacity: rows * cols)
-
-    // Perform the matrix-vector multiplication
-    for i in 0..<cols {
-        var sum = Float16()
-        for j in 0..<rows {
-            sum += vecBufferPointer[j] * weightsBufferPointer[i * cols + j]
-        }
-        outputBufferPointer[i] = sum
-    }
-    /*
-    for j in 0..<cols {
-        for i in 0..<rows {
-            let weightValue = weightsBufferPointer[i * cols + j]
-            outputBufferPointer[j] += vecBufferPointer[i] * weightValue
-        }
-    }*/
-
-    return Layer(shape: [cols], buffer: outputBuffer)
-}
-
-func mul_row(weights: Layer, by vec:Layer) -> Layer {
-    // Validate shapes
-    assert(weights.shape[1] == vec.shape[0], "Weights row count must match vec length")
-
-    let rows = weights.shape[0]
-    let cols = weights.shape[1]
-
-    // Prepare the output buffer
-    let device = weights.buffer.device
-    let outputBuffer = device.makeBuffer(length: rows * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let outputBufferPointer = outputBuffer.contents().bindMemory(to: Float16.self, capacity: rows)
-    
-    // Initialize output buffer with zeroes
-    for i in 0..<cols {
-        outputBufferPointer[i] = 0
-    }
-
-    let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: rows)
-    let weightsBufferPointer = weights.buffer.contents().bindMemory(to: Float16.self, capacity: rows * cols)
-
-    // Perform the matrix-vector multiplication
-    for i in 0..<rows {
-        var sum = Float16()
-        for j in 0..<cols {
-            sum += vecBufferPointer[j] * weightsBufferPointer[i * cols + j]
-        }
-        outputBufferPointer[i] = sum
-    }
-    /*
-    for j in 0..<cols {
-        for i in 0..<rows {
-            let weightValue = weightsBufferPointer[i * cols + j]
-            outputBufferPointer[j] += vecBufferPointer[i] * weightValue
-        }
-    }*/
-
-    return Layer(shape: [rows], buffer: outputBuffer)
-}
 
 
 func add(dest: inout Layer, by vector: Layer) {
     assert(dest.shape == vector.shape, "Shapes of both layers must match")
 
-    let count = dest.shape[0]
-    let destBufferPointer = dest.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-    let vectorBufferPointer = vector.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-
-    for i in 0..<count {
-        destBufferPointer[i] += vectorBufferPointer[i]
+    for i in 0..<dest.count() {
+        dest[i] += vector[i]
     }
 }
 
 
+func mul_row(vec: Layer, by weights:Layer) -> Layer {
+    // Validate shapes
+    assert(weights.shape[1] == vec.shape[0], "Weights row count must match vec length")
+
+    let rows = weights.shape[0]
+    let cols = weights.shape[1]
+    
+    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
+    
+    // Perform the matrix-vector multiplication
+    for i in 0..<rows {
+        var sum = Float16()
+        for j in 0..<cols {
+            sum += vec[j] * weights[i * cols + j]
+        }
+        output[i] = sum
+    }
+    
+    return output
+}
 
 
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
@@ -269,80 +217,37 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
     let cols = weights.shape[1]
 
     // Prepare the output buffer
-    let device = weights.buffer.device
-    let outputBuffer = device.makeBuffer(length: rows * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    
-    let outputBufferPointer = outputBuffer.contents().bindMemory(to: Float16.self, capacity: rows)
-    for i in 0..<rows {
-        outputBufferPointer[i] = 0 // Initialize with zeroes
-    }
-
-    let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: cols)
-    let weightsBufferPointer = weights.buffer.contents().bindMemory(to: Float16.self, capacity: rows * cols)
+    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
 
     // Perform the matrix-vector multiplication
     for i in 0..<rows {
         for j in 0..<cols {
-            let weightValue = weightsBufferPointer[i * cols + j]
-            outputBufferPointer[i] += vecBufferPointer[j] * weightValue
+            output[i] += vec[j] * weights[i * cols + j]
         }
     }
 
-    return Layer(shape: [rows], buffer: outputBuffer)
+    return output
 }
 
 
 func mul(vec: Layer, by wa: Layer) -> Layer {
     assert(vec.shape == wa.shape)
-    assert(vec.shape.count==1)
     
-    let count = vec.shape.reduce(1, *)
-    let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-    let waBufferPointer = wa.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-    
-    // Use the device from one of the existing buffers
-    let device = vec.buffer.device
-    
-    let resultBuffer = device.makeBuffer(length: count * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let resultBufferPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: count)
+    var output = Layer(shape: vec.shape, device: vec.buffer.device)
     
     // Perform element-wise multiplication
-    for i in 0..<count {
-        resultBufferPointer[i] = vecBufferPointer[i] * waBufferPointer[i]
+    for i in 0..<vec.count() {
+        output[i] = vec[i] * wa[i]
     }
     
-    return Layer(shape: vec.shape, buffer: resultBuffer)
+    return output
 }
-    
-func rms_norm(layer: Layer) -> Layer {
-    assert(layer.shape.count == 1, "Only for vectors")
 
-    let count = layer.shape.reduce(1, *)
-    let bufferPointer = layer.buffer.contents().bindMemory(to: Float16.self, capacity: count)
-
-    // Calculate the mean of the squares of the elements
-    var sum: Float32 = 0.0
-    for i in 0..<count {
-        let value = Float32(bufferPointer[i])
-        sum += value * value
-    }
-    let mean = sum / Float32(count)
-
-    // Calculate the square root of the mean
-    let sqrtMean = sqrt(mean + 1e-6)
-
-    // Prepare a new buffer for the normalized data
-    let device = layer.buffer.device
-    let newBuffer = device.makeBuffer(length: layer.buffer.length, options: .storageModeShared)!
-    let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: count)
-
-    // Normalize each element and store in the new buffer
-    for i in 0..<count {
-        newBufferPointer[i] = Float16(Float32(bufferPointer[i]) / sqrtMean)
-    }
-
-    return Layer(shape: layer.shape, buffer: newBuffer)
-}
+/*
+ 
+    Loading weights code
+ 
+ */
 
 struct ModelData {
     let norm: Layer

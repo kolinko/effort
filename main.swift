@@ -46,6 +46,7 @@ for _ in 0...3 {
 }
 
 let numTokens = 1
+let startTime = Date()
 
 for layerNo in 0...3 { //modelData.layers {
     var h = tokens[0]
@@ -156,8 +157,8 @@ for layerNo in 0...3 { //modelData.layers {
     }
     
     // ffn output
-    let attnOutput = createLayer(from: output[0], using: device)
-    let attnFfn = mul_row(vec:attnOutput, by: wo)
+    let attnOutput = Layer(from: output[0], using: device)
+    let attnFfn = mul_row(vec: attnOutput, by: wo)
 
     assert(h.test(mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
     assert(attnFfn.test(mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
@@ -165,7 +166,7 @@ for layerNo in 0...3 { //modelData.layers {
     add(dest: &h, by: attnFfn)
     assert(h.test(mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     
-    let h_norm2 = rms_norm(layer: h)
+    let h_norm2 = h.rmsNorm()
     assert(h_norm2.test(mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26]))
     let wn = layer["ffn_norm"]!
     let w1 = layer["feed_forward.w1"]!
@@ -188,13 +189,17 @@ for layerNo in 0...3 { //modelData.layers {
         x.append(Float16(val))
     }
 
-    let fx = createLayer(from: x, using: device)
+    let fx = Layer(from: x, using: device)
     assert(fx.test(mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008]))
-    let fx2 = mul_row(weights:w2, by:fx)
+    let fx2 = mul_row(vec:fx, by: w2)//weights:w2, by:fx)
     assert(fx2.test(mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06]))
     
     add(dest: &h, by: fx2)
     assert(h.test(mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+    print("success!")
+    let endTime = Date()
+    print("compute time time \(endTime.timeIntervalSince(startTime)) seconds")
+
     exit(0)
 
 }
