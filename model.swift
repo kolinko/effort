@@ -5,6 +5,37 @@ struct Layer {
     let shape: [Int]
     let buffer: MTLBuffer
     
+    func rmsNorm() -> Layer {
+        let layer = self
+        assert(layer.shape.count == 1, "Only for vectors")
+
+        let count = layer.shape.reduce(1, *)
+        let bufferPointer = layer.buffer.contents().bindMemory(to: Float16.self, capacity: count)
+
+        // Calculate the mean of the squares of the elements
+        var sum: Float32 = 0.0
+        for i in 0..<count {
+            let value = Float32(bufferPointer[i])
+            sum += value * value
+        }
+        let mean = sum / Float32(count)
+
+        // Calculate the square root of the mean
+        let sqrtMean = sqrt(mean + 1e-6)
+
+        // Prepare a new buffer for the normalized data
+        let device = layer.buffer.device
+        let newBuffer = device.makeBuffer(length: layer.buffer.length, options: .storageModeShared)!
+        let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: count)
+
+        // Normalize each element and store in the new buffer
+        for i in 0..<count {
+            newBufferPointer[i] = Float16(Float32(bufferPointer[i]) / sqrtMean)
+        }
+
+        return Layer(shape: layer.shape, buffer: newBuffer)
+    }
+    
     subscript(index: Int) -> Float16 {
             get {
                 let bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: shape[0])

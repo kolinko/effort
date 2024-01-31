@@ -58,7 +58,7 @@ for layerNo in 0...3 { //modelData.layers {
     let wv = layer["attention.wv"]!
     let wo = layer["attention.wo"]!
     
-    let h_norm = rms_norm(layer: h)
+    let h_norm = h.rmsNorm() // rms_norm(layer: 
     let xn = mul(vec: h_norm, by:wa)
 
     let xq = mul_col(vec: xn, by: wq)
