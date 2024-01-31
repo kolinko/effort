@@ -133,31 +133,28 @@ for layerNo in 0...3 { //modelData.layers {
     
     var out = makeArray(dims: [numTokens, numHeads, headDim], value: Float16(0.0)) as! [[[Float16]]]
     
-    for tok1 in 0..<numTokens {
+    let thisToken = 0
         for headNo in 0..<numHeads {
             for i in 0..<headDim {
                 var suma: Float16 = 0.0
                 for tok2 in 0..<numTokens {
-                    suma += scores[headNo][tok1][tok2] * xvTokenHeads[tok1][headNo][i]
+                    suma += scores[headNo][thisToken][tok2] * xvTokenHeads[thisToken][headNo][i]
                 }
-                out[tok1][headNo][i] = suma
+                out[thisToken][headNo][i] = suma
             }
         }
-    }
     
     // merge heads
-    var output = [[Float16]]()
-    for tok1 in 0..<numTokens {
-        output.append([Float16]())
-        for headNo in 0..<numHeads {
-            for i in 0..<headDim {
-                output[tok1].append(out[tok1][headNo][i])
-            }
+    var output = [Float16]()
+
+    for headNo in 0..<numHeads {
+        for i in 0..<headDim {
+            output.append(out[thisToken][headNo][i])
         }
     }
     
     // ffn output
-    let attnOutput = Layer(from: output[0], using: device)
+    let attnOutput = Layer(from: output, using: device)
     let attnFfn = mul_row(vec: attnOutput, by: wo)
 
     assert(h.test(mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
