@@ -7,11 +7,10 @@ struct Layer {
     let bufferPointer: UnsafeMutablePointer<Float16>
     
     init(shape: [Int], device: MTLDevice) {
-        self.shape = shape
         let numElements = shape.reduce(1, *)
         let bufferSize = numElements * MemoryLayout<Float16>.size
-        self.buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-        self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        self.init(shape: shape, buffer: buffer)
     }
 
     init(shape: [Int], with: Float16, device: MTLDevice) {
@@ -25,7 +24,6 @@ struct Layer {
         self.shape = shape
         self.buffer = buffer
         self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
-
     }
     
     init(from array: [Float16], using device: MTLDevice) {
@@ -107,18 +105,18 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
         return (0..<num).map { pow(base, start + Double($0) * step) }
     }
 
-
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
-    var heads = [[(Float, Float)]]()
+    let def: (Float, Float) = (0.0, 0.0)
+    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float, Float)]]
     for i in 0..<(2 * maxSeqLen) {
-        heads.append([])
-        for freq in freqs {
+        for j in 0..<freqs.count {
+            let freq = freqs[j]
             let angle = Float(i) * Float(freq)
             let realPart = cos(angle)
             let imagPart = sin(angle)
-            heads[i].append((realPart, imagPart))
+            heads[i][j]=(realPart, imagPart)
         }
     }
     assert(heads[1][1]==((0.6479058, 0.7617204)))
@@ -175,9 +173,6 @@ func multiplyLayerByComplexArray(layer: Layer, complexArray: [(Float, Float)]) -
     return Layer(shape: [128], buffer: resultBuffer)
 }
 
-
-
-
 func add(dest: inout Layer, by vector: Layer) {
     assert(dest.shape == vector.shape, "Shapes of both layers must match")
 
@@ -185,7 +180,6 @@ func add(dest: inout Layer, by vector: Layer) {
         dest[i] += vector[i]
     }
 }
-
 
 func mul_row(vec: Layer, by weights:Layer) -> Layer {
     // Validate shapes
@@ -207,7 +201,6 @@ func mul_row(vec: Layer, by weights:Layer) -> Layer {
     
     return output
 }
-
 
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
     // Validate shapes
