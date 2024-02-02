@@ -27,10 +27,11 @@ kernel void mul_col_11008(device const half *matrix [[buffer(0)]],
                     device const half *vector [[buffer(1)]],
                     device half *result [[buffer(2)]],
                     uint id [[thread_position_in_grid]]) {
+    
     half sum = 0.0;
     int offset = id * 11008;
     for (int i = 0; i < 11008; i++) {
-        sum += matrix[(offset+i)] * vector[i];
+        sum += matrix[(offset + i)] * vector[i];
     }
 
     result[id] = sum;

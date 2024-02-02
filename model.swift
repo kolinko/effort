@@ -92,7 +92,7 @@ struct Layer {
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
         let result = self.test(mul: mul, val: val)
         if result {
-            print("✔️ \(name)")
+//            print("✔️ \(name)")
         } else {
             print("❌ \(name)")
         }
@@ -100,7 +100,6 @@ struct Layer {
     }
         
     func test(mul:Int, val:[Float16]) -> Bool {
-        return true
         for i in 0..<val.count {
             if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
                 print("assert failed for values")
@@ -239,8 +238,6 @@ func add(dest: inout Layer, by vector: Layer) {
 
 
 
-
-
 func mul(vec: Layer, by wa: Layer) -> Layer {
     assert(vec.shape == wa.shape)
     
@@ -254,98 +251,57 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
-func mul_row(vec: Layer, by weights:Layer) -> Layer {
-    // Validate shapes
-    return mul_col_gpu(vec: vec, by: weights)
-    assert(weights.shape[1] == vec.shape[0], "Weights column count must match vec length")
-
-    let rows = weights.shape[0]
-    let cols = weights.shape[1]
-
-    // Prepare the output buffer
-    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
-
-    // Perform the matrix-vector multiplication
-    for i in 0..<rows {
-        for j in 0..<cols {
-            output[i] += vec[j] * weights[i * cols + j]
-        }
-    }
-
-    return output
-}
-
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
-    return mul_col_gpu(vec: vec, by: weights)
-    /*
-    // Validate shapes
-    assert(weights.shape[1] == vec.shape[0], "Weights column count must match vec length")
-
-    let rows = weights.shape[0]
-    let cols = weights.shape[1]
-
-    // Prepare the output buffer
-    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
-
-    // Perform the matrix-vector multiplication
-    for i in 0..<rows {
-        for j in 0..<cols {
-            output[i] += vec[j] * weights[i * cols + j]
-        }
-    }
-
-    return output*/
-}
-
-func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
 
     let (rows, cols) = (weights.rows, weights.cols!)
 
-    var mulFunc : MTLFunction
-    //mulFunc = library.makeFunction(name: "mul_col")!
+//    var mulFunc : MTLFunction
+    var pipelineState : MTLComputePipelineState
     
     if cols == 4096 {
-        mulFunc = library.makeFunction(name: "mul_col_4096")!
+//        mulFunc = mulFunc4096 //library.makeFunction(name: "mul_col_4096")!
+        pipelineState = pipelineState4096
+
     } else {
         assert(cols == 11008)
-        mulFunc = library.makeFunction(name: "mul_col_11008")!
+//        mulFunc = mulFunc11008 //
+        pipelineState = pipelineState11008
     }
-
-    let pipelineState = try! device.makeComputePipelineState(function: mulFunc)
+    
+    let startTime = Date()
+    
+//    let pipelineState = try! device.makeComputePipelineState(function: mulFunc)
 
     let threadCount = rows
-    
-    let matrixBuffer = weights.buffer
-    let vectorBuffer = vec.buffer
-    
-    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
+
+    let output = Layer(shape: [rows], device: weights.buffer.device)
     // dispatch
-    let startTime = Date()
 
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, threadCount), height: 1, depth: 1)
+
+    /*
+    */
+//
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
 
     commandEncoder.setComputePipelineState(pipelineState)
-    commandEncoder.setBuffer(matrixBuffer, offset: 0, index: 0)
-//    commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 0)
-    commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 1)
+    
+    commandEncoder.setBuffer(weights.buffer, offset: 0, index: 0)
+    commandEncoder.setBuffer(vec.buffer, offset: 0, index: 1)
     commandEncoder.setBuffer(output.buffer, offset: 0, index: 2)
-//    var size = cols
-    //commandEncoder.setBytes(&size, length: MemoryLayout<UInt32>.size, index: 3)
     
     // Dispatch the compute command
     commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 
     commandEncoder.endEncoding()
     commandBuffer.commit()
-//    print("Mul_col halfway: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     commandBuffer.waitUntilCompleted()
 
-    print("Mul_col_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+    print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     
     return output
 }

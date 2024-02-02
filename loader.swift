@@ -157,6 +157,18 @@ func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> 
         guard let buffer = device.makeBuffer(bytes: pointer.baseAddress!, length: data.count, options: .storageModeShared) else {
             fatalError("Cannot create buffer for \(fileName)")
         }
+        
+        let privateBuffer = device.makeBuffer(length: buffer.allocatedSize, options: [.storageModePrivate])
+
+        
+        let commandBuffer2 = commandQueue.makeCommandBuffer()!
+        let blitEncoder = commandBuffer2.makeBlitCommandEncoder()!
+        blitEncoder.copy(from: buffer, sourceOffset: 0, to: privateBuffer!, destinationOffset: 0, size: buffer.allocatedSize)
+        blitEncoder.endEncoding()
+        
+        commandBuffer2.commit()
+        commandBuffer2.waitUntilCompleted()
+        
         return buffer
     }
 

@@ -14,6 +14,7 @@ assert(!devices.isEmpty, "No Metal devices available")
 // Optionally, you can choose a device based on specific criteria.
 // For simplicity, let's use the first available device.
 let device = devices[0]
+let commandQueue = device.makeCommandQueue()!
 
 print("loading")
 let modelData = loadModelData(from: "shape.json", device: device)
@@ -21,8 +22,13 @@ let tokens = loadTokens(device: device)
 
 print("Hello, World!")
 
-let commandQueue = device.makeCommandQueue()!
 let library = device.makeDefaultLibrary()!
+let mulFunc4096 = library.makeFunction(name: "mul_col_4096")!
+let mulFunc11008 = library.makeFunction(name: "mul_col_11008")!
+
+let pipelineState4096 = try! device.makeComputePipelineState(function: mulFunc4096)
+let pipelineState11008 = try! device.makeComputePipelineState(function: mulFunc11008)
+
 //let computeFunction = library.makeFunction(name: "mul_col")!
 
 let dim = 4096
@@ -61,13 +67,16 @@ for layerNo in 0...3 { //modelData.layers {
     let wv = layer["attention.wv"]!
     let wo = layer["attention.wo"]!
     
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     let h_norm = h.rmsNorm()
     let xn = mul(vec: h_norm, by:wa)
-    
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     let xq = mul_col(vec: xn, by: wq)
     let xk = mul_col(vec: xn, by: wk)
     let xv = mul_col(vec: xn, by: wv)
-    
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     var xq_heads = reshape(vec: xq, newDimSize: headDim)
     var xk_heads = reshape(vec: xk, newDimSize: headDim)
     let xv_heads = reshape(vec: xv, newDimSize: headDim)
@@ -120,14 +129,15 @@ for layerNo in 0...3 { //modelData.layers {
     
     // ffn output
     let attnOutput = Layer(from: output, using: device)
-    let attnFfn = mul_row(vec: attnOutput, by: wo)
+    let attnFfn = mul_col(vec: attnOutput, by: wo)
 
     assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
     assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
     
     add(dest: &h, by: attnFfn)
     assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
-    
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     let h_norm2 = h.rmsNorm()
     assert(h_norm2.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
     let wn = layer["ffn_norm"]!
@@ -152,14 +162,14 @@ for layerNo in 0...3 { //modelData.layers {
     }
 
     let fx = Layer(from: x, using: device)
-    let fx2 = mul_row(vec:fx, by: w2)//weights:w2, by:fx)
+    let fx2 = mul_col(vec:fx, by: w2)//weights:w2, by:fx)
     assert(fx2.test("fx2", mul:100, val:[-0.030, -0.09, 0.03, -0.05, 0.06])) // double-check with original!
     
     add(dest: &h, by: fx2)
     assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     print("success!")
-    let endTime = Date()
-    print("compute time time \(endTime.timeIntervalSince(startTime)) seconds")
+
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     exit(0)
 
