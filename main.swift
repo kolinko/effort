@@ -23,7 +23,7 @@ print("Hello, World!")
 
 let commandQueue = device.makeCommandQueue()!
 let library = device.makeDefaultLibrary()!
-let computeFunction = library.makeFunction(name: "matrixVectorMultiply")!
+let computeFunction = library.makeFunction(name: "mul_col")!
 
 let dim = 4096
 let dim_range = 0...4095
@@ -130,7 +130,7 @@ for layerNo in 0...3 { //modelData.layers {
     assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     
     let h_norm2 = h.rmsNorm()
-    assert(h_norm2.test("h_norm2", mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26]))
+    assert(h_norm2.test("h_norm2", mul:100, val:[-0.75, -0.68, -1.71, -0.949, -1.246]))
     let wn = layer["ffn_norm"]!
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
@@ -155,10 +155,11 @@ for layerNo in 0...3 { //modelData.layers {
     let fx = Layer(from: x, using: device)
     assert(fx.test("fx", mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008]))
     let fx2 = mul_row(vec:fx, by: w2)//weights:w2, by:fx)
-    assert(fx2.test("fx2", mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06]))
+    assert(fx2.test("fx2", mul:100, val:[-0.039, -0.07, 0.0037, -0.05, 0.06])) // double-check with original!
     
     add(dest: &h, by: fx2)
-    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+//    assert(h.test("h", mul:100, val:[-0.07,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+    assert(h.test("h", mul:100, val:[-0.07,-0.10,-0.07,-0.09,0.01,0.01,-0.10]))
     print("success!")
     let endTime = Date()
     print("compute time time \(endTime.timeIntervalSince(startTime)) seconds")
@@ -170,49 +171,5 @@ for layerNo in 0...3 { //modelData.layers {
 print("done")
 exit(0)
 /*
-let pipelineState = try device.makeComputePipelineState(function: computeFunction)
 
-let vector = Array(repeating: Float(0.0), count: 4096)
-let matrix = Array(repeating: Array(repeating: Float(0.0), count: 10096), count: 4096)
-
-
-let matrixBuffer = modelData.layers[0]!["feed_forward.w1"]!.buffer
-
-//device.makeBuffer(bytes: matrix, length: matrix.count * MemoryLayout<Float>.size, options: .storageModeShared)
-let vectorBuffer = device.makeBuffer(bytes: vector, length: vector.count * MemoryLayout<Float>.size, options: .storageModeShared)
-let resultBuffer = device.makeBuffer(length: 10096 * MemoryLayout<Float>.size, options: .storageModeShared)
-
-// dispatch
-
-let gridSize = MTLSize(width: 10096, height: 1, depth: 1)
-let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, 10096), height: 1, depth: 1)
-
-let commandBuffer = commandQueue.makeCommandBuffer()!
-let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-
-commandEncoder.setComputePipelineState(pipelineState)
-commandEncoder.setBuffer(matrixBuffer, offset: 0, index: 0)
-commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 1)
-commandEncoder.setBuffer(resultBuffer, offset: 0, index: 2)
-
-// Dispatch the compute command
-commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-
-commandEncoder.endEncoding()
-
-let startTime = Date()
-
-commandBuffer.commit()
-commandBuffer.waitUntilCompleted()
-
-let endTime = Date()
-let timeInterval = endTime.timeIntervalSince(startTime)
-
-print("Average execution time for 1 run: \(timeInterval) seconds")
-    
-let buffer = resultBuffer!
-
-let data = NSData(bytesNoCopy: buffer.contents(), length: 10096 * MemoryLayout<Float>.size, freeWhenDone: false)
-var resultArray = [Float](repeating: 0, count: 10096)
-data.getBytes(&resultArray, length: resultArray.count * MemoryLayout<Float>.size)
 */

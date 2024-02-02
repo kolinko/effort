@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
+		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
 		A4CE9F7C2B6277E700910766 /* model in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7B2B6277E700910766 /* model */; };
@@ -29,6 +30,7 @@
 
 /* Begin PBXFileReference section */
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
+		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A4CE9F6E2B626DB500910766 /* model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = model.swift; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
 				A4CE9F6E2B626DB500910766 /* model.swift */,
+				A43F8F972B6CF5C800578E56 /* loader.swift */,
 				A4AB4DC42B6144350098B05D /* main.swift */,
 				A4CE9F7B2B6277E700910766 /* model */,
 				A4AB4DC22B6144350098B05D /* Products */,
@@ -144,6 +147,7 @@
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
 				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
 				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
+				A43F8F982B6CF5C800578E56 /* loader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

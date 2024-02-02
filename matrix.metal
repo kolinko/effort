@@ -9,23 +9,17 @@
 using namespace metal;
 
 
+kernel void mul_col(device const half *matrix [[buffer(0)]],
+                    device const half *vector [[buffer(1)]],
+                    device half *result [[buffer(2)]],
+                    uint id [[thread_position_in_grid]]) {
+    half sum = 0.0;
+    int offset = id * 4096;
 
-kernel void matrixVectorMultiply(device const float *matrix [[buffer(0)]],
-                                 device const float *vector [[buffer(1)]],
-                                 device float *result [[buffer(2)]],
-                                 uint id [[thread_position_in_grid]]) {
-    float sum = 0.0;
-    int offset = id % 10000;// * 4096;
-
-    for (int i = 0; i < 4000; ++i) {
+    for (int i = 0; i < 4096; i++) {
         sum += matrix[(offset+i)] * vector[i];
     }
 
     result[id] = sum;
-
-
-    for (int i = 0; i < 4000; ++i) {
-        result[i] += sum * matrix[(offset + i)];
-    }
 }
 
