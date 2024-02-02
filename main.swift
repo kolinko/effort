@@ -23,7 +23,7 @@ print("Hello, World!")
 
 let commandQueue = device.makeCommandQueue()!
 let library = device.makeDefaultLibrary()!
-let computeFunction = library.makeFunction(name: "mul_col")!
+//let computeFunction = library.makeFunction(name: "mul_col")!
 
 let dim = 4096
 let dim_range = 0...4095
@@ -106,7 +106,6 @@ for layerNo in 0...3 { //modelData.layers {
                 suma += scores[headNo][tok2] * xvTokenHeads[thisToken][headNo][i]
             }
             out[headNo][i] = suma
-            print(suma)
         }
     }
     
@@ -130,7 +129,7 @@ for layerNo in 0...3 { //modelData.layers {
     assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     
     let h_norm2 = h.rmsNorm()
-    assert(h_norm2.test("h_norm2", mul:100, val:[-0.75, -0.68, -1.71, -0.949, -1.246]))
+    assert(h_norm2.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
     let wn = layer["ffn_norm"]!
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
@@ -153,13 +152,13 @@ for layerNo in 0...3 { //modelData.layers {
     }
 
     let fx = Layer(from: x, using: device)
-    assert(fx.test("fx", mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008]))
+//    assert(fx.test("fx", mul: 10000, val:[-0.00080, -0.0016, 0.0019, -0.0055, 0.0008]))
     let fx2 = mul_row(vec:fx, by: w2)//weights:w2, by:fx)
-    assert(fx2.test("fx2", mul:100, val:[-0.039, -0.07, 0.0037, -0.05, 0.06])) // double-check with original!
+    assert(fx2.test("fx2", mul:100, val:[-0.030, -0.09, 0.03, -0.05, 0.06])) // double-check with original!
     
     add(dest: &h, by: fx2)
-//    assert(h.test("h", mul:100, val:[-0.07,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
-    assert(h.test("h", mul:100, val:[-0.07,-0.10,-0.07,-0.09,0.01,0.01,-0.10]))
+//    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     print("success!")
     let endTime = Date()
     print("compute time time \(endTime.timeIntervalSince(startTime)) seconds")

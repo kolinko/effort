@@ -88,7 +88,7 @@ struct Layer {
         
     func test(mul:Int, val:[Float16]) -> Bool {
         // tests if the buffer is equal to values with a given accuracy
-        
+//        return true
         for i in 0..<val.count {
             if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
                 print("assert failed for values")
@@ -225,26 +225,7 @@ func add(dest: inout Layer, by vector: Layer) {
     }
 }
 
-func mul_row(vec: Layer, by weights:Layer) -> Layer {
-    // Validate shapes
-    assert(weights.shape[1] == vec.shape[0], "Weights row count must match vec length")
 
-    let rows = weights.shape[0]
-    let cols = weights.shape[1]
-    
-    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
-    
-    // Perform the matrix-vector multiplication
-    for i in 0..<rows {
-        var sum = Float16()
-        for j in 0..<cols {
-            sum += vec[j] * weights[i * cols + j]
-        }
-        output[i] = sum
-    }
-    
-    return output
-}
 
 
 
@@ -261,6 +242,26 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
+func mul_row(vec: Layer, by weights:Layer) -> Layer {
+    // Validate shapes
+    return mul_col_gpu(vec: vec, by: weights)
+    assert(weights.shape[1] == vec.shape[0], "Weights column count must match vec length")
+
+    let rows = weights.shape[0]
+    let cols = weights.shape[1]
+
+    // Prepare the output buffer
+    var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
+
+    // Perform the matrix-vector multiplication
+    for i in 0..<rows {
+        for j in 0..<cols {
+            output[i] += vec[j] * weights[i * cols + j]
+        }
+    }
+
+    return output
+}
 
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
     return mul_col_gpu(vec: vec, by: weights)
@@ -287,10 +288,21 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
 func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
 
-    let pipelineState = try! device.makeComputePipelineState(function: computeFunction)
-
     let (rows, cols) = (weights.rows, weights.cols!)
-    let threadCount = cols
+
+    var mulFunc : MTLFunction
+    
+    if cols == 4096 {
+        mulFunc = library.makeFunction(name: "mul_col_4096")!
+    } else {
+        assert(cols == 11008)
+        mulFunc = library.makeFunction(name: "mul_col_11008")!
+//        assert(false)
+    }
+
+    let pipelineState = try! device.makeComputePipelineState(function: mulFunc)
+
+    let threadCount = rows
     
     let matrixBuffer = weights.buffer
     let vectorBuffer = vec.buffer
@@ -327,56 +339,3 @@ func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
     return output
 }
 
-
-/*
- 
- func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
-     let pipelineState = try! device.makeComputePipelineState(function: computeFunction)
-
-     let (rows, cols) = (weights.rows, weights.cols)
-     
-     let matrixBuffer = weights.buffer
-     let vectorBuffer = vec.buffer
-     
-     var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
-     
-     let resultBuffer = device.makeBuffer(length: 10096 * MemoryLayout<Float>.size, options: .storageModeShared)
-     
-     // dispatch
-
-     let gridSize = MTLSize(width: 10096, height: 1, depth: 1)
-     let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, 10096), height: 1, depth: 1)
-
-     let commandBuffer = commandQueue.makeCommandBuffer()!
-     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-
-     commandEncoder.setComputePipelineState(pipelineState)
-     commandEncoder.setBuffer(matrixBuffer, offset: 0, index: 0)
-     commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 1)
-     commandEncoder.setBuffer(resultBuffer, offset: 0, index: 2)
-
-     // Dispatch the compute command
-     commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-
-     commandEncoder.endEncoding()
-
-     let startTime = Date()
-
-     commandBuffer.commit()
-     commandBuffer.waitUntilCompleted()
-
-     let endTime = Date()
-     let timeInterval = endTime.timeIntervalSince(startTime)
-
-     print("Average execution time for 1 run: \(timeInterval) seconds")
-         
-     let buffer = resultBuffer!
-
-     let data = NSData(bytesNoCopy: buffer.contents(), length: 10096 * MemoryLayout<Float>.size, freeWhenDone: false)
-     var resultArray = [Float](repeating: 0, count: 10096)
-     data.getBytes(&resultArray, length: resultArray.count * MemoryLayout<Float>.size)
-     
-     return output
- }
- 
- */
