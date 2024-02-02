@@ -71,7 +71,17 @@ struct Layer {
                 bufferPointer[index] = newValue
             }
         }
-
+    
+    func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
+        let result = self.test(mul: mul, val: val)
+        if result {
+            print("✔️ \(name)")
+        } else {
+            print("❌ \(name)")
+        }
+        return result
+    }
+        
     func test(mul:Int, val:[Float16]) -> Bool {
         // tests if the buffer is equal to values with a given accuracy
         
@@ -91,10 +101,40 @@ struct Layer {
     
 }
 
+/*
+ 
+ array funcs
+ 
+ */
+
+
 func makeArray<T>(dims: [Int], value: T) -> Any {
     guard !dims.isEmpty else { return value }
     return Array(repeating: makeArray(dims: Array(dims.dropFirst()), value: value), count: dims.first!)
 }
+
+
+func softmax(_ array: inout [Float16]) {
+    // Compute exponentials and sum them up
+    let exps = array.map { Float16(exp(Float($0))) }
+    let sumExps = exps.reduce(Float16(0.0), +)
+
+    // Normalize each element
+    for i in array.indices {
+        array[i] = exps[i] / sumExps
+    }
+}
+
+func dot(_ vec1: Layer, _ vec2: Layer) -> Float16 {
+    assert(vec1.count() == vec2.count(), "Vectors must be of the same length")
+    
+    var sum: Float16 = 0.0
+    for i in 0..<vec1.count() {
+        sum += vec1[i] * vec2[i]
+    }
+    return sum
+}
+
 
 /// freqs
 
@@ -145,7 +185,7 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     return newLayers
 }
 
-func multiplyLayerByComplexArray(layer: Layer, complexArray: [(Float, Float)]) -> Layer {
+func mul(layer: Layer, complexArray: [(Float, Float)]) -> Layer {
     // Ensure the layer has the correct number of elements
     
     func multiplyComplex(_ num1: (Float, Float), _ num2: (Float, Float)) -> (Float, Float) {
