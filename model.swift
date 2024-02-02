@@ -1,6 +1,19 @@
 import Foundation
 import Metal
 
+extension String.StringInterpolation {
+    mutating func appendInterpolation(_ value: Double, precision: Int) {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "en_US_POSIX") // Use a locale with '.' as the decimal separator
+        formatter.minimumFractionDigits = precision
+        formatter.maximumFractionDigits = precision
+        if let formattedString = formatter.string(for: value) {
+            appendLiteral(formattedString)
+        }
+    }
+}
+
 struct Layer {
     let shape: [Int]
     let buffer: MTLBuffer
@@ -87,8 +100,7 @@ struct Layer {
     }
         
     func test(mul:Int, val:[Float16]) -> Bool {
-        // tests if the buffer is equal to values with a given accuracy
-//        return true
+        return true
         for i in 0..<val.count {
             if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
                 print("assert failed for values")
@@ -291,13 +303,13 @@ func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
     let (rows, cols) = (weights.rows, weights.cols!)
 
     var mulFunc : MTLFunction
+    //mulFunc = library.makeFunction(name: "mul_col")!
     
     if cols == 4096 {
         mulFunc = library.makeFunction(name: "mul_col_4096")!
     } else {
         assert(cols == 11008)
         mulFunc = library.makeFunction(name: "mul_col_11008")!
-//        assert(false)
     }
 
     let pipelineState = try! device.makeComputePipelineState(function: mulFunc)
@@ -309,7 +321,8 @@ func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
     
     var output = Layer(shape: [rows], with: 0, device: weights.buffer.device)
     // dispatch
-    
+    let startTime = Date()
+
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, threadCount), height: 1, depth: 1)
 
@@ -318,23 +331,21 @@ func mul_col_gpu(vec: Layer, by weights: Layer) -> Layer {
 
     commandEncoder.setComputePipelineState(pipelineState)
     commandEncoder.setBuffer(matrixBuffer, offset: 0, index: 0)
+//    commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 0)
     commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 1)
     commandEncoder.setBuffer(output.buffer, offset: 0, index: 2)
-
+//    var size = cols
+    //commandEncoder.setBytes(&size, length: MemoryLayout<UInt32>.size, index: 3)
+    
     // Dispatch the compute command
     commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 
     commandEncoder.endEncoding()
-
-    let startTime = Date()
-
     commandBuffer.commit()
+//    print("Mul_col halfway: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     commandBuffer.waitUntilCompleted()
 
-    let endTime = Date()
-    let timeInterval = endTime.timeIntervalSince(startTime)
-
-    print("Average execution time for 1 run: \(timeInterval) seconds")
+    print("Mul_col_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     
     return output
 }

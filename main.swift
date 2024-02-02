@@ -152,12 +152,10 @@ for layerNo in 0...3 { //modelData.layers {
     }
 
     let fx = Layer(from: x, using: device)
-//    assert(fx.test("fx", mul: 10000, val:[-0.00080, -0.0016, 0.0019, -0.0055, 0.0008]))
     let fx2 = mul_row(vec:fx, by: w2)//weights:w2, by:fx)
     assert(fx2.test("fx2", mul:100, val:[-0.030, -0.09, 0.03, -0.05, 0.06])) // double-check with original!
     
     add(dest: &h, by: fx2)
-//    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     print("success!")
     let endTime = Date()
