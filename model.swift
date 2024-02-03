@@ -28,6 +28,22 @@ struct Layer {
         self.init(shape: shape, buffer: buffer)
     }
 
+    init(shape: [Int], device: MTLDevice, andPrivate: Bool) {
+        assert(andPrivate == true)
+        let numElements = shape.reduce(1, *)
+        let bufferSize = numElements * MemoryLayout<Float16>.size
+        let buffer = device.makeBuffer(length: bufferSize, options: .storageModePrivate)!
+        self.rows = shape[0]
+        self.cols = shape.count >= 2 ? shape[1] : nil
+        self.shape = shape
+        self.buffer = buffer
+        
+        let bsBuffer = device.makeBuffer(length: 1, options: .storageModeShared)!
+        self.bufferPointer = bsBuffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+//        self.init(shape: shape, buffer: buffer)
+    }
+
+    
     init(shape: [Int], with: Float16, device: MTLDevice) {
         self.init(shape: shape, device: device)
         for i in 0..<self.count() {
@@ -90,6 +106,7 @@ struct Layer {
         }
     
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
+//        return true
         let result = self.test(mul: mul, val: val)
         if result {
 //            print("✔️ \(name)")
@@ -251,6 +268,139 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
+func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
+    assert(w1.shape==[11008, 4096])
+    assert(w2.shape==[4096, 11008])
+    assert(w3.shape==[11008, 4096])
+    assert(fxn.shape==[4096])
+    let fx1 = mul_col(vec: fxn, by: w1)
+    let fx3 = mul_col(vec: fxn, by: w3)
+
+    assert(fx1.test("fx1", mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11]))
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+    //    x = ((x1 / (1.0 + np.exp(-x1))) * x3
+    var x = [(Float16)]()
+    assert(fx3.shape[0] == 11008)
+    for i in 0..<fx3.shape[0] {
+        let val: Double = Double(fx1[i])/(1+exp(Double(-fx1[i]))) * Double(fx3[i])
+        x.append(Float16(val))
+    }
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+    let fx = Layer(from: x, using: device)
+    let fx2 = mul_col(vec:fx, by: w2)//weights:w2, by:fx)
+    assert(fx2.test("fx2", mul:100, val:[-0.030, -0.09, 0.03, -0.05, 0.06])) // double-check with original!
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+    add(dest: &h, by: fx2)
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+}
+
+
+func ffn_(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
+    let outerDim = 4096
+    let innerDim = 11008
+    assert(w1.shape==[11008, 4096])
+    assert(w2.shape==[4096, 11008])
+    assert(w3.shape==[11008, 4096])
+    assert(fxn.shape==[4096])
+
+    let fx = Layer(shape: [11008], device: device) // should be private
+
+    let internalFunc = library.makeFunction(name: "internal")!
+    let internalState = try! device.makeComputePipelineState(function: internalFunc)
+
+    let threadCount = 11008
+    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+    let threadGroupSize = MTLSize(width: min(internalState.threadExecutionWidth, threadCount), height: 1, depth: 1)
+
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
+
+    commandEncoder.setComputePipelineState(internalState)
+
+    commandEncoder.setBuffer(fxn.buffer, offset: 0, index: 0)
+    commandEncoder.setBuffer(w1.buffer, offset: 0, index: 1)
+    commandEncoder.setBuffer(w3.buffer, offset: 0, index: 2)
+    commandEncoder.setBuffer(fx.buffer, offset: 0, index: 3)
+    
+    // Dispatch the compute command
+    commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+    let startTime = Date()
+
+    commandEncoder.endEncoding()
+    commandBuffer.commit()
+
+    commandBuffer.waitUntilCompleted()
+    
+    let fx2 = mul_col(vec:fx, by: w2)
+    assert(fx2.shape==[4096])
+
+    add(dest: &h, by: fx2)
+    print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
+}
+
+
+func ffn__(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
+    let outerDim = 4096
+    let innerDim = 11008
+    assert(w1.shape==[11008, 4096])
+    assert(w2.shape==[4096, 11008])
+    assert(w3.shape==[11008, 4096])
+    assert(fxn.shape==[4096])
+    
+
+    let fx = Layer(shape: [outerDim], device: device, andPrivate: true)
+    let startTime = Date()
+    let internalFunc = library.makeFunction(name: "internal")!
+    let internalState = try! device.makeComputePipelineState(function: internalFunc)
+
+    // internal / hidden layer
+    
+    let threadCount = innerDim
+    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+    assert(internalState.threadExecutionWidth < 4096)
+    let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
+
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
+
+    commandEncoder.setComputePipelineState(internalState)
+
+    commandEncoder.setBuffer(fxn.buffer, offset: 0, index: 0)
+    commandEncoder.setBuffer(w1.buffer, offset: 0, index: 1)
+    commandEncoder.setBuffer(w3.buffer, offset: 0, index: 2)
+    commandEncoder.setBuffer(fx.buffer, offset: 0, index: 3)
+    commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+
+    // second layer
+    
+
+    let secondFunc = library.makeFunction(name: "second")!
+    let secondState = try! device.makeComputePipelineState(function: secondFunc)
+    
+    commandEncoder.setComputePipelineState(secondState)
+
+    commandEncoder.setBuffer(w2.buffer, offset: 0, index: 0)
+    commandEncoder.setBuffer(fx.buffer, offset: 0, index: 1)
+    commandEncoder.setBuffer(h.buffer, offset: 0, index: 2)
+    
+    let gridSize2 = MTLSize(width: 4096, height: 1, depth: 1)
+    commandEncoder.dispatchThreads(gridSize2, threadsPerThreadgroup: threadGroupSize)
+
+    // execute
+    commandEncoder.endEncoding()
+    commandBuffer.commit()
+
+    commandBuffer.waitUntilCompleted()
+    print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
+}
+
+
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
     let (rows, cols) = (weights.rows, weights.cols!)
@@ -271,7 +421,6 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
     let threadCount = rows
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, threadCount), height: 1, depth: 1)
-
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
