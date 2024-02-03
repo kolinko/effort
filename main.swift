@@ -151,7 +151,7 @@ for layerNo in 0...3 {
 
     // below = 22.28-15.73 = 6ms = 1/4th of all the loop
     
-    ffn__(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
+    ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
