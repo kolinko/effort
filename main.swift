@@ -23,13 +23,6 @@ let tokens = loadTokens(device: device)
 print("Hello, World!")
 
 let library = device.makeDefaultLibrary()!
-let mulFunc4096 = library.makeFunction(name: "mul_col_4096")!
-let mulFunc11008 = library.makeFunction(name: "mul_col_11008")!
-
-let pipelineState4096 = try! device.makeComputePipelineState(function: mulFunc4096)
-let pipelineState11008 = try! device.makeComputePipelineState(function: mulFunc11008)
-
-//let computeFunction = library.makeFunction(name: "mul_col")!
 
 let dim = 4096
 let dim_range = 0...4095
