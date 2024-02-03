@@ -75,16 +75,18 @@ for layerNo in 0...3 {
     let xq = mul_col(vec: xn, by: wq)
     let xk = mul_col(vec: xn, by: wk)
     let xv = mul_col(vec: xn, by: wv)
-    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     var xq_heads = reshape(vec: xq, newDimSize: headDim)
     var xk_heads = reshape(vec: xk, newDimSize: headDim)
     let xv_heads = reshape(vec: xv, newDimSize: headDim)
-    
+    print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     for i in 0..<numHeads {
         xq_heads[i] = mul(layer: xq_heads[i], complexArray: freqsCis[tokenNum])
         xk_heads[i] = mul(layer: xk_heads[i], complexArray: freqsCis[tokenNum])
     }
+    print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     xkLayerTokenHead[layerNo].append(xk_heads)
     xvLayerTokenHead[layerNo].append(xv_heads)
@@ -101,13 +103,15 @@ for layerNo in 0...3 {
             scores[headNo][t2] = sum / sqrt(Float16(headDim))
         }
     }
-    
+    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])
     }
     
     var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
-    
+    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     for headNo in 0..<numHeads {
         for i in 0..<headDim {
             var suma: Float16 = 0.0
@@ -117,7 +121,8 @@ for layerNo in 0...3 {
             out[headNo][i] = suma
         }
     }
-    
+    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     // merge heads
     var output = [Float16]()
 
@@ -130,6 +135,7 @@ for layerNo in 0...3 {
     // ffn output
     let attnOutput = Layer(from: output, using: device)
     let attnFfn = mul_col(vec: attnOutput, by: wo)
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
     assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))

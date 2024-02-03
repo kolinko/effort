@@ -106,7 +106,6 @@ struct Layer {
         }
     
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
-//        return true
         let result = self.test(mul: mul, val: val)
         if result {
 //            print("✔️ \(name)")
@@ -268,9 +267,23 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
+func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
+    let internalFunc = library.makeFunction(name: fname)!
+    let internalState = try! device.makeComputePipelineState(function: internalFunc)
+
+    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+    assert(internalState.threadExecutionWidth < 4096)
+    let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
+
+    encoder.setComputePipelineState(internalState)
+
+    for i in 0..<buffers.count {
+        encoder.setBuffer(buffers[i].buffer, offset: 0, index: i)
+    }
+    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+}
 
 func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
-    let outerDim = 4096
     let innerDim = 11008
     assert(w1.shape==[11008, 4096])
     assert(w2.shape==[4096, 11008])
@@ -278,55 +291,17 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     assert(fxn.shape==[4096])
     
 
-    let fx = Layer(shape: [outerDim], device: device, andPrivate: true)
+    let fx = Layer(shape: [innerDim], device: device, andPrivate: true)
     let startTime = Date()
     
-    /*
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    
     deploy(encoder, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     deploy(encoder, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-     
-     
-     */
-    
-    let internalFunc = library.makeFunction(name: "internal")!
-    let internalState = try! device.makeComputePipelineState(function: internalFunc)
-
-    // internal / hidden layer
-    
-    let threadCount = innerDim
-    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    assert(internalState.threadExecutionWidth < 4096)
-    let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
-
-    
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-
-    commandEncoder.setComputePipelineState(internalState)
-
-    commandEncoder.setBuffer(fxn.buffer, offset: 0, index: 0)
-    commandEncoder.setBuffer(w1.buffer, offset: 0, index: 1)
-    commandEncoder.setBuffer(w3.buffer, offset: 0, index: 2)
-    commandEncoder.setBuffer(fx.buffer, offset: 0, index: 3)
-    commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-
-    // second layer
-
-    let secondFunc = library.makeFunction(name: "second")!
-    let secondState = try! device.makeComputePipelineState(function: secondFunc)
-    
-    commandEncoder.setComputePipelineState(secondState)
-
-    commandEncoder.setBuffer(w2.buffer, offset: 0, index: 0)
-    commandEncoder.setBuffer(fx.buffer, offset: 0, index: 1)
-    commandEncoder.setBuffer(h.buffer, offset: 0, index: 2)
-    
-    let gridSize2 = MTLSize(width: 4096, height: 1, depth: 1)
-    commandEncoder.dispatchThreads(gridSize2, threadsPerThreadgroup: threadGroupSize)
 
     // execute
-    commandEncoder.endEncoding()
+    encoder.endEncoding()
     commandBuffer.commit()
 
     commandBuffer.waitUntilCompleted()
@@ -342,31 +317,10 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
 
     let output = Layer(shape: [rows], device: weights.buffer.device)
 
-    
-    var pipelineState : MTLComputePipelineState
-    if cols == 4096 {
-        pipelineState = pipelineState4096
-    } else {
-        assert(cols == 11008)
-        pipelineState = pipelineState11008
-    }
-    
-    
-    let threadCount = rows
-    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, threadCount), height: 1, depth: 1)
-
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
 
-    commandEncoder.setComputePipelineState(pipelineState)
-    
-    commandEncoder.setBuffer(weights.buffer, offset: 0, index: 0)
-    commandEncoder.setBuffer(vec.buffer, offset: 0, index: 1)
-    commandEncoder.setBuffer(output.buffer, offset: 0, index: 2)
-    
-    // Dispatch the compute command
-    commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+    deploy(commandEncoder, fname: "mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
 
     commandEncoder.endEncoding()
     commandBuffer.commit()
