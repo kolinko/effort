@@ -56,7 +56,7 @@ let startTime = Date()
 
 let thisToken = 0
 
-for layerNo in 0...3 { //modelData.layers {
+for layerNo in 0...3 { 
     var h = tokens[thisToken]
     assert(h.test("h", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
     
@@ -147,12 +147,16 @@ for layerNo in 0...3 { //modelData.layers {
 
     let fxn = mul(vec: h_norm2, by:wn)
     assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
+    print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+    // below = 22.28-15.73 = 6ms = 1/4th of all the loop
     
     let fx1 = mul_col(vec: fxn, by: w1)
     let fx3 = mul_col(vec: fxn, by: w3)
     
     assert(fx1.test("fx1", mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11]))
-    
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     //    x = ((x1 / (1.0 + np.exp(-x1))) * x3
     var x = [(Float16)]()
     assert(fx3.shape[0] == 11008)
@@ -160,12 +164,16 @@ for layerNo in 0...3 { //modelData.layers {
         let val: Double = Double(fx1[i])/(1+exp(Double(-fx1[i]))) * Double(fx3[i])
         x.append(Float16(val))
     }
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     let fx = Layer(from: x, using: device)
     let fx2 = mul_col(vec:fx, by: w2)//weights:w2, by:fx)
     assert(fx2.test("fx2", mul:100, val:[-0.030, -0.09, 0.03, -0.05, 0.06])) // double-check with original!
-    
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     add(dest: &h, by: fx2)
+    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     print("success!")
 

@@ -253,37 +253,25 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
 
 func mul_col(vec: Layer, by weights: Layer) -> Layer {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
-
     let (rows, cols) = (weights.rows, weights.cols!)
+    let startTime = Date()
 
-//    var mulFunc : MTLFunction
-    var pipelineState : MTLComputePipelineState
+    let output = Layer(shape: [rows], device: weights.buffer.device)
+
     
+    var pipelineState : MTLComputePipelineState
     if cols == 4096 {
-//        mulFunc = mulFunc4096 //library.makeFunction(name: "mul_col_4096")!
         pipelineState = pipelineState4096
-
     } else {
         assert(cols == 11008)
-//        mulFunc = mulFunc11008 //
         pipelineState = pipelineState11008
     }
     
-    let startTime = Date()
     
-//    let pipelineState = try! device.makeComputePipelineState(function: mulFunc)
-
     let threadCount = rows
-
-    let output = Layer(shape: [rows], device: weights.buffer.device)
-    // dispatch
-
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, threadCount), height: 1, depth: 1)
 
-    /*
-    */
-//
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
@@ -299,6 +287,7 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
 
     commandEncoder.endEncoding()
     commandBuffer.commit()
+
     commandBuffer.waitUntilCompleted()
 
     print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
