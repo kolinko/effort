@@ -501,13 +501,110 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     }
     
     assert(o.test(mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
+        
+    sortVec(&o)
+    assert(o[4095]==0.02194)
+    assert(o[4094]==0.01575)
+
+    let quant = 0.16
+    let q = Int(Double(probes)*(1-quant))
+    var cutoff: Float16 = o[q]
+    assert(cutoff==0.001181)
+
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+    let bufferSize = 11008 * MemoryLayout<Float>.stride
+    let bufferX = weights.buffer.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+    let bufferPointer = bufferX.contents().bindMemory(to: Float.self, capacity: 11008)
+
     
-    for i in 0..<20 {
-        print(o[i])
-        print(v[i])
+    let out = Layer(shape: [rowVals.cols!], with: 0, device: weights.buffer.device)
+    
+    let accumFunction = library.makeFunction(name: "accum")!
+    let pipeline = try! device.makeComputePipelineState(function: accumFunction)
+    print(v.rows)
+    let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
+    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
+    
+    let threadCount = 400//v.rows
+    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+//    assert(internalState.threadExecutionWidth < 4096)
+    let threadGroupSize = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
+    
+     
+
+    for i in 0..<11008 {
+        bufferPointer[i] = 0
+    }
+        
+    encoder.setComputePipelineState(pipeline)
+
+    encoder.setBuffer(v.buffer, offset: 0, index: 0)
+    encoder.setBuffer(rowIds.buffer, offset: 0, index: 1)
+    encoder.setBuffer(rowVals.buffer, offset: 0, index: 2)
+    encoder.setBuffer(bufferX, offset: 0, index: 3)
+    encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
+    encoder.setBuffer(out.buffer, offset: 0, index: 5)
+
+//    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+
+    
+    let startTime = Date()
+
+//    deploy(encoder, fname: "accum", buffers:[v, rowIds, rowVals, out, cutoff], threadCount: rows)
+
+    
+    //// PROFILE
+    ///
+    ///
+    for i in 0..<32*3 {
+        
+        encoder.setComputePipelineState(pipeline)
+        
+        encoder.setBuffer(v.buffer, offset: 0, index: 0)
+        encoder.setBuffer(rowIds.buffer, offset: 0, index: 1)
+        encoder.setBuffer(rowVals.buffer, offset: 0, index: 2)
+        encoder.setBuffer(bufferX, offset: 0, index: 3)
+        encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
+        encoder.setBuffer(out.buffer, offset: 0, index: 5)
+        
+        //    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+        encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     }
     
-    sortVec(&o)
+    
+
+//    deploy(encoder, fname: "accum", buffers:[v, rowIds, rowVals, out, cutoff], threadCount: rows)
+    encoder.endEncoding()
+    commandBuffer.commit()
+
+    commandBuffer.waitUntilCompleted()
+    ///
+    ///PROFILE
+    print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
+    let dataPointer = bufferX.contents().assumingMemoryBound(to: Float.self)
+    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: 11008)
+    let floatData = Array.init(dataBufferPointer)
+
+    print("works?")
+    print(cutoff)
+    print("cutoff")
+    /*
+    for i in 0..<100 {
+        print(out[i])
+        print(floatData[i])
+        print(bufferPointer[i])
+        print("!")
+    }*/
+    
+//    print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
+    
+//    accum(v, rowIds: rowIds, rowVals: rowVals, out: out, cutoff)
+    
     
     exit(0)
     
@@ -533,7 +630,7 @@ func sortVec(_ v: inout Layer) {
     guard let logn = Int(exactly: log2(Double(v.rows))) else {
         fatalError("data.count is not a power of 2")
     }
-    let floatDataBuffer = v.buffer
+    var floatDataBuffer = v.buffer
     floatDataBuffer.label = "floatDataBuffer"
     let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
     let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
@@ -545,33 +642,25 @@ func sortVec(_ v: inout Layer) {
 
     for p in 0..<logn {
         for q in 0..<p+1 {
-
             var n1 = p
             var n2 = q
 
             encoder.setComputePipelineState(pipeline)
             encoder.setBuffer(floatDataBuffer, offset: 0, index: 0)
             encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 1)
+            encoder.setBytes(&n2, length: MemoryLayout<UInt32>.stride, index: 2)
             encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
         }
     }
+    
     encoder.endEncoding()
 
     commandBuffer.commit()
 
     commandBuffer.waitUntilCompleted()
 
-    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-    let dataPointer = floatDataBuffer.contents().assumingMemoryBound(to: Float.self)
-    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: floatData.count)
-    floatData = Array.init(dataBufferPointer)
-    let dataPointer2 = uintDataBuffer.contents().assumingMemoryBound(to: UInt32.self)
-    let dataBufferPointer2 = UnsafeMutableBufferPointer(start: dataPointer2, count: uintData.count)
-    uintData = Array.init(dataBufferPointer2)
+    print("basicSort: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
-//        print(floatData)
-//        print("")
-//        print(uintData)
     }
 
 
