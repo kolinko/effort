@@ -94,6 +94,19 @@ struct Layer {
         return output
     }
     
+    func getInt(index: Int) -> Int16 {
+        var floatStorage: Float16 = self[index]//1.0
+        //        let floatValue: Float16 = w1ids[i]//1.0
+        // Convert Float16 to UInt16 to preserve the bit pattern.
+        withUnsafePointer(to: &floatStorage) { floatPointer in
+            floatPointer.withMemoryRebound(to: Int16.self, capacity: 1) { intPointer in
+                intStorage = intPointer.pointee
+            }
+        }
+        return intStorage
+    }
+
+    
     subscript(index: Int) -> Float16 {
             get {
                 let bufferPointer = self.bufferPointer
@@ -106,6 +119,7 @@ struct Layer {
         }
     
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
+//        return true
         let result = self.test(mul: mul, val: val)
         if result {
 //            print("✔️ \(name)")
@@ -123,6 +137,30 @@ struct Layer {
                     print(self[j])
                 }
                 print("assert failed, on pos \(i), \(self[i]) ≠ \(val[i])")
+                return false
+            }
+        }
+        return true
+    }
+    
+    func testInt(_ name: String, val:[Int16]) -> Bool {
+        let result = self.testInt(val: val)
+        if result {
+            print("✔️ \(name)")
+        } else {
+            print("❌ \(name)")
+        }
+        return result
+    }
+        
+    func testInt(val:[Int16]) -> Bool {
+        for i in 0..<val.count {
+            if (self.getInt(index: i) != val[i]) {
+                print("assert failed for values")
+                for j in 0..<val.count {
+                    print(self.getInt(index:j))
+                }
+                print("assert failed, on pos \(i), \(self.getInt(index: i)) ≠ \(val[i])")
                 return false
             }
         }
@@ -267,10 +305,18 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
-func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
-    let internalFunc = library.makeFunction(name: fname)!
-    let internalState = try! device.makeComputePipelineState(function: internalFunc)
 
+func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
+    var internalState : MTLComputePipelineState
+    if (fname == "internal") {
+        internalState = internalSState
+    } else if (fname == "second") {
+        internalState = secondSState
+    } else {
+        let internalFunc = library.makeFunction(name: fname)!
+        internalState = try! device.makeComputePipelineState(function: internalFunc)
+    }
+        
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     assert(internalState.threadExecutionWidth < 4096)
     let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
@@ -283,6 +329,84 @@ func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer]
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 
+func runSort() {
+    // taken from https://developer.apple.com/forums/thread/674181
+    //            https://github.com/tgymnich/MetalSort
+    
+
+    let device = MTLCreateSystemDefaultDevice()!
+    let commandQueue = device.makeCommandQueue()!
+    let library = device.makeDefaultLibrary()!
+    let sortFunction = library.makeFunction(name: "bitonicSort")!
+    let pipeline = try! device.makeComputePipelineState(function: sortFunction)
+
+    let setRange = 0..<1024
+    var floatData = [Float]()
+    var uintData = [UInt32]()
+    // Build the Float and index data backward to form worst case scenerio for sorting.
+    for value in stride(from: Float(setRange.upperBound-1), to: Float(setRange.lowerBound-1), by: -1.0) {
+        floatData.append(value)
+    }
+    for value in stride(from: setRange.upperBound-1, to: setRange.lowerBound-1, by: -1) {
+        uintData.append(UInt32(value))
+    }
+
+
+    //print(floatData)
+    //print("")
+    //print(uintData)
+    guard let logn = Int(exactly: log2(Double(floatData.count))) else {
+        fatalError("data.count is not a power of 2")
+    }
+    let floatDataBuffer = device.makeBuffer(bytes: &floatData,
+                                            length: MemoryLayout<Float>.stride * floatData.count,
+                                            options: [.storageModeShared])!
+    floatDataBuffer.label = "floatDataBuffer"
+    let uintDataBuffer = device.makeBuffer(bytes: &uintData,
+                                           length: MemoryLayout<UInt32>.stride * uintData.count,
+                                           options: [.storageModeShared])!
+    uintDataBuffer.label = "uintDataBuffer"
+    let threadgroupsPerGrid = MTLSize(width: floatData.count, height: 1, depth: 1)
+    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    let startTime = Date()
+
+    for p in 0..<logn {
+        for q in 0..<p+1 {
+
+            var n1 = p
+            var n2 = q
+
+            encoder.setComputePipelineState(pipeline)
+            encoder.setBuffer(floatDataBuffer, offset: 0, index: 0)
+            encoder.setBuffer(uintDataBuffer, offset: 0, index: 1)
+            encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 2)
+            encoder.setBytes(&n2, length: MemoryLayout<UInt32>.stride, index: 3)
+            encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+        }
+    }
+    encoder.endEncoding()
+
+    commandBuffer.commit()
+
+    commandBuffer.waitUntilCompleted()
+
+    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+    let dataPointer = floatDataBuffer.contents().assumingMemoryBound(to: Float.self)
+    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: floatData.count)
+    floatData = Array.init(dataBufferPointer)
+    let dataPointer2 = uintDataBuffer.contents().assumingMemoryBound(to: UInt32.self)
+    let dataBufferPointer2 = UnsafeMutableBufferPointer(start: dataPointer2, count: uintData.count)
+    uintData = Array.init(dataBufferPointer2)
+
+//        print(floatData)
+//        print("")
+//        print(uintData)
+    }
+
 func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     let innerDim = 11008
     assert(w1.shape==[11008, 4096])
@@ -290,6 +414,7 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     assert(w3.shape==[11008, 4096])
     assert(fxn.shape==[4096])
     
+    runSort()
 
     let fx = Layer(shape: [innerDim], device: device, andPrivate: true)
     let startTime = Date()
@@ -302,9 +427,33 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
 
     // execute
     encoder.endEncoding()
+    
+//    let commandBuffer2 = commandQueue.makeCommandBuffer()!
+    let encoder2 = commandBuffer.makeComputeCommandEncoder()!
+    
+    /*
+    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
+    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
+    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
+    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
+    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
+    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
+    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
+    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
+    */
+    
+    // execute
+    //encoder2.endEncoding()
+    encoder2.endEncoding()
+    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
     commandBuffer.commit()
 
+    print("Internal total2: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+
     commandBuffer.waitUntilCompleted()
+//    commandBuffer2.waitUntilCompleted()
+
     print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
 }
@@ -332,3 +481,156 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
     return output
 }
 
+func mul_vm(v: Layer, layer: [String: Layer], name: String) {
+    // name e.g. feed_forward.w1
+    let weights = layer[name]!
+    let rowIds = layer[name+".ids"]!
+    let rowVals = layer[name+".vals"]!
+    let (rows, cols) = (weights.rows, weights.cols!)
+    assert (rowIds.cols == weights.rows)
+    assert (rowIds.rows == weights.cols)
+    
+    print(weights.shape)
+    print(rowIds.shape)
+    print(rowVals.shape)
+
+    let probes = 4096
+    var o = Layer(shape: [probes], device: weights.buffer.device)
+    for i in 0..<probes {
+        o[i] = abs(v[i] * weights[i*weights.cols! + i])
+    }
+    
+    assert(o.test(mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
+    
+    for i in 0..<20 {
+        print(o[i])
+        print(v[i])
+    }
+    
+    sortVec(&o)
+    
+    exit(0)
+    
+//    let startTime = Date()
+
+//    let output = Layer(shape: [rows], device: weights.buffer.device)
+    
+}
+
+func sortVec(_ v: inout Layer) {
+    // taken from https://developer.apple.com/forums/thread/674181
+    //            https://github.com/tgymnich/MetalSort
+    
+
+    let device = MTLCreateSystemDefaultDevice()!
+    let commandQueue = device.makeCommandQueue()!
+    let library = device.makeDefaultLibrary()!
+    let sortFunction = library.makeFunction(name: "basicBitonicSort")!
+    let pipeline = try! device.makeComputePipelineState(function: sortFunction)
+
+    let setRange = 0..<v.rows
+
+    guard let logn = Int(exactly: log2(Double(v.rows))) else {
+        fatalError("data.count is not a power of 2")
+    }
+    let floatDataBuffer = v.buffer
+    floatDataBuffer.label = "floatDataBuffer"
+    let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
+    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    let startTime = Date()
+
+    for p in 0..<logn {
+        for q in 0..<p+1 {
+
+            var n1 = p
+            var n2 = q
+
+            encoder.setComputePipelineState(pipeline)
+            encoder.setBuffer(floatDataBuffer, offset: 0, index: 0)
+            encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 1)
+            encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+        }
+    }
+    encoder.endEncoding()
+
+    commandBuffer.commit()
+
+    commandBuffer.waitUntilCompleted()
+
+    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+    let dataPointer = floatDataBuffer.contents().assumingMemoryBound(to: Float.self)
+    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: floatData.count)
+    floatData = Array.init(dataBufferPointer)
+    let dataPointer2 = uintDataBuffer.contents().assumingMemoryBound(to: UInt32.self)
+    let dataBufferPointer2 = UnsafeMutableBufferPointer(start: dataPointer2, count: uintData.count)
+    uintData = Array.init(dataBufferPointer2)
+
+//        print(floatData)
+//        print("")
+//        print(uintData)
+    }
+
+
+/*
+ 
+ 
+ 
+ @profile
+ def mul_vm_optimal_(v, M, N, N_abs, quant):
+     # calculate Y at quant, or calculate quant itself
+     out = []
+     for x in range(min(M.shape)):
+         out.append(abs(v[x]*M[x,x]))
+     out = np.sort(out)
+     Y = out[int(len(out)*(1-quant))] # optional, automatically find quant
+     X = int(M.shape[0]*N.shape[1]*quant*1.3)
+
+     # find cutoff here. that is, find a first element in O that is smaller than V/Y, right?
+     cutoffs = [find_cutoff(v[x], N[x], Y, N_abs[x]) for x in range(len(v))]
+
+     return accum(v, N, cutoffs, X)
+
+ @profile
+ def accum(v, N, cutoffs, X):
+     accum_row_ids = np.zeros(X, dtype=int)
+     accum_r_values = np.zeros(X, dtype=float)
+     out = np.zeros(N.shape[1])
+
+     count = 0
+     count2 = 0
+     current_index = 0
+
+     for x in range(len(v)):
+         cutoff = cutoffs[x]
+         if cutoff == 0:
+             continue
+
+         next_index = current_index + cutoff
+         row_ids = N[x, :cutoff, 0]
+         m_values = N[x, :cutoff, 1]
+
+         r_values = v[x] * m_values
+         accum_row_ids[current_index:next_index] = row_ids
+         accum_r_values[current_index:next_index] = r_values
+
+         current_index = next_index
+         count2 += cutoff
+
+
+     final_row_ids = accum_row_ids[:current_index]
+     final_r_values = accum_r_values[:current_index]
+
+     aggregated_sums = np.bincount(final_row_ids, weights=final_r_values)
+     if aggregated_sums.size < out.size:
+         # If aggregated_sums is shorter, pad it with zeros up to the size of 'out'
+         aggregated_sums = np.pad(aggregated_sums, (0, out.size - aggregated_sums.size), 'constant')
+
+     out += aggregated_sums
+     return out
+
+ 
+ */

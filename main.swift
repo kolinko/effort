@@ -7,6 +7,7 @@
 
 import Foundation
 import Metal
+import simd
 
 let devices = MTLCopyAllDevices()
 assert(!devices.isEmpty, "No Metal devices available")
@@ -20,9 +21,18 @@ print("loading")
 let modelData = loadModelData(from: "shape.json", device: device)
 let tokens = loadTokens(device: device)
 
+assert(modelData.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))
+assert(tokens[0].test("h", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
+
+
 print("Hello, World!")
 
 let library = device.makeDefaultLibrary()!
+let internalSFunc = library.makeFunction(name:"internal")!
+let internalSState = try! device.makeComputePipelineState(function: internalSFunc)
+let secondSFunc = library.makeFunction(name:"internal")!
+let secondSState = try! device.makeComputePipelineState(function: secondSFunc)
+
 
 let dim = 4096
 let dim_range = 0...4095
@@ -49,25 +59,39 @@ let startTime = Date()
 
 let thisToken = 0
 
-for layerNo in 0...3 { 
+import Foundation
+import simd
+
+// Example Float16 value
+let floatValue: Float16 = 1.0
+
+// Allocate memory for Float16 and write the value
+var floatStorage = floatValue
+var intStorage: Int16 = 0
+
+
+
+for layerNo in 0...3 {
     var h = tokens[thisToken]
-    assert(h.test("h", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
-    
     let layer = modelData.layers[layerNo]!
+    
     let wa = layer["attention_norm"]!
+    
     let wq = layer["attention.wq"]!
     let wk = layer["attention.wk"]!
     let wv = layer["attention.wv"]!
+    
     let wo = layer["attention.wo"]!
     
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     let h_norm = h.rmsNorm()
-    let xn = mul(vec: h_norm, by:wa)
+    let h_norm_norm = mul(vec: h_norm, by:wa)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let xq = mul_col(vec: xn, by: wq)
-    let xk = mul_col(vec: xn, by: wk)
-    let xv = mul_col(vec: xn, by: wv)
+    let xq = mul_col(vec: h_norm_norm, by: wq)
+    print(wq.shape)
+    let xk = mul_col(vec: h_norm_norm, by: wk)
+    let xv = mul_col(vec: h_norm_norm, by: wv)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     var xq_heads = reshape(vec: xq, newDimSize: headDim)
@@ -149,6 +173,10 @@ for layerNo in 0...3 {
     print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     // below = 22.28-15.73 = 6ms = 1/4th of all the loop
+    
+    print(w1.shape)
+    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
+
     
     ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")

@@ -14,12 +14,13 @@ kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
                     device half *result [[buffer(2)]],
                     uint id [[thread_position_in_grid]]) {
     half sum = 0.0;
+    int row = id;
     int offset = id * 4096;
     for (int i = 0; i < 4096; i++) {
         sum += matrix[(offset+i)] * vector[i];
     }
 
-    result[id] = sum;
+    result[row] = sum;
 }
 
 #define outer_count 4096
@@ -52,9 +53,38 @@ kernel void second (device const half *matrix [[buffer(0)]],
                     uint id [[thread_position_in_grid]]) {
     half sum = 0.0;
     int offset = id * 11008;
+    
     for (int i = 0; i < 11008; i++) {
         sum += matrix[(offset + i)] * vector[i];
     }
 
     result[id] += sum;
 }
+
+kernel void bitonicSort(device float     *floats     [[ buffer(0) ]],
+                        device int        *uInts         [[ buffer(1) ]],
+                        constant int     &p             [[ buffer(2) ]],
+                        constant int     &q             [[ buffer(3) ]],
+                        uint             gid         [[ thread_position_in_grid ]])
+{
+    int pMinusQ = p-q;
+    int distance = 1 << pMinusQ;
+    uint gidShiftedByP = gid >> p;
+    // True: Increasing / False: Descreasing
+    bool direction = (gidShiftedByP & 2) == 0;
+    uint gidDistance = (gid & distance);
+    bool isGidDistanceZero = (gidDistance == 0);
+    uint gidPlusDistance = (gid | distance);
+    bool isLowerIndexGreaterThanHigher = (floats[gid] > floats[gidPlusDistance]);
+    if (isGidDistanceZero && isLowerIndexGreaterThanHigher == direction) {
+        float temp = floats[gid];
+        floats[gid] = floats[gidPlusDistance];
+        floats[gidPlusDistance] = temp;
+        int temp2 = uInts[gid];
+        uInts[gid] = uInts[gidPlusDistance];
+        uInts[gidPlusDistance] = temp2;
+    }
+}
+
+
+

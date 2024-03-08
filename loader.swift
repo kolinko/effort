@@ -116,6 +116,12 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
             let keyName = "layers."+String(i)+"."+key
             layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device:device)
         }
+        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
+            let keyName = "layers."+String(i)+"."+key
+            let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
+            layers[i]![key+".ids"] = loadBinaryFile(named: keyName+".ids.bin", shape: nShape, device:device)
+            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape, device:device)
+        }
     }
     
     let model = ModelData(
