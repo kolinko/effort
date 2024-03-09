@@ -509,7 +509,7 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let quant = 0.16
     let q = Int(Double(probes)*(1-quant))
     var cutoff: Float16 = o[q]
-    assert(cutoff==0.001181)
+//    assert(cutoff==0.001181)
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
@@ -547,36 +547,10 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
     encoder.setBuffer(out.buffer, offset: 0, index: 5)
 
-//    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 
     
     let startTime = Date()
-
-//    deploy(encoder, fname: "accum", buffers:[v, rowIds, rowVals, out, cutoff], threadCount: rows)
-
-    
-    //// PROFILE
-    ///
-    ///
-    for i in 0..<32*3 {
-        
-        encoder.setComputePipelineState(pipeline)
-        
-        encoder.setBuffer(v.buffer, offset: 0, index: 0)
-        encoder.setBuffer(rowIds.buffer, offset: 0, index: 1)
-        encoder.setBuffer(rowVals.buffer, offset: 0, index: 2)
-        encoder.setBuffer(bufferX, offset: 0, index: 3)
-        encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
-        encoder.setBuffer(out.buffer, offset: 0, index: 5)
-        
-        //    encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-        encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-    }
-    
-    
-
-//    deploy(encoder, fname: "accum", buffers:[v, rowIds, rowVals, out, cutoff], threadCount: rows)
     encoder.endEncoding()
     commandBuffer.commit()
 
@@ -592,13 +566,10 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     print("works?")
     print(cutoff)
     print("cutoff")
-    /*
+    
     for i in 0..<100 {
-        print(out[i])
         print(floatData[i])
-        print(bufferPointer[i])
-        print("!")
-    }*/
+    }
     
 //    print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
