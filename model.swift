@@ -527,12 +527,10 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
     let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
-    let threadCount = 400//v.rows
+    let threadCount = v.rows
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-//    assert(internalState.threadExecutionWidth < 4096)
     let threadGroupSize = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
-     
 
     for i in 0..<11008 {
         bufferPointer[i] = 0
@@ -545,7 +543,6 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     encoder.setBuffer(rowVals.buffer, offset: 0, index: 2)
     encoder.setBuffer(bufferX, offset: 0, index: 3)
     encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
-    encoder.setBuffer(out.buffer, offset: 0, index: 5)
 
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 
@@ -555,8 +552,7 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     commandBuffer.commit()
 
     commandBuffer.waitUntilCompleted()
-    ///
-    ///PROFILE
+    //PROFILE
     print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
     let dataPointer = bufferX.contents().assumingMemoryBound(to: Float.self)
@@ -566,22 +562,19 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     print("works?")
     print(cutoff)
     print("cutoff")
+
+    for i in 0..<8 {
+        print(rowIds.getInt(index:i))
+//        print(rowVals[i])
+    }
+
     
-    for i in 0..<100 {
+    for i in 0..<10 {
         print(floatData[i])
     }
     
-//    print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
-    
-//    accum(v, rowIds: rowIds, rowVals: rowVals, out: out, cutoff)
-    
     
     exit(0)
-    
-//    let startTime = Date()
-
-//    let output = Layer(shape: [rows], device: weights.buffer.device)
     
 }
 

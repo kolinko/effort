@@ -9,9 +9,8 @@
 using namespace metal;
 
 kernel void accum(device const half *vector [[buffer(0)]],
-                  device const ushort *rowIds [[buffer(1)]],
-                  device const half *rowVals [[buffer(2)]],
-                  device half *result [[buffer(5)]],
+                  device const ushort4 *rowIds [[buffer(1)]],
+                  device const half4 *rowVals [[buffer(2)]],
                   constant half &cutoff [[buffer(4)]],
                   device atomic_float *counter [[buffer(3)]],
                   uint id [[thread_position_in_grid]]) {
@@ -21,15 +20,28 @@ kernel void accum(device const half *vector [[buffer(0)]],
     
 #ifdef yolo
     half myVal = vector[id];
-    int offset = id*11008;
+    int offset = id*11008/4;
     
-    for (int i = 0; i < 11008; i+=1) {//1008; i++) {
-        half out = myVal*rowVals[offset+i];
-        short rid = rowIds[offset+i];
-        atomic_fetch_add_explicit(&counter[rid], out, memory_order_relaxed);
+    for (int i = 0; i < 11008/4; i+=2) {//1008; i++) {
+        half4 out = rowVals[offset+i]*myVal;
+        half4 out2 = rowVals[offset+i+1]*myVal;
+
+        ushort4 rid = rowIds[offset+i];
+        ushort4 rid2 = rowIds[offset+i+1];
+
+        atomic_fetch_add_explicit(&counter[rid[0]], out[0], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid[1]], out[1], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid[2]], out[2], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid[3]], out[3], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid2[0]], out2[0], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid2[1]], out2[1], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid2[2]], out2[2], memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter[rid2[3]], out2[3], memory_order_relaxed);
+
         
-      if (abs(out) < abs(cutoff)) {
-          //  break;
+        
+      if (abs(out[3]) < abs(cutoff)) {
+            break;
         }
     }
     
