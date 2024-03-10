@@ -74,6 +74,48 @@ struct Layer {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
         
+        var output = Layer(shape: layer.shape, device: layer.buffer.device)
+
+        
+        let commandBuffer = commandQueue.makeCommandBuffer()!
+        let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+        let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
+        let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
+        rmsBufferPointer[0] = 0.0
+        
+        // Sum of squares
+        let sumFunc = library.makeFunction(name: "sum_of_squares")!
+        let sumState = try! device.makeComputePipelineState(function: sumFunc)
+        let startTime = Date()
+
+        
+        //        var rms : Float = 0
+        encoder.setComputePipelineState(sumState)
+        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+        encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
+        dispatch(encoder, state: sumState, threadCount: layer.count())
+        
+        // Normalize
+        let normFunc = library.makeFunction(name: "normalize_vector")!
+        let normState = try! device.makeComputePipelineState(function: normFunc)
+
+        encoder.setComputePipelineState(normState)
+        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+        encoder.setBuffer(output.buffer, offset:0, index: 1)
+        encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
+        var co: Int = self.count()
+        encoder.setBytes(&co, length: 4, index: 3)
+
+        dispatch(encoder, state: normState, threadCount: layer.count())
+        // execute
+        encoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        
+
+        /*
         // Calculate the mean of the squares of the elements
         var sum: Float32 = 0.0
         for i in 0..<layer.count() {
@@ -84,13 +126,18 @@ struct Layer {
         // Calculate the square root of the mean
         let sqrtMean = sqrt(mean + 1e-6)
 
-        var output = Layer(shape: layer.shape, device: layer.buffer.device)
+        var output2 = Layer(shape: layer.shape, device: layer.buffer.device)
 
         // Normalize each element and store in the new buffer
         for i in 0..<layer.count() {
-            output[i] = Float16(Float32(layer[i]) / sqrtMean)
+            output2[i] = Float16(Float32(layer[i]) / sqrtMean)
         }
-
+        print(output2[0])
+        print(output2[1])
+        print(output2[2])
+        print(output2[3])
+//        exit(0)
+        */
         return output
     }
     
@@ -303,22 +350,17 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
     return output
 }
 
+func dispatch(_ encoder: MTLComputeCommandEncoder, state: MTLComputePipelineState, threadCount: Int) {
+    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+    let threadGroupSize = MTLSize(width: state.threadExecutionWidth, height: 1, depth: 1)
+    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+}
 
 func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
-//    var internalState : MTLComputePipelineState
-    /*
-    if (fname == "internal") {
-        internalState = internalSState
-    } else if (fname == "second") {
-        internalState = secondSState
-    } else {
-     */
-        let internalFunc = library.makeFunction(name: fname)!
-        let internalState = try! device.makeComputePipelineState(function: internalFunc)
-//    }
+    let internalFunc = library.makeFunction(name: fname)!
+    let internalState = try! device.makeComputePipelineState(function: internalFunc)
         
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    assert(internalState.threadExecutionWidth < 4096)
     let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
 
     encoder.setComputePipelineState(internalState)
@@ -355,7 +397,6 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     commandBuffer.waitUntilCompleted()
 
     print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
 }
 
 
