@@ -9,10 +9,10 @@ import Foundation
 
 
 struct ModelData {
-    let norm: Layer
-    let outputs: Layer
-    let tokEmbeddings: Layer
-    let layers: [Int: [String: Layer]]
+    let norm: Matrix
+    let outputs: Matrix
+    let tokEmbeddings: Matrix
+    let layers: [Int: [String: Matrix]]
 }
 
 let absolutePath = "/Users/kolinko/mul_col/model/"
@@ -26,7 +26,7 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
-func loadTokens(device: MTLDevice) -> [Layer] {
+func loadTokens(device: MTLDevice) -> [Vector] {
     let fileName = absolutePath + "/tokens.bin"
     let fileURL = URL(fileURLWithPath: fileName)
 
@@ -55,12 +55,12 @@ func loadTokens(device: MTLDevice) -> [Layer] {
     // Create MTLBuffer from Float16 data
     let buffer = device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
 
-    var layers: [Layer] = []
+    var layers: [Vector] = []
 
     for i in 0..<numLayers {
         let offset = i * layerSize * MemoryLayout<Float16>.size
         let layerBuffer = device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
-        layers.append(Layer(shape: [layerSize], buffer: layerBuffer))
+        layers.append(Vector(shape: [layerSize], buffer: layerBuffer))
     }
 
     // Directly assert a specific value in the first layer (update the assertion for Float16)
@@ -109,9 +109,9 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     dispatchGroup.wait()*/
     
     let numLayers = 3 // 31
-    var layers = [Int: [String: Layer]]()
+    var layers = [Int: [String: Matrix]]()
     for i in 0...numLayers {
-        layers[i] = [String: Layer]()
+        layers[i] = [String: Matrix]()
         for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
             layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device:device)
@@ -144,7 +144,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
 }
 
 
-func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Layer {
+func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Matrix {
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Open the file and read its contents
@@ -176,6 +176,6 @@ func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> 
         return buffer
     }
 
-    return Layer(shape: shape, buffer: buffer)
+    return Matrix(shape: shape, buffer: buffer)
 }
 

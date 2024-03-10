@@ -14,19 +14,9 @@ extension String.StringInterpolation {
     }
 }
 
-struct Layer {
-    let shape: [Int]
+class Bufferable {
     let buffer: MTLBuffer
     let bufferPointer: UnsafeMutablePointer<Float16>
-    let rows: Int
-    let cols: Int?
-    
-    init(shape: [Int], device: MTLDevice) {
-        let numElements = shape.reduce(1, *)
-        let bufferSize = numElements * MemoryLayout<Float16>.size
-        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-        self.init(shape: shape, buffer: buffer)
-    }
 
     init(shape: [Int], device: MTLDevice, andPrivate: Bool) {
         assert(andPrivate == true)
@@ -40,16 +30,13 @@ struct Layer {
         
         let bsBuffer = device.makeBuffer(length: 1, options: .storageModeShared)!
         self.bufferPointer = bsBuffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
-//        self.init(shape: shape, buffer: buffer)
     }
-
     
-    init(shape: [Int], with: Float16, device: MTLDevice) {
-        self.init(shape: shape, device: device)
-        for i in 0..<self.count() {
-            self[i] = with
-        }
-    }
+    
+    let shape: [Int]
+    let rows: Int
+    let cols: Int?
+    
     
     init(shape: [Int], buffer: MTLBuffer) {
         self.rows = shape[0]
@@ -59,7 +46,23 @@ struct Layer {
         self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
     }
     
-    init(from array: [Float16], using device: MTLDevice) {
+    
+    convenience init(shape: [Int], device: MTLDevice) {
+        let numElements = shape.reduce(1, *)
+        let bufferSize = numElements * MemoryLayout<Float16>.size
+        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        self.init(shape: shape, buffer: buffer)
+    }
+
+
+    convenience init(shape: [Int], with: Float16, device: MTLDevice) {
+        self.init(shape: shape, device: device)
+        for i in 0..<self.count() {
+            self[i] = with
+        }
+    }
+    
+    convenience init(from array: [Float16], using device: MTLDevice) {
         assert(!array.isEmpty, "Array must not be empty")
         let length = array.count * MemoryLayout<Float16>.size
         let buffer = device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
@@ -70,49 +73,6 @@ struct Layer {
         return self.shape.reduce(1, *)
     }
     
-    func rmsNorm() -> Layer {
-        let layer = self
-        assert(layer.shape.count == 1, "Only for vectors")
-        
-        let output = Layer(shape: layer.shape, device: layer.buffer.device)
-
-        
-        let commandBuffer = commandQueue.makeCommandBuffer()!
-        let encoder = commandBuffer.makeComputeCommandEncoder()!
-
-        let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
-        let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
-        rmsBufferPointer[0] = 0.0
-        
-        // Sum of squares
-        let sumFunc = library.makeFunction(name: "sum_of_squares")!
-        let sumState = try! device.makeComputePipelineState(function: sumFunc)
-        
-        //        var rms : Float = 0
-        encoder.setComputePipelineState(sumState)
-        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-        encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
-        dispatch(encoder, state: sumState, threadCount: layer.count())
-        
-        // Normalize
-        let normFunc = library.makeFunction(name: "normalize_vector")!
-        let normState = try! device.makeComputePipelineState(function: normFunc)
-
-        encoder.setComputePipelineState(normState)
-        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-        encoder.setBuffer(output.buffer, offset:0, index: 1)
-        encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
-        var co: Int = self.count()
-        encoder.setBytes(&co, length: 4, index: 3)
-
-        dispatch(encoder, state: normState, threadCount: layer.count())
-        // execute
-        encoder.endEncoding()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-
-        return output
-    }
     
     func getInt(index: Int) -> Int16 {
         var floatStorage: Float16 = self[index]//1.0
@@ -138,8 +98,8 @@ struct Layer {
             }
         }
     
+    
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
-//        return true
         let result = self.test(mul: mul, val: val)
         if result {
 //            print("✔️ \(name)")
@@ -187,7 +147,60 @@ struct Layer {
         return true
     }
     
-    
+}
+
+class Matrix: Bufferable {
+    func asVector() -> Vector {
+        assert(self.shape.count == 1, "Not a vector")
+        
+        return Vector(shape: self.shape, buffer: self.buffer)
+    }
+}
+
+class Vector: Bufferable {
+    func rmsNorm() -> Vector {
+        let layer = self
+        assert(layer.shape.count == 1, "Only for vectors")
+        
+        let output = Vector(shape: layer.shape, device: layer.buffer.device)
+
+
+        let commandBuffer = commandQueue.makeCommandBuffer()!
+        let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+        let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
+        let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
+        rmsBufferPointer[0] = 0.0
+        
+        // Sum of squares
+        let sumFunc = library.makeFunction(name: "sum_of_squares")!
+        let sumState = try! device.makeComputePipelineState(function: sumFunc)
+        
+        //        var rms : Float = 0
+        encoder.setComputePipelineState(sumState)
+        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+        encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
+        dispatch(encoder, state: sumState, threadCount: layer.count())
+        
+        // Normalize
+        let normFunc = library.makeFunction(name: "normalize_vector")!
+        let normState = try! device.makeComputePipelineState(function: normFunc)
+
+        encoder.setComputePipelineState(normState)
+        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+        encoder.setBuffer(output.buffer, offset:0, index: 1)
+        encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
+        var co: Int = self.count()
+        encoder.setBytes(&co, length: 4, index: 3)
+
+        dispatch(encoder, state: normState, threadCount: layer.count())
+        // execute
+        encoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        return output
+    }
 }
 
 /*
@@ -204,11 +217,11 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
 
 
 func softmax(_ array: inout [Float16]) {
-    let layer = Layer(from: array, using: device)
+    let layer = Vector(from: array, using: device)
 //    let layer = self
     assert(layer.shape.count == 1, "Only for vectors")
     
-    let output = Layer(shape: layer.shape, device: layer.buffer.device)
+    let output = Vector(shape: layer.shape, device: layer.buffer.device)
     
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
@@ -248,32 +261,9 @@ func softmax(_ array: inout [Float16]) {
                 
     
     return
-    
-  
-    
-    // Compute exponentials and sum them up
-    let exps = array.map { Float16(exp(Float($0))) }
-    let sumExps = exps.reduce(Float16(0.0), +)
-
-    print("!")
-    print(sumExps)
-    
-    print(array.count)
-    // Normalize each element
-    for i in array.indices {
-        array[i] = exps[i] / sumExps
-        if i < 10 {
-            print(i)
-            print(array[i])
-        }
-    }
-    exit(0)
-//    print(array[0])
-//    print(array[1])
-//    print(array[2])
 }
 
-func dot(_ vec1: Layer, _ vec2: Layer) -> Float16 {
+func dot(_ vec1: Vector, _ vec2: Vector) -> Float16 {
     assert(vec1.count() == vec2.count(), "Vectors must be of the same length")
     
     var sum: Float16 = 0.0
@@ -311,7 +301,7 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
     return heads
 }
 
-func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
+func reshape(vec: Vector, newDimSize: Int) -> [Vector] {
     // Ensure that the original layer can be evenly divided by the new dimension size
     assert(vec.shape[0] % newDimSize == 0, "Original layer size must be divisible by new dimension size")
 
@@ -319,13 +309,13 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: vec.shape[0])
     let device = vec.buffer.device
 
-    var newLayers: [Layer] = []
+    var newLayers: [Vector] = []
 
     for i in 0..<numNewLayers {
         let newBuffer = device.makeBuffer(length: newDimSize * MemoryLayout<Float16>.size, options: .storageModeShared)!
         let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: newDimSize)
         memcpy(newBufferPointer, vecBufferPointer + i * newDimSize, newDimSize * MemoryLayout<Float16>.size)
-        newLayers.append(Layer(shape: [newDimSize], buffer: newBuffer))
+        newLayers.append(Vector(shape: [newDimSize], buffer: newBuffer))
     }
 
     assert(newLayers[3][0] == vec[3*newDimSize])
@@ -333,7 +323,7 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     return newLayers
 }
 
-func mul(layer: Layer, complexArray: [(Float16, Float16)]) -> Layer {
+func mul(layer: Vector, complexArray: [(Float16, Float16)]) -> Vector {
     // Ensure the layer has the correct number of elements
     
     func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
@@ -343,7 +333,7 @@ func mul(layer: Layer, complexArray: [(Float16, Float16)]) -> Layer {
     }
     
     assert(layer.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
-
+    
     let count = layer.shape[0] / 2
     let device = layer.buffer.device
     let resultBuffer = device.makeBuffer(length: layer.shape[0] * MemoryLayout<Float16>.size, options: .storageModeShared)!
@@ -356,10 +346,10 @@ func mul(layer: Layer, complexArray: [(Float16, Float16)]) -> Layer {
         resultBufferPointer[2 * i + 1] = result.1 // Imaginary part
     }
 
-    return Layer(shape: [128], buffer: resultBuffer)
+    return Vector(shape: [128], buffer: resultBuffer)
 }
 
-func add(dest: inout Layer, by vector: Layer) {
+func add(dest: inout Vector, by vector: Vector) {
     assert(dest.shape == vector.shape, "Shapes of both layers must match")
 
     for i in 0..<dest.count() {
@@ -369,10 +359,10 @@ func add(dest: inout Layer, by vector: Layer) {
 
 
 
-func mul(vec: Layer, by wa: Layer) -> Layer {
+func mul(vec: Vector, by wa: Vector) -> Vector {
     assert(vec.shape == wa.shape)
     
-    var output = Layer(shape: vec.shape, device: vec.buffer.device)
+    var output = Vector(shape: vec.shape, device: vec.buffer.device)
     
     // Perform element-wise multiplication
     for i in 0..<vec.count() {
@@ -388,7 +378,7 @@ func dispatch(_ encoder: MTLComputeCommandEncoder, state: MTLComputePipelineStat
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 
-func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
+func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], threadCount: Int) {
     let internalFunc = library.makeFunction(name: fname)!
     let internalState = try! device.makeComputePipelineState(function: internalFunc)
         
@@ -403,14 +393,14 @@ func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer]
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 
-func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
+func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     let innerDim = 11008
     assert(w1.shape==[11008, 4096])
     assert(w2.shape==[4096, 11008])
     assert(w3.shape==[11008, 4096])
     assert(fxn.shape==[4096])
     
-    let fx = Layer(shape: [innerDim], device: device)//, andPrivate: true)
+    let fx = Vector(shape: [innerDim], device: device)
     let startTime = Date()
     
     let commandBuffer = commandQueue.makeCommandBuffer()!
@@ -423,7 +413,6 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     encoder.endEncoding()
     commandBuffer.commit()
 
-
     print("Internal total2: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
     commandBuffer.waitUntilCompleted()
@@ -432,12 +421,12 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
 }
 
 
-func mul_col(vec: Layer, by weights: Layer) -> Layer {
+func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
     let (rows, cols) = (weights.rows, weights.cols!)
     let startTime = Date()
 
-    let output = Layer(shape: [rows], device: weights.buffer.device)
+    let output = Vector(shape: [rows], device: weights.buffer.device)
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
@@ -454,7 +443,7 @@ func mul_col(vec: Layer, by weights: Layer) -> Layer {
     return output
 }
 
-func mul_vm(v: Layer, layer: [String: Layer], name: String) {
+func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     // name e.g. feed_forward.w1
     let weights = layer[name]!
     let rowIds = layer[name+".ids"]!
@@ -468,7 +457,7 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     print(rowVals.shape)
 
     let probes = 4096
-    var o = Layer(shape: [probes], device: weights.buffer.device)
+    var o = Vector(shape: [probes], device: weights.buffer.device)
     for i in 0..<probes {
         o[i] = abs(v[i] * weights[i*weights.cols! + i])
     }
@@ -490,7 +479,7 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let bufferX = weights.buffer.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
     let bufferPointer = bufferX.contents().bindMemory(to: Float.self, capacity: 11008)
 
-    let out = Layer(shape: [rowVals.cols!], with: 0, device: weights.buffer.device)
+    let out = Vector(shape: [rowVals.cols!], with: 0, device: weights.buffer.device)
     
     let accumFunction = library.makeFunction(name: "accum")!
     let pipeline = try! device.makeComputePipelineState(function: accumFunction)
@@ -547,7 +536,7 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     
 }
 
-func sortVec(_ v: inout Layer) {
+func sortVec(_ v: inout Vector) {
     // taken from https://developer.apple.com/forums/thread/674181
     //            https://github.com/tgymnich/MetalSort
     

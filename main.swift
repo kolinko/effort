@@ -44,14 +44,14 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let tokenNum = 0
 
-var xkLayerTokenHead = [[[Layer]]]()
-var xvLayerTokenHead = [[[Layer]]]()
-var xqLayerTokenHead = [[[Layer]]]()
+var xkLayerTokenHead = [[[Vector]]]()
+var xvLayerTokenHead = [[[Vector]]]()
+var xqLayerTokenHead = [[[Vector]]]()
 
 for _ in 0...3 {
-    xkLayerTokenHead.append([[Layer]]())
-    xvLayerTokenHead.append([[Layer]]())
-    xqLayerTokenHead.append([[Layer]]())
+    xkLayerTokenHead.append([[Vector]]())
+    xvLayerTokenHead.append([[Vector]]())
+    xqLayerTokenHead.append([[Vector]]())
 }
 
 let numTokens = 1
@@ -75,7 +75,7 @@ for layerNo in 0...3 {
     var h = tokens[thisToken]
     let layer = modelData.layers[layerNo]!
     
-    let wa = layer["attention_norm"]!
+    let wa = layer["attention_norm"]!.asVector()
     
     let wq = layer["attention.wq"]!
     let wk = layer["attention.wk"]!
@@ -153,7 +153,7 @@ for layerNo in 0...3 {
     }
     
     // ffn output
-    let attnOutput = Layer(from: output, using: device)
+    let attnOutput = Vector(from: output, using: device)
     let attnFfn = mul_col(vec: attnOutput, by: wo)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
@@ -166,7 +166,7 @@ for layerNo in 0...3 {
 
     let h_norm2 = h.rmsNorm()
     assert(h_norm2.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
-    let wn = layer["ffn_norm"]!
+    let wn = layer["ffn_norm"]!.asVector()
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
     let w3 = layer["feed_forward.w3"]!
