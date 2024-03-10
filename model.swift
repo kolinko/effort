@@ -207,7 +207,7 @@ func dot(_ vec1: Layer, _ vec2: Layer) -> Float16 {
 
 /// freqs
 
-func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
+func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
     func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
         assert(num>1)
         let step = (end - start) / Double(num)
@@ -217,14 +217,14 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float, Float)]] {
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
-    let def: (Float, Float) = (0.0, 0.0)
-    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float, Float)]]
+    let def: (Float16, Float16) = (0.0, 0.0)
+    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float16, Float16)]]
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
             let freq = freqs[j]
             let angle = Float(i) * Float(freq)
-            let realPart = cos(angle)
-            let imagPart = sin(angle)
+            let realPart = Float16(cos(angle))
+            let imagPart = Float16(sin(angle))
             heads[i][j]=(realPart, imagPart)
         }
     }
@@ -254,10 +254,10 @@ func reshape(vec: Layer, newDimSize: Int) -> [Layer] {
     return newLayers
 }
 
-func mul(layer: Layer, complexArray: [(Float, Float)]) -> Layer {
+func mul(layer: Layer, complexArray: [(Float16, Float16)]) -> Layer {
     // Ensure the layer has the correct number of elements
     
-    func multiplyComplex(_ num1: (Float, Float), _ num2: (Float, Float)) -> (Float, Float) {
+    func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
         let (a, b) = num1
         let (c, d) = num2
         return (a * c - b * d, a * d + b * c)
@@ -266,14 +266,12 @@ func mul(layer: Layer, complexArray: [(Float, Float)]) -> Layer {
     assert(layer.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
 
     let count = layer.shape[0] / 2
-    let layerBufferPointer = layer.buffer.contents().bindMemory(to: Float.self, capacity: layer.shape[0])
-
     let device = layer.buffer.device
-    let resultBuffer = device.makeBuffer(length: layer.shape[0] * MemoryLayout<Float>.size, options: .storageModeShared)!
-    let resultBufferPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: layer.shape[0])
+    let resultBuffer = device.makeBuffer(length: layer.shape[0] * MemoryLayout<Float16>.size, options: .storageModeShared)!
+    let resultBufferPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: layer.shape[0])
 
     for i in 0..<count {
-        let complexNum = (layerBufferPointer[2 * i], layerBufferPointer[2 * i + 1])
+        let complexNum = (layer[2 * i], layer[2 * i + 1])
         let result = multiplyComplex(complexNum, complexArray[i])
         resultBufferPointer[2 * i] = result.0     // Real part
         resultBufferPointer[2 * i + 1] = result.1 // Imaginary part
@@ -307,15 +305,17 @@ func mul(vec: Layer, by wa: Layer) -> Layer {
 
 
 func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer], threadCount: Int) {
-    var internalState : MTLComputePipelineState
+//    var internalState : MTLComputePipelineState
+    /*
     if (fname == "internal") {
         internalState = internalSState
     } else if (fname == "second") {
         internalState = secondSState
     } else {
+     */
         let internalFunc = library.makeFunction(name: fname)!
-        internalState = try! device.makeComputePipelineState(function: internalFunc)
-    }
+        let internalState = try! device.makeComputePipelineState(function: internalFunc)
+//    }
         
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     assert(internalState.threadExecutionWidth < 4096)
@@ -329,84 +329,6 @@ func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Layer]
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 
-func runSort() {
-    // taken from https://developer.apple.com/forums/thread/674181
-    //            https://github.com/tgymnich/MetalSort
-    
-
-    let device = MTLCreateSystemDefaultDevice()!
-    let commandQueue = device.makeCommandQueue()!
-    let library = device.makeDefaultLibrary()!
-    let sortFunction = library.makeFunction(name: "bitonicSort")!
-    let pipeline = try! device.makeComputePipelineState(function: sortFunction)
-
-    let setRange = 0..<1024
-    var floatData = [Float]()
-    var uintData = [UInt32]()
-    // Build the Float and index data backward to form worst case scenerio for sorting.
-    for value in stride(from: Float(setRange.upperBound-1), to: Float(setRange.lowerBound-1), by: -1.0) {
-        floatData.append(value)
-    }
-    for value in stride(from: setRange.upperBound-1, to: setRange.lowerBound-1, by: -1) {
-        uintData.append(UInt32(value))
-    }
-
-
-    //print(floatData)
-    //print("")
-    //print(uintData)
-    guard let logn = Int(exactly: log2(Double(floatData.count))) else {
-        fatalError("data.count is not a power of 2")
-    }
-    let floatDataBuffer = device.makeBuffer(bytes: &floatData,
-                                            length: MemoryLayout<Float>.stride * floatData.count,
-                                            options: [.storageModeShared])!
-    floatDataBuffer.label = "floatDataBuffer"
-    let uintDataBuffer = device.makeBuffer(bytes: &uintData,
-                                           length: MemoryLayout<UInt32>.stride * uintData.count,
-                                           options: [.storageModeShared])!
-    uintDataBuffer.label = "uintDataBuffer"
-    let threadgroupsPerGrid = MTLSize(width: floatData.count, height: 1, depth: 1)
-    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-    let startTime = Date()
-
-    for p in 0..<logn {
-        for q in 0..<p+1 {
-
-            var n1 = p
-            var n2 = q
-
-            encoder.setComputePipelineState(pipeline)
-            encoder.setBuffer(floatDataBuffer, offset: 0, index: 0)
-            encoder.setBuffer(uintDataBuffer, offset: 0, index: 1)
-            encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 2)
-            encoder.setBytes(&n2, length: MemoryLayout<UInt32>.stride, index: 3)
-            encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-        }
-    }
-    encoder.endEncoding()
-
-    commandBuffer.commit()
-
-    commandBuffer.waitUntilCompleted()
-
-    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-    let dataPointer = floatDataBuffer.contents().assumingMemoryBound(to: Float.self)
-    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: floatData.count)
-    floatData = Array.init(dataBufferPointer)
-    let dataPointer2 = uintDataBuffer.contents().assumingMemoryBound(to: UInt32.self)
-    let dataBufferPointer2 = UnsafeMutableBufferPointer(start: dataPointer2, count: uintData.count)
-    uintData = Array.init(dataBufferPointer2)
-
-//        print(floatData)
-//        print("")
-//        print(uintData)
-    }
-
 func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     let innerDim = 11008
     assert(w1.shape==[11008, 4096])
@@ -414,45 +336,23 @@ func ffn(_ h: inout Layer, fxn: Layer, w1: Layer, w2: Layer, w3: Layer) {
     assert(w3.shape==[11008, 4096])
     assert(fxn.shape==[4096])
     
-    runSort()
-
-    let fx = Layer(shape: [innerDim], device: device, andPrivate: true)
+    let fx = Layer(shape: [innerDim], device: device)//, andPrivate: true)
     let startTime = Date()
     
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
-    
+
     deploy(encoder, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     deploy(encoder, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
 
     // execute
     encoder.endEncoding()
-    
-//    let commandBuffer2 = commandQueue.makeCommandBuffer()!
-    let encoder2 = commandBuffer.makeComputeCommandEncoder()!
-    
-    /*
-    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-    deploy(encoder2, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    deploy(encoder2, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-    */
-    
-    // execute
-    //encoder2.endEncoding()
-    encoder2.endEncoding()
-    print("Internal total3: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
     commandBuffer.commit()
+
 
     print("Internal total2: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
     commandBuffer.waitUntilCompleted()
-//    commandBuffer2.waitUntilCompleted()
 
     print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
@@ -509,7 +409,6 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let quant = 0.16
     let q = Int(Double(probes)*(1-quant))
     var cutoff: Float16 = o[q]
-//    assert(cutoff==0.001181)
 
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
@@ -518,12 +417,10 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let bufferX = weights.buffer.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
     let bufferPointer = bufferX.contents().bindMemory(to: Float.self, capacity: 11008)
 
-    
     let out = Layer(shape: [rowVals.cols!], with: 0, device: weights.buffer.device)
     
     let accumFunction = library.makeFunction(name: "accum")!
     let pipeline = try! device.makeComputePipelineState(function: accumFunction)
-    print(v.rows)
     let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
     let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
@@ -531,7 +428,6 @@ func mul_vm(v: Layer, layer: [String: Layer], name: String) {
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
-
     for i in 0..<11008 {
         bufferPointer[i] = 0
     }
@@ -626,64 +522,3 @@ func sortVec(_ v: inout Layer) {
     print("basicSort: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
     }
-
-
-/*
- 
- 
- 
- @profile
- def mul_vm_optimal_(v, M, N, N_abs, quant):
-     # calculate Y at quant, or calculate quant itself
-     out = []
-     for x in range(min(M.shape)):
-         out.append(abs(v[x]*M[x,x]))
-     out = np.sort(out)
-     Y = out[int(len(out)*(1-quant))] # optional, automatically find quant
-     X = int(M.shape[0]*N.shape[1]*quant*1.3)
-
-     # find cutoff here. that is, find a first element in O that is smaller than V/Y, right?
-     cutoffs = [find_cutoff(v[x], N[x], Y, N_abs[x]) for x in range(len(v))]
-
-     return accum(v, N, cutoffs, X)
-
- @profile
- def accum(v, N, cutoffs, X):
-     accum_row_ids = np.zeros(X, dtype=int)
-     accum_r_values = np.zeros(X, dtype=float)
-     out = np.zeros(N.shape[1])
-
-     count = 0
-     count2 = 0
-     current_index = 0
-
-     for x in range(len(v)):
-         cutoff = cutoffs[x]
-         if cutoff == 0:
-             continue
-
-         next_index = current_index + cutoff
-         row_ids = N[x, :cutoff, 0]
-         m_values = N[x, :cutoff, 1]
-
-         r_values = v[x] * m_values
-         accum_row_ids[current_index:next_index] = row_ids
-         accum_r_values[current_index:next_index] = r_values
-
-         current_index = next_index
-         count2 += cutoff
-
-
-     final_row_ids = accum_row_ids[:current_index]
-     final_r_values = accum_r_values[:current_index]
-
-     aggregated_sums = np.bincount(final_row_ids, weights=final_r_values)
-     if aggregated_sums.size < out.size:
-         # If aggregated_sums is shorter, pad it with zeros up to the size of 'out'
-         aggregated_sums = np.pad(aggregated_sums, (0, out.size - aggregated_sums.size), 'constant')
-
-     out += aggregated_sums
-     return out
-
- 
- */

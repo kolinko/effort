@@ -175,7 +175,7 @@ for layerNo in 0...3 {
     // below = 22.28-15.73 = 6ms = 1/4th of all the loop
     
     print(w1.shape)
-    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
+//    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
 
     
     ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
