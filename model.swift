@@ -76,8 +76,8 @@ class Bufferable {
     
     func getInt(index: Int) -> Int16 {
         var floatStorage: Float16 = self[index]//1.0
-        //        let floatValue: Float16 = w1ids[i]//1.0
-        // Convert Float16 to UInt16 to preserve the bit pattern.
+        var intStorage: Int16 = 0
+
         withUnsafePointer(to: &floatStorage) { floatPointer in
             floatPointer.withMemoryRebound(to: Int16.self, capacity: 1) { intPointer in
                 intStorage = intPointer.pointee
@@ -362,7 +362,7 @@ func add(dest: inout Vector, by vector: Vector) {
 func mul(vec: Vector, by wa: Vector) -> Vector {
     assert(vec.shape == wa.shape)
     
-    var output = Vector(shape: vec.shape, device: vec.buffer.device)
+    let output = Vector(shape: vec.shape, device: vec.buffer.device)
     
     // Perform element-wise multiplication
     for i in 0..<vec.count() {
@@ -448,7 +448,6 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     let weights = layer[name]!
     let rowIds = layer[name+".ids"]!
     let rowVals = layer[name+".vals"]!
-    let (rows, cols) = (weights.rows, weights.cols!)
     assert (rowIds.cols == weights.rows)
     assert (rowIds.rows == weights.cols)
     
@@ -483,8 +482,6 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     
     let accumFunction = library.makeFunction(name: "accum")!
     let pipeline = try! device.makeComputePipelineState(function: accumFunction)
-    let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
-    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
     let threadCount = v.rows
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
@@ -547,13 +544,11 @@ func sortVec(_ v: inout Vector) {
     let sortFunction = library.makeFunction(name: "basicBitonicSort")!
     let pipeline = try! device.makeComputePipelineState(function: sortFunction)
 
-    let setRange = 0..<v.rows
 
     guard let logn = Int(exactly: log2(Double(v.rows))) else {
         fatalError("data.count is not a power of 2")
     }
-    var floatDataBuffer = v.buffer
-    floatDataBuffer.label = "floatDataBuffer"
+    
     let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
     let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
     
@@ -568,7 +563,7 @@ func sortVec(_ v: inout Vector) {
             var n2 = q
 
             encoder.setComputePipelineState(pipeline)
-            encoder.setBuffer(floatDataBuffer, offset: 0, index: 0)
+            encoder.setBuffer(v.buffer, offset: 0, index: 0)
             encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 1)
             encoder.setBytes(&n2, length: MemoryLayout<UInt32>.stride, index: 2)
             encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)

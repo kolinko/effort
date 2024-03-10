@@ -62,12 +62,6 @@ let thisToken = 0
 import Foundation
 import simd
 
-// Example Float16 value
-let floatValue: Float16 = 1.0
-
-// Allocate memory for Float16 and write the value
-var floatStorage = floatValue
-var intStorage: Int16 = 0
 
 
 
@@ -132,6 +126,7 @@ for layerNo in 0...3 {
     var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
+    
     for headNo in 0..<numHeads {
         for i in 0..<headDim {
             var suma: Float16 = 0.0
@@ -175,12 +170,10 @@ for layerNo in 0...3 {
     assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
     print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    // below = 22.28-15.73 = 6ms = 1/4th of all the loop
     
     print(w1.shape)
-//    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
-
     
+//    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
     ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
