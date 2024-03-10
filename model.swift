@@ -74,7 +74,7 @@ struct Layer {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
         
-        var output = Layer(shape: layer.shape, device: layer.buffer.device)
+        let output = Layer(shape: layer.shape, device: layer.buffer.device)
 
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
@@ -87,8 +87,6 @@ struct Layer {
         // Sum of squares
         let sumFunc = library.makeFunction(name: "sum_of_squares")!
         let sumState = try! device.makeComputePipelineState(function: sumFunc)
-        let startTime = Date()
-
         
         //        var rms : Float = 0
         encoder.setComputePipelineState(sumState)
@@ -113,31 +111,6 @@ struct Layer {
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
 
-        
-
-        /*
-        // Calculate the mean of the squares of the elements
-        var sum: Float32 = 0.0
-        for i in 0..<layer.count() {
-            sum += pow(Float32(layer[i]), 2)
-        }
-        let mean = sum / Float32(layer.count())
-
-        // Calculate the square root of the mean
-        let sqrtMean = sqrt(mean + 1e-6)
-
-        var output2 = Layer(shape: layer.shape, device: layer.buffer.device)
-
-        // Normalize each element and store in the new buffer
-        for i in 0..<layer.count() {
-            output2[i] = Float16(Float32(layer[i]) / sqrtMean)
-        }
-        print(output2[0])
-        print(output2[1])
-        print(output2[2])
-        print(output2[3])
-//        exit(0)
-        */
         return output
     }
     
@@ -231,14 +204,73 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
 
 
 func softmax(_ array: inout [Float16]) {
+    let layer = Layer(from: array, using: device)
+//    let layer = self
+    assert(layer.shape.count == 1, "Only for vectors")
+    
+    let output = Layer(shape: layer.shape, device: layer.buffer.device)
+    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+    let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
+    let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
+    rmsBufferPointer[0] = 0.0
+    
+    // Sum of squares
+    let sumFunc = library.makeFunction(name: "sum_of_exps")!
+    let sumState = try! device.makeComputePipelineState(function: sumFunc)
+    
+    //        var rms : Float = 0
+    encoder.setComputePipelineState(sumState)
+    encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+    encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
+    dispatch(encoder, state: sumState, threadCount: layer.count())
+    
+    // Normalize
+    let normFunc = library.makeFunction(name: "softmax_add")!
+    let normState = try! device.makeComputePipelineState(function: normFunc)
+
+    encoder.setComputePipelineState(normState)
+    encoder.setBuffer(layer.buffer, offset: 0, index: 0)
+    encoder.setBuffer(output.buffer, offset:0, index: 1)
+    encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
+
+    dispatch(encoder, state: normState, threadCount: layer.count())
+    // execute
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+
+    for i in 0..<output.count() {
+        array[i] = output[i]
+    }
+                
+    
+    return
+    
+  
+    
     // Compute exponentials and sum them up
     let exps = array.map { Float16(exp(Float($0))) }
     let sumExps = exps.reduce(Float16(0.0), +)
 
+    print("!")
+    print(sumExps)
+    
+    print(array.count)
     // Normalize each element
     for i in array.indices {
         array[i] = exps[i] / sumExps
+        if i < 10 {
+            print(i)
+            print(array[i])
+        }
     }
+    exit(0)
+//    print(array[0])
+//    print(array[1])
+//    print(array[2])
 }
 
 func dot(_ vec1: Layer, _ vec2: Layer) -> Float16 {

@@ -85,6 +85,8 @@ for layerNo in 0...3 {
     
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     let h_norm = h.rmsNorm()
+    print("compute time rmsnorm \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     let h_norm_norm = mul(vec: h_norm, by:wa)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
@@ -125,7 +127,8 @@ for layerNo in 0...3 {
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])
     }
-    
+    print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
