@@ -91,8 +91,8 @@ for layerNo in 0...3 {
     let xv = mul_col(vec: h_norm_norm, by: wv)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    var xq_heads = reshape(vec: xq, newDimSize: headDim)
-    var xk_heads = reshape(vec: xk, newDimSize: headDim)
+    var xq_heads = xq.reshaped(newCols: headDim)
+    var xk_heads = xk.reshaped(newCols: headDim)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     for i in 0..<numHeads {

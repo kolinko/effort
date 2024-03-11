@@ -237,6 +237,27 @@ class Vector: BufferableFloat16 {
 
         return output
     }
+    
+    
+    func reshaped(newCols: Int) -> [Vector] {
+        // Ensure that the original layer can be evenly divided by the new dimension size
+        assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
+
+        let newRows = self.rows / newCols
+
+        var out = [Vector]()
+        out.reserveCapacity(newRows)
+
+        for i in 0..<newRows {
+            out.append(Vector(shape:[newCols], buffer:self.buffer, offset: i*newCols))
+        }
+        
+        assert(out[3][0] == self[3*newCols])
+
+        return out
+
+    }
+
 }
 
 /*
@@ -339,8 +360,6 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
 
 func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Matrix {
     let outMatrix = Matrix(shape: [numHeads, headDim], device: device)
-    let out = outMatrix.asVectorList()
-    
     
     let scoresMatrix = gpuConsolidate(vecList: scores)
     let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
@@ -357,72 +376,9 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
     
     
     
-    /*
-    let scoresMatrix = gpuConsolidate(vecList: scores).asVectorList()
-    let xvTokenMatrix = gpuConsolidate(vecList: xvToken).asVectorList()
-
-    for headNo in 0..<numHeads {
-        for i in 0..<headDim {
-            var suma: Float16 = 0.0
-            for tok2 in 0...thisToken {
-                suma += scoresMatrix[headNo][tok2] * xvTokenMatrix[tok2][headNo*headDim+i]
-            }
-            out[headNo][i] = suma
-        }
-    }
-    
-    print(out[1][0])
-    print(out[1][1])
-    exit(0);
-     */
-
-    /*
-    for headNo in 0..<numHeads {
-        for i in 0..<headDim {
-            var suma: Float16 = 0.0
-            for tok2 in 0...thisToken {
-                suma += scores[headNo][tok2] * xvToken[tok2][headNo*headDim+i]
-            }
-            out[headNo][i] = suma
-        }
-    }*/
     
     return outMatrix
     
-/*    var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
-    for headNo in 0..<numHeads {
-        for i in 0..<headDim {
-            var suma: Float16 = 0.0
-            for tok2 in 0...thisToken {
-                suma += scores[headNo][tok2] * xvTokenHeads[tok2][headNo][i]
-            }
-            out[headNo][i] = suma
-        }
-    }
-    return out*/
-}
-
-
-func reshape(vec: Vector, newDimSize: Int) -> [Vector] {
-    // Ensure that the original layer can be evenly divided by the new dimension size
-    assert(vec.shape[0] % newDimSize == 0, "Original layer size must be divisible by new dimension size")
-
-    let numNewLayers = vec.shape[0] / newDimSize
-    let vecBufferPointer = vec.buffer.contents().bindMemory(to: Float16.self, capacity: vec.shape[0])
-    let device = vec.buffer.device
-
-    var newLayers: [Vector] = []
-
-    for i in 0..<numNewLayers {
-        let newBuffer = device.makeBuffer(length: newDimSize * MemoryLayout<Float16>.size, options: .storageModeShared)!
-        let newBufferPointer = newBuffer.contents().bindMemory(to: Float16.self, capacity: newDimSize)
-        memcpy(newBufferPointer, vecBufferPointer + i * newDimSize, newDimSize * MemoryLayout<Float16>.size)
-        newLayers.append(Vector(shape: [newDimSize], buffer: newBuffer))
-    }
-
-    assert(newLayers[3][0] == vec[3*newDimSize])
-    
-    return newLayers
 }
 
 func mul(vec: inout Vector, complexArray: [(Float16, Float16)]) {
