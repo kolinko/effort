@@ -114,15 +114,6 @@ for layerNo in 0...3 {
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])
     }
-    
-    for i in 0..<scores.count {
-        for j in 0..<scores[i].rows {
-            assert(scores[i][j]==1.0)
-        }
-    }
-
-    print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")

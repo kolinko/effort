@@ -222,19 +222,19 @@ class Vector: BufferableFloat16 {
         assert(layer.shape.count == 1, "Only for vectors")
         
         let output = Vector(shape: layer.shape, device: layer.buffer.device)
-
-
+        
+        
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeComputeCommandEncoder()!
         let rms = ScalarFloat(value:0.0, device: device)
         deploy(encoder, fname: "sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
         deploy(encoder, fname: "normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
         // Normalize
-
+        
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
-
+        
         return output
     }
     
@@ -242,22 +242,22 @@ class Vector: BufferableFloat16 {
     func reshaped(newCols: Int) -> [Vector] {
         // Ensure that the original layer can be evenly divided by the new dimension size
         assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
-
+        
         let newRows = self.rows / newCols
-
+        
         var out = [Vector]()
         out.reserveCapacity(newRows)
-
+        
         for i in 0..<newRows {
             out.append(Vector(shape:[newCols], buffer:self.buffer, offset: i*newCols))
         }
         
         assert(out[3][0] == self[3*newCols])
-
+        
         return out
-
+        
     }
-
+    
 }
 
 /*
@@ -319,23 +319,23 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let scores = Matrix(shape: [numHeads, thisToken+1], device: device)
-    
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+
     assert(thisToken+1 == xkTokenHeads.count)
     for t2 in 0...thisToken {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-            let commandBuffer = commandQueue.makeCommandBuffer()!
-            let encoder = commandBuffer.makeComputeCommandEncoder()!
 
             let sum = ScalarFloat(value: 0, device: device)
             deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
             deploy(encoder, fname: "setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
 
-            encoder.endEncoding()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
         }
     }
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
 
     return scores.asVectorList()
 }
@@ -541,8 +541,6 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     let bufferX = weights.buffer.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
     let bufferPointer = bufferX.contents().bindMemory(to: Float.self, capacity: 11008)
 
-    let out = Vector(shape: [rowVals.cols!], with: 0, device: weights.buffer.device)
-    
     let accumFunction = library.makeFunction(name: "accum")!
     let pipeline = try! device.makeComputePipelineState(function: accumFunction)
     
