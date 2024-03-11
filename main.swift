@@ -91,23 +91,22 @@ for layerNo in 0...3 {
     
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     let h_norm = h.rmsNormed()
-    print("compute time rmsnorm \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    h_norm.mul(by:wa)
+    
+    let xq = mul_col(vec: h_norm, by: wq)
+    let xk = mul_col(vec: h_norm, by: wk)
+    let xv = mul_col(vec: h_norm, by: wv)
+    let xq_heads = xq.reshaped(newCols: headDim)
+    let xk_heads = xk.reshaped(newCols: headDim)
+    print("compute timen preevald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let h_norm_norm = h_norm.muld(by:wa)
-    print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    gpu.eval()
+    print("compute timen evald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let xq = mul_col(vec: h_norm_norm, by: wq)
-    let xk = mul_col(vec: h_norm_norm, by: wk)
-    let xv = mul_col(vec: h_norm_norm, by: wv)
-    print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
-    var xq_heads = xq.reshaped(newCols: headDim)
-    var xk_heads = xk.reshaped(newCols: headDim)
-    print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
+    
     for i in 0..<numHeads {
-        mul(vec: &xq_heads[i], complexArray: freqsCis[tokenNum])
-        mul(vec: &xk_heads[i], complexArray: freqsCis[tokenNum])
+        xq_heads[i].mul(complexArray: freqsCis[tokenNum])
+        xk_heads[i].mul(complexArray: freqsCis[tokenNum])
     }
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
@@ -119,16 +118,12 @@ for layerNo in 0...3 {
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-//    gpu.eval()
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
 
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])
     }
-
-    gpu.eval()
-    
     print("computen time softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
@@ -139,27 +134,28 @@ for layerNo in 0...3 {
     let attnFfn = mul_col(vec: attnOutput, by: wo)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
-    assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
+//    assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
+//    assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
     
     h.add(by: attnFfn)
-    assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let h_norm2 = h.rmsNormed()
-    assert(h_norm2.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
+    let fxn = h.rmsNormed()
+    //    assert(fxn.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
+    
     let wn = layer["ffn_norm"]!.asVector()
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
     let w3 = layer["feed_forward.w3"]!
 
-    let fxn = h_norm2.muld(by:wn)
-    assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
+    fxn.mul(by:wn)
     print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     
     ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
+    gpu.eval()
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
+//    assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
+    assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
     assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
     print("success!")
 

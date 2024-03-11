@@ -223,18 +223,11 @@ class Vector: BufferableFloat16 {
         assert(layer.shape.count == 1, "Only for vectors")
         
         let output = Vector(shape: layer.shape, device: layer.buffer.device)
-        
-        
-        let commandBuffer = commandQueue.makeCommandBuffer()!
-        let encoder = commandBuffer.makeComputeCommandEncoder()!
         let rms = ScalarFloat(value:0.0, device: device)
-        deploy(encoder, fname: "sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
-        deploy(encoder, fname: "normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
-        // Normalize
         
-        encoder.endEncoding()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        gpu.deploy("sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
+        gpu.deploy("normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
+//        gpu.eval()
         
         return output
     }
@@ -262,18 +255,33 @@ class Vector: BufferableFloat16 {
         assert(self.shape == vector.shape, "Shapes of both layers must match")
 
         gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
-        gpu.eval()
     }
 
-    func muld(by wa: Vector) -> Vector {
+    func mul(by wa: Vector) {
         assert(self.shape == wa.shape)
         
-        let output = Vector(shape: self.shape, device: self.buffer.device)
+        gpu.deploy("mul_vec", buffers:[self, wa, self], threadCount:self.rows)
+    }
+    
+    
+    func mul(complexArray: [(Float16, Float16)]) {
+        // Ensure the layer has the correct number of elements
         
-        gpu.deploy("mul_vec", buffers:[self, wa, output], threadCount:self.rows)
-        gpu.eval()
-
-        return output
+        func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
+            let (a, b) = num1
+            let (c, d) = num2
+            return (a * c - b * d, a * d + b * c)
+        }
+        
+        assert(self.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
+        
+        let count = self.shape[0] / 2
+        for i in 0..<count {
+            let complexNum = (self[2 * i], self[2 * i + 1])
+            let result = multiplyComplex(complexNum, complexArray[i])
+            self[2*i] = result.0
+            self[2*i+1] = result.1
+        }
     }
     
 }
@@ -297,7 +305,6 @@ func softmax(_ layer: inout Vector) {
     gpu.deploy("sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
     gpu.deploy("softmax_add", buffers: [layer, rms], threadCount: layer.count())
 }
-
 
 
 /// freqs
@@ -329,8 +336,6 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let scores = Matrix(shape: [numHeads, thisToken+1], device: device)
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
 
     assert(thisToken+1 == xkTokenHeads.count)
     for t2 in 0...thisToken {
@@ -338,14 +343,12 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
 
             let sum = ScalarFloat(value: 0, device: device)
-            deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
-            deploy(encoder, fname: "setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
+            gpu.deploy("dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
+            gpu.deploy("setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
         }
     }
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-
+    gpu.eval()
+    
     return scores.asVectorList()
 }
 
@@ -353,14 +356,9 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
     assert(vecList.count > 0)
     let out = Matrix(shape:[vecList.count, vecList[0].rows], device: device)
 
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
     for i in 0..<vecList.count {
-        deploy(encoder, fname: "memcpy", buffers: [vecList[i], out.asVectorList()[i]], threadCount: vecList[i].rows)
+        gpu.deploy("memcpy", buffers: [vecList[i], out.asVectorList()[i]], threadCount: vecList[i].rows)
     }
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
 
     return out
     
@@ -375,44 +373,11 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-    deploy(encoder, fname: "sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-    
-    
-    
-    
+    gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
+    gpu.eval()
     
     return outMatrix
-    
 }
-
-func mul(vec: inout Vector, complexArray: [(Float16, Float16)]) {
-    // Ensure the layer has the correct number of elements
-    
-    func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
-        let (a, b) = num1
-        let (c, d) = num2
-        return (a * c - b * d, a * d + b * c)
-    }
-    
-    assert(vec.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
-    
-    let count = vec.shape[0] / 2
-    for i in 0..<count {
-        let complexNum = (vec[2 * i], vec[2 * i + 1])
-        let result = multiplyComplex(complexNum, complexArray[i])
-        vec[2*i] = result.0
-        vec[2*i+1] = result.1
-    }
-
-}
-
-
-
 
 func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     let innerDim = 11008
@@ -422,24 +387,11 @@ func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     assert(fxn.shape==[4096])
     
     let fx = Vector(shape: [innerDim], device: device)
-    let startTime = Date()
     
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    gpu.deploy("internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
+    gpu.deploy("second", buffers: [w2, fx, h], threadCount: 4096)
 
-    deploy(encoder, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    deploy(encoder, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
-
-
-    // execute
-    encoder.endEncoding()
-    commandBuffer.commit()
-
-    print("Internal total2: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
-    commandBuffer.waitUntilCompleted()
-
-    print("Internal total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
+//    gpu.eval()
 }
 
 
@@ -450,16 +402,7 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
 
     let output = Vector(shape: [rows], device: weights.buffer.device)
 
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-
-    deploy(commandEncoder, fname: "mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
-
-    commandEncoder.endEncoding()
-    commandBuffer.commit()
-
-    commandBuffer.waitUntilCompleted()
-
+    gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
     print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     
     return output

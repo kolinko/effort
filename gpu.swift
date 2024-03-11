@@ -24,8 +24,6 @@ class Gpu {
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         
-        print("eval'd")
-        
         self.commandBuffer = commandQueue.makeCommandBuffer()!
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
@@ -57,7 +55,7 @@ class Gpu {
     }
     
 }
-
+/*
 func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
     if (!globalStates.keys.contains(fname)) {
             let internalFunc = library.makeFunction(name: fname)!
@@ -83,3 +81,4 @@ func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Buffer
 
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
+*/
