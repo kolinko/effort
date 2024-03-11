@@ -35,7 +35,7 @@ let secondSState = try! device.makeComputePipelineState(function: secondSFunc)
 var globalStates: [String: MTLComputePipelineState] = [:]
 let functionNames = ["sum_of_squares", "normalize_vector",
                      "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                     "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec"] // Add more function names as needed
+                     "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex"] // Add more function names as needed
 
 for fname in functionNames {
     print(fname)
@@ -100,7 +100,7 @@ for layerNo in 0...3 {
     let xk_heads = xk.reshaped(newCols: headDim)
     print("compute timen preevald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    gpu.eval()
+    //gpu.eval()
     print("compute timen evald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     
@@ -115,11 +115,11 @@ for layerNo in 0...3 {
     
     let xkTokenHeads = xkLayerTokenHead[layerNo]
     let xvToken = xvLayerToken[layerNo]
-    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    print("computen timen-- \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-    assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
+//    assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
 
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])

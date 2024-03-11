@@ -51,6 +51,40 @@ kernel void add_vec(const device half* v [[buffer(0)]],
     out[id] = v[id]+w[id];
 }
 
+kernel void mul_complex(device half2* v [[buffer(0)]],
+                        const device half2* comp [[buffer(1)]],
+                        uint id [[thread_position_in_grid]]) {
+    
+    half2 num1 = v[id];
+    half2 num2 = comp[id];
+    
+    half a = num1.x;
+    half b = num1.y;
+    half c = num2.x;
+    half d = num2.y;
+    
+    half2 out;
+    out.x = a * c - b * d;
+    out.y = a * d + b * c;
+    
+    v[id] = out;
+    /*
+    for i in 0..<count {
+        let complexNum = (self[2 * i], self[2 * i + 1])
+        let result = multiplyComplex(complexNum, complexArray[i])
+        self[2*i] = result.0
+        self[2*i+1] = result.1
+    }
+     */
+    /*
+    let (a, b) = num1
+    let (c, d) = num2
+    return (a * c - b * d, a * d + b * c)*/
+
+    
+}
+
+                        
 
 
 // dotproduct & scores

@@ -264,9 +264,14 @@ class Vector: BufferableFloat16 {
     }
     
     
-    func mul(complexArray: [(Float16, Float16)]) {
+    func mul(complexArray: Vector) {
         // Ensure the layer has the correct number of elements
-        
+        let count: Int = self.shape[0] / 2
+        assert(self.shape[0] == complexArray.rows, "Layer size must be twice the size of the complex array")
+
+        gpu.deploy("mul_complex", buffers: [self, complexArray], threadCount: count)
+        //gpu.eval()
+        /*
         func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
             let (a, b) = num1
             let (c, d) = num2
@@ -274,14 +279,14 @@ class Vector: BufferableFloat16 {
         }
         
         assert(self.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
-        
-        let count = self.shape[0] / 2
+         let count = self.shape[0] / 2
+
         for i in 0..<count {
             let complexNum = (self[2 * i], self[2 * i + 1])
             let result = multiplyComplex(complexNum, complexArray[i])
             self[2*i] = result.0
             self[2*i+1] = result.1
-        }
+        }*/
     }
     
 }
@@ -309,7 +314,7 @@ func softmax(_ layer: inout Vector) {
 
 /// freqs
 
-func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
+func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
         assert(num>1)
         let step = (end - start) / Double(num)
@@ -320,17 +325,20 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
     let def: (Float16, Float16) = (0.0, 0.0)
-    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float16, Float16)]]
+//    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float16, Float16)]]
+    var heads = Matrix(shape: [2*maxSeqLen, freqs.count*2], device: device).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
             let freq = freqs[j]
             let angle = Float(i) * Float(freq)
             let realPart = Float16(cos(angle))
             let imagPart = Float16(sin(angle))
-            heads[i][j]=(realPart, imagPart)
+            heads[i][j*2] = realPart
+            heads[i][j*2+1] = imagPart
         }
     }
-    assert(heads[1][1]==((0.6479058, 0.7617204)))
+    assert(heads[1][2]==0.6479058)
+    assert(heads[1][3]==0.7617204)
     return heads
 }
 
@@ -347,7 +355,7 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
             gpu.deploy("setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
         }
     }
-    gpu.eval()
+    //gpu.eval()
     
     return scores.asVectorList()
 }
@@ -374,7 +382,7 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
     gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
-    gpu.eval()
+    //gpu.eval()
     
     return outMatrix
 }
