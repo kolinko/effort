@@ -16,34 +16,81 @@ extension String.StringInterpolation {
 
 class Bufferable {
     let buffer: MTLBuffer
-    let bufferPointer: UnsafeMutablePointer<Float16>
-
-    init(shape: [Int], device: MTLDevice, andPrivate: Bool) {
-        assert(andPrivate == true)
-        let numElements = shape.reduce(1, *)
-        let bufferSize = numElements * MemoryLayout<Float16>.size
-        let buffer = device.makeBuffer(length: bufferSize, options: .storageModePrivate)!
-        self.rows = shape[0]
-        self.cols = shape.count >= 2 ? shape[1] : nil
-        self.shape = shape
+    let offset: Int
+    
+    init(buffer: MTLBuffer, offset: Int = 0) {
         self.buffer = buffer
-        
-        let bsBuffer = device.makeBuffer(length: 1, options: .storageModeShared)!
-        self.bufferPointer = bsBuffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+        self.offset = offset
     }
-    
-    
+}
+
+class BufferableFloat: Bufferable {
+    let bufferPointer: UnsafeMutablePointer<Float>
     let shape: [Int]
     let rows: Int
     let cols: Int?
     
-    
-    init(shape: [Int], buffer: MTLBuffer) {
+    init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
         self.rows = shape[0]
         self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
-        self.buffer = buffer
+        self.bufferPointer = buffer.contents().bindMemory(to: Float.self, capacity: self.shape.reduce(1, *))
+        super.init(buffer: buffer, offset: offset*MemoryLayout<Float>.size)
+    }
+    
+    convenience init(shape: [Int], device: MTLDevice) {
+        let bufferSize = shape.reduce(1, *) * MemoryLayout<Float>.size
+        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        self.init(shape: shape, buffer: buffer)
+    }
+    
+    subscript(index: Int) -> Float {
+            get {
+                let bufferPointer = self.bufferPointer
+                return bufferPointer[index]
+            }
+            set(newValue) {
+                let bufferPointer = self.bufferPointer
+                bufferPointer[index] = newValue
+            }
+        }
+}
+
+class ScalarFloat: BufferableFloat {
+    
+    convenience init(value: Float, device: MTLDevice) {
+        self.init(shape: [1], device: device)
+        self[0] = value;
+    }
+    
+}
+
+
+class Scalar: BufferableFloat16 {
+    
+    convenience init(value: Float16, device: MTLDevice) {
+        self.init(shape: [1], device: device)
+        self[0] = value;
+    }
+    
+    convenience init(buffer: MTLBuffer, offset: Int = 0) {
+        self.init(shape: [1], buffer: buffer, offset: offset)
+    }
+    
+}
+
+class BufferableFloat16 : Bufferable {
+    let bufferPointer: UnsafeMutablePointer<Float16>
+    let shape: [Int]
+    let rows: Int
+    let cols: Int?
+
+    init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
+        self.rows = shape[0]
+        self.cols = shape.count >= 2 ? shape[1] : nil
+        self.shape = shape
         self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
+        super.init(buffer: buffer, offset: offset*MemoryLayout<Float16>.size)
     }
     
     
@@ -90,11 +137,11 @@ class Bufferable {
     subscript(index: Int) -> Float16 {
             get {
                 let bufferPointer = self.bufferPointer
-                return bufferPointer[index]
+                return bufferPointer[index+Int(offset/2)]
             }
             set(newValue) {
                 let bufferPointer = self.bufferPointer
-                bufferPointer[index] = newValue
+                bufferPointer[index+Int(offset/2)] = newValue
             }
         }
     
@@ -149,15 +196,29 @@ class Bufferable {
     
 }
 
-class Matrix: Bufferable {
+class Matrix: BufferableFloat16 {
     func asVector() -> Vector {
         assert(self.shape.count == 1, "Not a vector")
         
         return Vector(shape: self.shape, buffer: self.buffer)
     }
+    
+    func scalarAt(_ row: Int, _ col: Int) -> Scalar {
+        return Scalar(buffer: self.buffer, offset: row*self.cols! + col)
+        //scores.scalarAt(headNo, t2)
+    }
+    
+    func asVectorList() -> [Vector] {
+        var out = [Vector]()
+        out.reserveCapacity(self.rows)
+        for i in 0..<self.rows {
+            out.append(Vector(shape:[self.cols!], buffer:self.buffer, offset: i*self.cols!))
+        }
+        return out
+    }
 }
 
-class Vector: Bufferable {
+class Vector: BufferableFloat16 {
     func rmsNorm() -> Vector {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
@@ -167,34 +228,11 @@ class Vector: Bufferable {
 
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeComputeCommandEncoder()!
-
-        let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
-        let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
-        rmsBufferPointer[0] = 0.0
-        
-        // Sum of squares
-        let sumFunc = library.makeFunction(name: "sum_of_squares")!
-        let sumState = try! device.makeComputePipelineState(function: sumFunc)
-        
-        //        var rms : Float = 0
-        encoder.setComputePipelineState(sumState)
-        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-        encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
-        dispatch(encoder, state: sumState, threadCount: layer.count())
-        
+        let rms = ScalarFloat(value:0.0, device: device)
+        deploy(encoder, fname: "sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
+        deploy(encoder, fname: "normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
         // Normalize
-        let normFunc = library.makeFunction(name: "normalize_vector")!
-        let normState = try! device.makeComputePipelineState(function: normFunc)
 
-        encoder.setComputePipelineState(normState)
-        encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-        encoder.setBuffer(output.buffer, offset:0, index: 1)
-        encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
-        var co: Int = self.count()
-        encoder.setBytes(&co, length: 4, index: 3)
-
-        dispatch(encoder, state: normState, threadCount: layer.count())
-        // execute
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -216,51 +254,19 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
 }
 
 
-func softmax(_ array: inout [Float16]) {
-    let layer = Vector(from: array, using: device)
-//    let layer = self
-    assert(layer.shape.count == 1, "Only for vectors")
-    
-    let output = Vector(shape: layer.shape, device: layer.buffer.device)
-    
+func softmax(_ layer: inout Vector) {
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
 
-    let rmsBuffer = device.makeBuffer(length: MemoryLayout<Float>.size, options: [])!
-    let rmsBufferPointer = rmsBuffer.contents().bindMemory(to: Float.self, capacity: 1)
-    rmsBufferPointer[0] = 0.0
+    let rms = ScalarFloat(value: 0.0, device: device)
     
-    // Sum of squares
-    let sumFunc = library.makeFunction(name: "sum_of_exps")!
-    let sumState = try! device.makeComputePipelineState(function: sumFunc)
+    deploy(encoder, fname:"sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
+    deploy(encoder, fname: "softmax_add", buffers: [layer, rms], threadCount: layer.count())
     
-    //        var rms : Float = 0
-    encoder.setComputePipelineState(sumState)
-    encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-    encoder.setBuffer(rmsBuffer, offset: 0, index: 1)
-    dispatch(encoder, state: sumState, threadCount: layer.count())
-    
-    // Normalize
-    let normFunc = library.makeFunction(name: "softmax_add")!
-    let normState = try! device.makeComputePipelineState(function: normFunc)
-
-    encoder.setComputePipelineState(normState)
-    encoder.setBuffer(layer.buffer, offset: 0, index: 0)
-    encoder.setBuffer(output.buffer, offset:0, index: 1)
-    encoder.setBuffer(rmsBuffer, offset: 0, index: 2)
-
-    dispatch(encoder, state: normState, threadCount: layer.count())
     // execute
     encoder.endEncoding()
     commandBuffer.commit()
     commandBuffer.waitUntilCompleted()
-
-    for i in 0..<output.count() {
-        array[i] = output[i]
-    }
-                
-    
-    return
 }
 
 func dot(_ vec1: Vector, _ vec2: Vector) -> Float16 {
@@ -300,6 +306,52 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
     assert(heads[1][1]==((0.6479058, 0.7617204)))
     return heads
 }
+
+func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
+//    var scores = makeArray(dims: [numHeads, thisToken+1], value: Float16(-10000)) as! [[Float16]]
+    var scores = Matrix(shape: [numHeads, thisToken+1], device: device)
+    
+    assert(thisToken+1 == xkTokenHeads.count)
+    for t2 in 0...thisToken {
+        for headNo in 0..<numHeads {
+/*            let sum = dot(xq_heads[headNo], xkTokenHeads[t2][headNo])
+            scores[headNo][t2] = sum / sqrt(Float16(headDim))*/
+            assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
+            let commandBuffer = commandQueue.makeCommandBuffer()!
+            let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+            let sum = ScalarFloat(value: 0, device: device)
+            
+            deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
+            let sc = scores.scalarAt(headNo, t2)
+            deploy(encoder, fname: "setScore", buffers:[sum, sc], threadCount: 1)
+
+            encoder.endEncoding()
+            commandBuffer.commit()
+
+            commandBuffer.waitUntilCompleted()
+
+
+        }
+    }
+
+    return scores.asVectorList()
+}
+
+func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vector]]) -> [[Float16]] {
+    var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
+    for headNo in 0..<numHeads {
+        for i in 0..<headDim {
+            var suma: Float16 = 0.0
+            for tok2 in 0...thisToken {
+                suma += scores[headNo][tok2] * xvTokenHeads[thisToken][headNo][i]
+            }
+            out[headNo][i] = suma
+        }
+    }
+    return out
+}
+
 
 func reshape(vec: Vector, newDimSize: Int) -> [Vector] {
     // Ensure that the original layer can be evenly divided by the new dimension size
@@ -379,6 +431,10 @@ func dispatch(_ encoder: MTLComputeCommandEncoder, state: MTLComputePipelineStat
 }
 
 func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], threadCount: Int) {
+    deploy(encoder, fname:fname, buffers:buffers, ints:[], threadCount: threadCount)
+}
+
+func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int], threadCount: Int) {
     let internalFunc = library.makeFunction(name: fname)!
     let internalState = try! device.makeComputePipelineState(function: internalFunc)
         
@@ -388,8 +444,14 @@ func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Buffer
     encoder.setComputePipelineState(internalState)
 
     for i in 0..<buffers.count {
-        encoder.setBuffer(buffers[i].buffer, offset: 0, index: i)
+        encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset, index: i)
     }
+
+    for i in 0..<ints.count {
+        var x: Int = ints[i]
+        encoder.setBytes(&x, length: MemoryLayout<Int>.stride, index: i+buffers.count)
+    }
+
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 

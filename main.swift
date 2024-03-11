@@ -85,7 +85,6 @@ for layerNo in 0...3 {
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     let xq = mul_col(vec: h_norm_norm, by: wq)
-    print(wq.shape)
     let xk = mul_col(vec: h_norm_norm, by: wk)
     let xv = mul_col(vec: h_norm_norm, by: wv)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -107,35 +106,27 @@ for layerNo in 0...3 {
     let xkTokenHeads = xkLayerTokenHead[layerNo]
     let xvTokenHeads = xvLayerTokenHead[layerNo]
     
-    var scores = makeArray(dims: [numHeads, thisToken+1], value: Float16(-10000)) as! [[Float16]]
-    
-    assert(thisToken+1 == xkTokenHeads.count)
-    for t2 in 0...thisToken {
-        for headNo in 0..<numHeads {
-            let sum = dot(xq_heads[headNo], xkTokenHeads[t2][headNo])
-            scores[headNo][t2] = sum / sqrt(Float16(headDim))
-        }
-    }
+    var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
+    assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
+    
     for headNo in 0..<numHeads {
         softmax(&scores[headNo])
     }
-    print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
-    var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
-    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
     
-    for headNo in 0..<numHeads {
-        for i in 0..<headDim {
-            var suma: Float16 = 0.0
-            for tok2 in 0...thisToken {
-                suma += scores[headNo][tok2] * xvTokenHeads[thisToken][headNo][i]
-            }
-            out[headNo][i] = suma
+    for i in 0..<scores.count {
+        for j in 0..<scores[i].rows {
+            assert(scores[i][j]==1.0)
         }
     }
+
+    print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+//    var outMatrix = Matrix(shape: [numHeads, headDim], with: 0.0, device: device)
+    
+    let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvTokenHeads: xvTokenHeads)
+
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     // merge heads
@@ -143,7 +134,7 @@ for layerNo in 0...3 {
 
     for headNo in 0..<numHeads {
         for i in 0..<headDim {
-            output.append(out[headNo][i])
+            output.append(outMatrix[headNo][i])
         }
     }
     

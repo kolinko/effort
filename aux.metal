@@ -31,13 +31,29 @@ kernel void sum_of_exps(const device half* input [[buffer(0)]],
     atomic_fetch_add_explicit(sum, exp(input[id]), memory_order_relaxed);
 }
 
-kernel void softmax_add(device half* input [[buffer(0)]],
-                             device half* output [[buffer(1)]],
-                             device float* sum [[buffer(2)]],
+kernel void softmax_add(device half* vec [[buffer(0)]],
+                             device float* sum [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
-    output[id] = exp(input[id])/sum[0];
+    vec[id] = exp(vec[id])/sum[0];
 }
 
+// dotproduct & scores
+/*deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo]], numThreads:xq_heads[headNo].rows)
+deploy(encoder, fname: "setScore", buffers:[sum, scores.ScalarAt().buffer], numThreads: 1)*/
+kernel void dot(const device half* v [[buffer(0)]],
+                const device half* w [[buffer(1)]],
+                device atomic_float* sum [[buffer(2)]],
+                uint id [[thread_position_in_grid]]) {
+    atomic_fetch_add_explicit(sum, v[id]*w[id], memory_order_relaxed);
+}
+
+#define headDim 128  // llama head dim
+
+kernel void setScore(const device float* sum [[buffer(0)]],
+                     device half* target) {
+    target[0] = float(sum[0]) / sqrt(float(headDim));
+}
+                    
 
 /*
 func softmax(_ array: inout [Float16]) {
