@@ -75,7 +75,7 @@ import Foundation
 import simd
 
 
-
+let gpu = Gpu()
 
 for layerNo in 0...3 {
     var h = tokens[thisToken]
@@ -90,10 +90,10 @@ for layerNo in 0...3 {
     let wo = layer["attention.wo"]!
     
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-    let h_norm = h.rmsNorm()
+    let h_norm = h.rmsNormed()
     print("compute time rmsnorm \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let h_norm_norm = mul(vec: h_norm, by:wa)
+    let h_norm_norm = h_norm.muld(by:wa)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     let xq = mul_col(vec: h_norm_norm, by: wq)
@@ -119,22 +119,17 @@ for layerNo in 0...3 {
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
+//    gpu.eval()
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
 
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-
     for headNo in 0..<numHeads {
-        softmax(&scores[headNo], encoder:encoder)
+        softmax(&scores[headNo])
     }
+
+    gpu.eval()
     
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-
     print("computen time softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
 
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
@@ -147,25 +142,21 @@ for layerNo in 0...3 {
     assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
     assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
     
-    add(dest: &h, by: attnFfn)
+    h.add(by: attnFfn)
     assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let h_norm2 = h.rmsNorm()
+    let h_norm2 = h.rmsNormed()
     assert(h_norm2.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
     let wn = layer["ffn_norm"]!.asVector()
     let w1 = layer["feed_forward.w1"]!
     let w2 = layer["feed_forward.w2"]!
     let w3 = layer["feed_forward.w3"]!
 
-    let fxn = mul(vec: h_norm2, by:wn)
+    let fxn = h_norm2.muld(by:wn)
     assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
     print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
     
-    print(w1.shape)
-    
-//    mul_vm(v:fxn, layer:layer, name:"feed_forward.w1")
     ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 

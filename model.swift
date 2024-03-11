@@ -218,7 +218,7 @@ class Matrix: BufferableFloat16 {
 }
 
 class Vector: BufferableFloat16 {
-    func rmsNorm() -> Vector {
+    func rmsNormed() -> Vector {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
         
@@ -254,9 +254,26 @@ class Vector: BufferableFloat16 {
         }
         
         assert(out[3][0] == self[3*newCols])
-        
         return out
+    }
+    
+    
+    func add(by vector: Vector) {
+        assert(self.shape == vector.shape, "Shapes of both layers must match")
+
+        gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
+        gpu.eval()
+    }
+
+    func muld(by wa: Vector) -> Vector {
+        assert(self.shape == wa.shape)
         
+        let output = Vector(shape: self.shape, device: self.buffer.device)
+        
+        gpu.deploy("mul_vec", buffers:[self, wa, output], threadCount:self.rows)
+        gpu.eval()
+
+        return output
     }
     
 }
@@ -274,14 +291,11 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
 }
 
 
-func softmax(_ layer: inout Vector, encoder: MTLComputeCommandEncoder) {
-
+func softmax(_ layer: inout Vector) {
     let rms = ScalarFloat(value: 0.0, device: device)
     
-    deploy(encoder, fname:"sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
-    deploy(encoder, fname: "softmax_add", buffers: [layer, rms], threadCount: layer.count())
-    
-    // execute
+    gpu.deploy("sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
+    gpu.deploy("softmax_add", buffers: [layer, rms], threadCount: layer.count())
 }
 
 
@@ -397,60 +411,8 @@ func mul(vec: inout Vector, complexArray: [(Float16, Float16)]) {
 
 }
 
-func add(dest: inout Vector, by vector: Vector) {
-    assert(dest.shape == vector.shape, "Shapes of both layers must match")
-
-    deploy("add_vec", buffers:[dest, vector, dest], threadCount: dest.rows)
-}
 
 
-
-func mul(vec: Vector, by wa: Vector) -> Vector {
-    assert(vec.shape == wa.shape)
-    
-    let output = Vector(shape: vec.shape, device: vec.buffer.device)
-    
-    deploy("mul_vec", buffers:[vec, wa, output], threadCount:vec.rows)
-
-    return output
-}
-
-func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-
-    deploy(encoder, fname: fname, buffers: buffers, ints: ints, threadCount: threadCount)
-    
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-}
-
-func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
-    if (!globalStates.keys.contains(fname)) {
-            let internalFunc = library.makeFunction(name: fname)!
-            globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
-            print("warn:Compute pipeline state for \(fname) not found.")
-        }
-    
-    let internalState = globalStates[fname]!
-        
-    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
-
-    encoder.setComputePipelineState(internalState)
-
-    for i in 0..<buffers.count {
-        encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset, index: i)
-    }
-
-    for i in 0..<ints.count {
-        var x: Int = ints[i]
-        encoder.setBytes(&x, length: MemoryLayout<Int>.stride, index: i+buffers.count)
-    }
-
-    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-}
 
 func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     let innerDim = 11008
