@@ -91,12 +91,12 @@ for layerNo in 0...3 {
 
     var xq_heads = reshape(vec: xq, newDimSize: headDim)
     var xk_heads = reshape(vec: xk, newDimSize: headDim)
-    let xv_heads = reshape(vec: xv, newDimSize: headDim)
+    let xv_heads = xv//reshape(vec: xv, newDimSize: headDim)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     for i in 0..<numHeads {
-        mul(layer: &xq_heads[i], complexArray: freqsCis[tokenNum])
-        mul(layer: &xk_heads[i], complexArray: freqsCis[tokenNum])
+        mul(vec: &xq_heads[i], complexArray: freqsCis[tokenNum])
+        mul(vec: &xk_heads[i], complexArray: freqsCis[tokenNum])
     }
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
@@ -122,23 +122,11 @@ for layerNo in 0...3 {
 
     print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-//    var outMatrix = Matrix(shape: [numHeads, headDim], with: 0.0, device: device)
-    
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvTokenHeads: xvTokenHeads)
 
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    // merge heads
-    var output = [Float16]()
-
-    for headNo in 0..<numHeads {
-        for i in 0..<headDim {
-            output.append(outMatrix[headNo][i])
-        }
-    }
-    
-    // ffn output
-    let attnOutput = Vector(from: output, using: device)
+    let attnOutput = outMatrix.asVector()
     let attnFfn = mul_col(vec: attnOutput, by: wo)
     print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 

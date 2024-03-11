@@ -198,9 +198,7 @@ class BufferableFloat16 : Bufferable {
 
 class Matrix: BufferableFloat16 {
     func asVector() -> Vector {
-        assert(self.shape.count == 1, "Not a vector")
-        
-        return Vector(shape: self.shape, buffer: self.buffer)
+        return Vector(shape: [self.count()], buffer: self.buffer)
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> Scalar {
@@ -321,8 +319,9 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     return scores.asVectorList()
 }
 
-func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vector]]) -> [[Float16]] {
-    var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
+func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vector]]) -> Matrix {
+    let outMatrix = Matrix(shape: [numHeads, headDim], device: device)
+    let out = outMatrix.asVectorList()
     for headNo in 0..<numHeads {
         for i in 0..<headDim {
             var suma: Float16 = 0.0
@@ -332,7 +331,20 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vec
             out[headNo][i] = suma
         }
     }
-    return out
+    
+    return outMatrix
+    
+/*    var out = makeArray(dims: [numHeads, headDim], value: Float16(0.0)) as! [[Float16]]
+    for headNo in 0..<numHeads {
+        for i in 0..<headDim {
+            var suma: Float16 = 0.0
+            for tok2 in 0...thisToken {
+                suma += scores[headNo][tok2] * xvTokenHeads[tok2][headNo][i]
+            }
+            out[headNo][i] = suma
+        }
+    }
+    return out*/
 }
 
 
