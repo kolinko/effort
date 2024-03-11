@@ -147,6 +147,7 @@ class BufferableFloat16 : Bufferable {
     
     
     func test(_ name: String, mul:Int, val:[Float16]) -> Bool {
+//        return true
         let result = self.test(mul: mul, val: val)
         if result {
 //            print("✔️ \(name)")
@@ -273,9 +274,7 @@ func makeArray<T>(dims: [Int], value: T) -> Any {
 }
 
 
-func softmax(_ layer: inout Vector) {
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
+func softmax(_ layer: inout Vector, encoder: MTLComputeCommandEncoder) {
 
     let rms = ScalarFloat(value: 0.0, device: device)
     
@@ -283,9 +282,6 @@ func softmax(_ layer: inout Vector) {
     deploy(encoder, fname: "softmax_add", buffers: [layer, rms], threadCount: layer.count())
     
     // execute
-    encoder.endEncoding()
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
 }
 
 
@@ -330,7 +326,6 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
             let sum = ScalarFloat(value: 0, device: device)
             deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
             deploy(encoder, fname: "setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
-
         }
     }
     encoder.endEncoding()
@@ -431,13 +426,20 @@ func dispatch(_ encoder: MTLComputeCommandEncoder, state: MTLComputePipelineStat
     encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
 }
 
-func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], threadCount: Int) {
-    deploy(encoder, fname:fname, buffers:buffers, ints:[], threadCount: threadCount)
-}
 
-func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int], threadCount: Int) {
-    let internalFunc = library.makeFunction(name: fname)!
-    let internalState = try! device.makeComputePipelineState(function: internalFunc)
+func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
+    var internalState: MTLComputePipelineState
+    
+    if (!globalStates.keys.contains(fname)) {
+            let internalFunc = library.makeFunction(name: fname)!
+            globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
+            internalState = globalStates[fname]!
+            print("warn:Compute pipeline state for \(fname) not found.")
+        }
+    
+    internalState = globalStates[fname]!
+/*    let internalFunc = library.makeFunction(name: fname)!
+    let internalState = try! device.makeComputePipelineState(function: internalFunc)*/
         
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
@@ -471,6 +473,7 @@ func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
 
     deploy(encoder, fname: "internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     deploy(encoder, fname: "second", buffers: [w2, fx, h], threadCount: 4096)
+
 
     // execute
     encoder.endEncoding()

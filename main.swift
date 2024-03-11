@@ -32,6 +32,16 @@ let internalSFunc = library.makeFunction(name:"internal")!
 let internalSState = try! device.makeComputePipelineState(function: internalSFunc)
 let secondSFunc = library.makeFunction(name:"internal")!
 let secondSState = try! device.makeComputePipelineState(function: secondSFunc)
+var globalStates: [String: MTLComputePipelineState] = [:]
+let functionNames = ["sum_of_squares", "normalize_vector",
+                     "sum_of_exps","softmax_add", "memcpy", "sumScores",
+                     "dot", "setScore", "internal", "second", "mul_col_4096"] // Add more function names as needed
+
+for fname in functionNames {
+    print(fname)
+    let internalFunc = library.makeFunction(name: fname)!
+    globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
+}
 
 
 let dim = 4096
@@ -106,14 +116,26 @@ for layerNo in 0...3 {
     
     let xkTokenHeads = xkLayerTokenHead[layerNo]
     let xvToken = xvLayerToken[layerNo]
-    
+    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
     var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
-    
+
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+
     for headNo in 0..<numHeads {
-        softmax(&scores[headNo])
+        softmax(&scores[headNo], encoder:encoder)
     }
+    
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+
+    print("computen time softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
