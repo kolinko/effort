@@ -95,8 +95,8 @@ for layerNo in 0...3 {
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     for i in 0..<numHeads {
-        xq_heads[i] = mul(layer: xq_heads[i], complexArray: freqsCis[tokenNum])
-        xk_heads[i] = mul(layer: xk_heads[i], complexArray: freqsCis[tokenNum])
+        mul(layer: &xq_heads[i], complexArray: freqsCis[tokenNum])
+        mul(layer: &xk_heads[i], complexArray: freqsCis[tokenNum])
     }
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 

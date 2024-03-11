@@ -358,7 +358,7 @@ func reshape(vec: Vector, newDimSize: Int) -> [Vector] {
     return newLayers
 }
 
-func mul(layer: Vector, complexArray: [(Float16, Float16)]) -> Vector {
+func mul(vec: inout Vector, complexArray: [(Float16, Float16)]) {
     // Ensure the layer has the correct number of elements
     
     func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
@@ -367,21 +367,16 @@ func mul(layer: Vector, complexArray: [(Float16, Float16)]) -> Vector {
         return (a * c - b * d, a * d + b * c)
     }
     
-    assert(layer.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
+    assert(vec.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
     
-    let count = layer.shape[0] / 2
-    let device = layer.buffer.device
-    let resultBuffer = device.makeBuffer(length: layer.shape[0] * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let resultBufferPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: layer.shape[0])
-
+    let count = vec.shape[0] / 2
     for i in 0..<count {
-        let complexNum = (layer[2 * i], layer[2 * i + 1])
+        let complexNum = (vec[2 * i], vec[2 * i + 1])
         let result = multiplyComplex(complexNum, complexArray[i])
-        resultBufferPointer[2 * i] = result.0     // Real part
-        resultBufferPointer[2 * i + 1] = result.1 // Imaginary part
+        vec[2*i] = result.0
+        vec[2*i+1] = result.1
     }
 
-    return Vector(shape: [128], buffer: resultBuffer)
 }
 
 func add(dest: inout Vector, by vector: Vector) {
