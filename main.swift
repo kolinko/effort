@@ -45,13 +45,15 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 let tokenNum = 0
 
 var xkLayerTokenHead = [[[Vector]]]()
-var xvLayerTokenHead = [[[Vector]]]()
 var xqLayerTokenHead = [[[Vector]]]()
+var xvLayerToken = [[Vector]]()
+
 
 for _ in 0...3 {
     xkLayerTokenHead.append([[Vector]]())
-    xvLayerTokenHead.append([[Vector]]())
     xqLayerTokenHead.append([[Vector]]())
+    xvLayerToken.append([Vector]())
+
 }
 
 let numTokens = 1
@@ -91,7 +93,6 @@ for layerNo in 0...3 {
 
     var xq_heads = reshape(vec: xq, newDimSize: headDim)
     var xk_heads = reshape(vec: xk, newDimSize: headDim)
-    let xv_heads = xv//reshape(vec: xv, newDimSize: headDim)
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     for i in 0..<numHeads {
@@ -101,10 +102,10 @@ for layerNo in 0...3 {
     print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
     xkLayerTokenHead[layerNo].append(xk_heads)
-    xvLayerTokenHead[layerNo].append(xv_heads)
+    xvLayerToken[layerNo].append(xv)
     
     let xkTokenHeads = xkLayerTokenHead[layerNo]
-    let xvTokenHeads = xvLayerTokenHead[layerNo]
+    let xvToken = xvLayerToken[layerNo]
     
     var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -122,7 +123,7 @@ for layerNo in 0...3 {
 
     print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvTokenHeads: xvTokenHeads)
+    let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
     print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 

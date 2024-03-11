@@ -38,6 +38,49 @@ kernel void softmax_add(device half* vec [[buffer(0)]],
 }
 
 // dotproduct & scores
+kernel void memcpy(const device half* src [[buffer(0)]],
+                device half* dst [[buffer(1)]],
+                   uint id [[thread_position_in_grid]]) {
+    dst[id] = src[id];
+}
+
+#define numHeads 32
+#define headDim 128  // llama head dim
+#define numDims numHeads*headDim
+
+kernel void sumScores(const device half* scores [[buffer(0)]],
+                      const device half* xvToken [[buffer(1)]],
+                      device half* out [[buffer(2)]],
+                      const device int& numTokens [[buffer(3)]],
+                      uint id [[thread_position_in_grid]]) {
+    float suma = 0.0;
+    uint headNo = id / headDim;
+    for (int tok2 = 0; tok2 < numTokens; tok2++) {
+        suma += scores[headNo*numTokens + tok2] * xvToken[tok2*numDims + id];
+    }
+    out[id] = suma;
+}
+
+
+/*
+deploy(encoder, fname: "sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numHeads*headDim)
+encoder.endEncoding()
+commandBuffer.commit()
+commandBuffer.waitUntilCompleted()
+
+let scoresMatrix = gpuConsolidate(vecList: scores).asVectorList()
+let xvTokenMatrix = gpuConsolidate(vecList: xvToken).asVectorList()
+
+for headNo in 0..<numHeads {
+    for i in 0..<headDim {
+        var suma: Float16 = 0.0
+        for tok2 in 0...thisToken {
+            suma += scoresMatrix[headNo][tok2] * xvTokenMatrix[tok2][headNo*headDim+i]
+        }
+        out[headNo][i] = suma
+    }
+}*/
+
 /*deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo]], numThreads:xq_heads[headNo].rows)
 deploy(encoder, fname: "setScore", buffers:[sum, scores.ScalarAt().buffer], numThreads: 1)*/
 kernel void dot(const device half* v [[buffer(0)]],
@@ -47,7 +90,6 @@ kernel void dot(const device half* v [[buffer(0)]],
     atomic_fetch_add_explicit(sum, v[id]*w[id], memory_order_relaxed);
 }
 
-#define headDim 128  // llama head dim
 
 kernel void setScore(const device float* sum [[buffer(0)]],
                      device half* target) {

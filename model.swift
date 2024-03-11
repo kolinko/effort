@@ -319,18 +319,73 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     return scores.asVectorList()
 }
 
-func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vector]]) -> Matrix {
+func gpuConsolidate(vecList:[Vector]) -> Matrix {
+    assert(vecList.count > 0)
+    let out = Matrix(shape:[vecList.count, vecList[0].rows], device: device)
+
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    for i in 0..<vecList.count {
+        deploy(encoder, fname: "memcpy", buffers: [vecList[i], out.asVectorList()[i]], threadCount: vecList[i].rows)
+    }
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+
+    return out
+    
+    
+}
+
+func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Matrix {
     let outMatrix = Matrix(shape: [numHeads, headDim], device: device)
     let out = outMatrix.asVectorList()
+    
+    
+    let scoresMatrix = gpuConsolidate(vecList: scores)
+    let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
+
+    let numTokens = scores[0].rows
+    let numDims = numHeads*headDim
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+    deploy(encoder, fname: "sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    
+    
+    
+    /*
+    let scoresMatrix = gpuConsolidate(vecList: scores).asVectorList()
+    let xvTokenMatrix = gpuConsolidate(vecList: xvToken).asVectorList()
+
     for headNo in 0..<numHeads {
         for i in 0..<headDim {
             var suma: Float16 = 0.0
             for tok2 in 0...thisToken {
-                suma += scores[headNo][tok2] * xvTokenHeads[tok2][headNo][i]
+                suma += scoresMatrix[headNo][tok2] * xvTokenMatrix[tok2][headNo*headDim+i]
             }
             out[headNo][i] = suma
         }
     }
+    
+    print(out[1][0])
+    print(out[1][1])
+    exit(0);
+     */
+
+    /*
+    for headNo in 0..<numHeads {
+        for i in 0..<headDim {
+            var suma: Float16 = 0.0
+            for tok2 in 0...thisToken {
+                suma += scores[headNo][tok2] * xvToken[tok2][headNo*headDim+i]
+            }
+            out[headNo][i] = suma
+        }
+    }*/
     
     return outMatrix
     
