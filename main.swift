@@ -122,7 +122,6 @@ for layerNo in 0...3 {
 
     print("computen timen softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-    print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 //    var outMatrix = Matrix(shape: [numHeads, headDim], with: 0.0, device: device)
     
     let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvTokenHeads: xvTokenHeads)

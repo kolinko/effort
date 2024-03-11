@@ -269,15 +269,6 @@ func softmax(_ layer: inout Vector) {
     commandBuffer.waitUntilCompleted()
 }
 
-func dot(_ vec1: Vector, _ vec2: Vector) -> Float16 {
-    assert(vec1.count() == vec2.count(), "Vectors must be of the same length")
-    
-    var sum: Float16 = 0.0
-    for i in 0..<vec1.count() {
-        sum += vec1[i] * vec2[i]
-    }
-    return sum
-}
 
 
 /// freqs
@@ -308,30 +299,22 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [[(Float16, Float16)]] {
 }
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
-//    var scores = makeArray(dims: [numHeads, thisToken+1], value: Float16(-10000)) as! [[Float16]]
-    var scores = Matrix(shape: [numHeads, thisToken+1], device: device)
+    let scores = Matrix(shape: [numHeads, thisToken+1], device: device)
     
     assert(thisToken+1 == xkTokenHeads.count)
     for t2 in 0...thisToken {
         for headNo in 0..<numHeads {
-/*            let sum = dot(xq_heads[headNo], xkTokenHeads[t2][headNo])
-            scores[headNo][t2] = sum / sqrt(Float16(headDim))*/
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
             let commandBuffer = commandQueue.makeCommandBuffer()!
             let encoder = commandBuffer.makeComputeCommandEncoder()!
 
             let sum = ScalarFloat(value: 0, device: device)
-            
             deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
-            let sc = scores.scalarAt(headNo, t2)
-            deploy(encoder, fname: "setScore", buffers:[sum, sc], threadCount: 1)
+            deploy(encoder, fname: "setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
 
             encoder.endEncoding()
             commandBuffer.commit()
-
             commandBuffer.waitUntilCompleted()
-
-
         }
     }
 
@@ -344,7 +327,7 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvTokenHeads: [[Vec
         for i in 0..<headDim {
             var suma: Float16 = 0.0
             for tok2 in 0...thisToken {
-                suma += scores[headNo][tok2] * xvTokenHeads[thisToken][headNo][i]
+                suma += scores[headNo][tok2] * xvTokenHeads[tok2][headNo][i]
             }
             out[headNo][i] = suma
         }
