@@ -400,9 +400,7 @@ func mul(vec: inout Vector, complexArray: [(Float16, Float16)]) {
 func add(dest: inout Vector, by vector: Vector) {
     assert(dest.shape == vector.shape, "Shapes of both layers must match")
 
-    for i in 0..<dest.count() {
-        dest[i] += vector[i]
-    }
+    deploy("add_vec", buffers:[dest, vector, dest], threadCount: dest.rows)
 }
 
 
@@ -412,34 +410,30 @@ func mul(vec: Vector, by wa: Vector) -> Vector {
     
     let output = Vector(shape: vec.shape, device: vec.buffer.device)
     
-    // Perform element-wise multiplication
-    for i in 0..<vec.count() {
-        output[i] = vec[i] * wa[i]
-    }
-    
+    deploy("mul_vec", buffers:[vec, wa, output], threadCount:vec.rows)
+
     return output
 }
 
-func dispatch(_ encoder: MTLComputeCommandEncoder, state: MTLComputePipelineState, threadCount: Int) {
-    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    let threadGroupSize = MTLSize(width: state.threadExecutionWidth, height: 1, depth: 1)
-    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
+    let commandBuffer = commandQueue.makeCommandBuffer()!
+    let encoder = commandBuffer.makeComputeCommandEncoder()!
+
+    deploy(encoder, fname: fname, buffers: buffers, ints: ints, threadCount: threadCount)
+    
+    encoder.endEncoding()
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
 }
 
-
 func deploy(_ encoder: MTLComputeCommandEncoder, fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
-    var internalState: MTLComputePipelineState
-    
     if (!globalStates.keys.contains(fname)) {
             let internalFunc = library.makeFunction(name: fname)!
             globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
-            internalState = globalStates[fname]!
             print("warn:Compute pipeline state for \(fname) not found.")
         }
     
-    internalState = globalStates[fname]!
-/*    let internalFunc = library.makeFunction(name: fname)!
-    let internalState = try! device.makeComputePipelineState(function: internalFunc)*/
+    let internalState = globalStates[fname]!
         
     let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
     let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)

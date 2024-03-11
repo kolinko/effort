@@ -35,7 +35,7 @@ let secondSState = try! device.makeComputePipelineState(function: secondSFunc)
 var globalStates: [String: MTLComputePipelineState] = [:]
 let functionNames = ["sum_of_squares", "normalize_vector",
                      "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                     "dot", "setScore", "internal", "second", "mul_col_4096"] // Add more function names as needed
+                     "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec"] // Add more function names as needed
 
 for fname in functionNames {
     print(fname)

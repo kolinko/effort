@@ -36,6 +36,22 @@ kernel void softmax_add(device half* vec [[buffer(0)]],
                         uint id [[thread_position_in_grid]]) {
     vec[id] = exp(vec[id])/sum[0];
 }
+// simple ones
+kernel void mul_vec(const device half* v [[buffer(0)]],
+                const device half* w [[buffer(1)]],
+                device half* out [[buffer(2)]],
+                uint id [[thread_position_in_grid]]) {
+    out[id] = v[id]*w[id];
+}
+
+kernel void add_vec(const device half* v [[buffer(0)]],
+                const device half* w [[buffer(1)]],
+                device half* out [[buffer(2)]],
+                uint id [[thread_position_in_grid]]) {
+    out[id] = v[id]+w[id];
+}
+
+
 
 // dotproduct & scores
 kernel void memcpy(const device half* src [[buffer(0)]],
