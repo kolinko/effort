@@ -22,10 +22,14 @@ class Gpu {
     func eval() {
         encoder.endEncoding()
         commandBuffer.commit()
+    }
+
+    func wait() {
         commandBuffer.waitUntilCompleted()
-        
         self.commandBuffer = commandQueue.makeCommandBuffer()!
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
+
+        
     }
     
     func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {

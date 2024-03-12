@@ -4,11 +4,14 @@
 //
 //  Created by Tomasz Kolinko on 24/01/2024.
 //
-
+import os
 import Foundation
 import Metal
 import simd
 
+let captureGPU = false
+
+let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let devices = MTLCopyAllDevices()
 assert(!devices.isEmpty, "No Metal devices available")
 
@@ -18,14 +21,14 @@ let device = devices[0]
 let commandQueue = device.makeCommandQueue()!
 
 print("loading")
+os_signpost(.begin, log: log, name: "Loading")
+
 let modelData = loadModelData(from: "shape.json", device: device)
 let tokens = loadTokens(device: device)
-
+os_signpost(.end, log: log, name: "Loading")
 /*assert(modelData.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))*/
 assert(tokens[0].test("h", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
 
-
-print("Hello, World!")
 
 let library = device.makeDefaultLibrary()!
 let internalSFunc = library.makeFunction(name:"internal")!
@@ -38,7 +41,6 @@ let functionNames = ["sum_of_squares", "normalize_vector",
                      "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex"] // Add more function names as needed
 
 for fname in functionNames {
-    print(fname)
     let internalFunc = library.makeFunction(name: fname)!
     globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
 }
@@ -54,12 +56,12 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let tokenNum = 0
 
-let numLayers2 = 31
 
 var xkLayerTokenHead = [[[Vector]]]()
 var xqLayerTokenHead = [[[Vector]]]()
 var xvLayerToken = [[Vector]]()
 
+let numLayers2 = 31
 for _ in 0...numLayers2 {
     xkLayerTokenHead.append([[Vector]]())
     xqLayerTokenHead.append([[Vector]]())
@@ -68,6 +70,8 @@ for _ in 0...numLayers2 {
 }
 
 let numTokens = 1
+os_signpost(.begin, log: log, name: "Go Tokens3")
+
 let startTime = Date()
 
 var thisToken = 0
@@ -75,8 +79,19 @@ var thisToken = 0
 import Foundation
 import simd
 
-
+let captureManager = MTLCaptureManager.shared()
+let captureDescriptor = MTLCaptureDescriptor()
+if captureGPU {
+    captureDescriptor.captureObject = device
+    do {
+        try captureManager.startCapture(with: captureDescriptor)
+    } catch {
+        fatalError("error when trying to capture: \(error)")
+    }
+}
+    
 let gpu = Gpu()
+
 for i in 0..<8 {
     thisToken = i
     for layerNo in 0...numLayers2 {
@@ -91,7 +106,6 @@ for i in 0..<8 {
         
         let wo = layer["attention.wo"]!
         
-        print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         let h_norm = h.rmsNormed()
         h_norm.mul(by:wa)
         
@@ -100,47 +114,29 @@ for i in 0..<8 {
         let xv = mul_col(vec: h_norm, by: wv)
         let xq_heads = xq.reshaped(newCols: headDim)
         let xk_heads = xk.reshaped(newCols: headDim)
-        print("compute timen preevald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        
-        //gpu.eval()
-        print("compute timen evald \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        
         
         for i in 0..<numHeads {
             xq_heads[i].mul(complexArray: freqsCis[tokenNum])
             xk_heads[i].mul(complexArray: freqsCis[tokenNum])
         }
-        print("compute timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         
         xkLayerTokenHead[layerNo].append(xk_heads)
         xvLayerToken[layerNo].append(xv)
         
         let xkTokenHeads = xkLayerTokenHead[layerNo]
         let xvToken = xvLayerToken[layerNo]
-        print("computen timen-- \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         
         var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-        print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        //    assert(scores[0].test("scores[0]", mul:100, val:[2.66, 2.10, 0.38]))
         
         for headNo in 0..<numHeads {
             softmax(&scores[headNo])
         }
-        print("computen time softmax \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         
         let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
-        
-        print("computen timen \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        
         let attnOutput = outMatrix.asVector()
         let attnFfn = mul_col(vec: attnOutput, by: wo)
-        print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        
-        //    assert(h.test("h", mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01]))
-        //    assert(attnFfn.test("attn", mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
         
         h.add(by: attnFfn)
-        print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         
         let fxn = h.rmsNormed()
         //    assert(fxn.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
@@ -151,24 +147,47 @@ for i in 0..<8 {
         let w3 = layer["feed_forward.w3"]!
         
         fxn.mul(by:wn)
-        print("compute timex \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        
         ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
-        print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         //    assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
         //    assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
         //    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
-        print("success!")
-        
-        print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         
         
     }
+    
+    print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    if (thisToken == 0) {
+        let evalTime = Date()
+
+        gpu.eval()
+        print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+
+        gpu.wait()
+        print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+
+        if (captureGPU) {
+            captureManager.stopCapture()
+        }
+        
+
+    }
+    
 }
+os_signpost(.end, log: log, name: "Go Tokens3")
 
+let evalTime = Date()
+os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
+print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+gpu.wait()
+os_signpost(.end, log: log, name: "Go Eval")
+print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
-print("compute time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
+print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
+
+print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 print("done")
 exit(0)
 /*

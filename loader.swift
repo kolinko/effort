@@ -88,24 +88,42 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     // Concurrent queue for loading layers
     let layerQueue = DispatchQueue(label: "layerQueue", attributes: .concurrent)
 
-    for i in 0...numLayers {
-        layers[i] = [String: Matrix]()
-
-        for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2", "feed_forward.w3"] {
-            dispatchGroup.enter()
-            layerQueue.async {
-                let keyName = "layers.\(i).\(key)"
-                let layer = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device: device)
-
-                // Synchronize access to the layers dictionary with a barrier
-                layerQueue.async(flags: .barrier) {
-                    layers[i]![key] = layer
-                    dispatchGroup.leave()
+//    for _ in 0...2 {
+        for i in 0...numLayers {
+            layers[i] = [String: Matrix]()
+            
+            for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2", "feed_forward.w3"] {
+                dispatchGroup.enter()
+                layerQueue.async {
+                    let keyName = "layers.\(i).\(key)"
+                    let layer = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device: device)
+                    
+                    // Synchronize access to the layers dictionary with a barrier
+                    layerQueue.async(flags: .barrier) {
+                        layers[i]![key] = layer
+                        dispatchGroup.leave()
+                    }
                 }
             }
+            /*
+             for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
+             dispatchGroup.enter()
+             layerQueue.async {
+             let keyName = "layers."+String(i)+"."+key
+             let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
+             let layerIds = loadBinaryFile(named: keyName+".ids.bin", shape: nShape, device:device)
+             let layerVals = loadBinaryFile(named: keyName+".vals.bin", shape: nShape, device:device)
+             layerQueue.async(flags: .barrier) {
+             layers[i]![key+".ids"] = layerIds
+             layers[i]![key+".vals"] = layerVals
+             dispatchGroup.leave()
+             }
+             }
+             }*/
+            
         }
-    }
-
+//    }
+        
     dispatchGroup.wait()
     /*
     let numLayers = 31 // 31
@@ -163,15 +181,6 @@ func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> 
         guard let buffer = device.makeBuffer(bytes: pointer.baseAddress!, length: data.count, options: .storageModeShared) else {
             fatalError("Cannot create buffer for \(fileName)")
         }
-        
-        let privateBuffer = device.makeBuffer(length: buffer.allocatedSize, options: [.storageModePrivate])        
-        let commandBuffer2 = commandQueue.makeCommandBuffer()!
-        let blitEncoder = commandBuffer2.makeBlitCommandEncoder()!
-        blitEncoder.copy(from: buffer, sourceOffset: 0, to: privateBuffer!, destinationOffset: 0, size: buffer.allocatedSize)
-        blitEncoder.endEncoding()
-        
-        commandBuffer2.commit()
-        commandBuffer2.waitUntilCompleted()
         
         return buffer
     }

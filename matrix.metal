@@ -67,6 +67,7 @@ kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
     half sum = 0.0;
     int row = id;
     int offset = id * 4096;
+    
     for (int i = 0; i < 4096; i++) {
         sum += matrix[(offset+i)] * vector[i];
     }
@@ -87,14 +88,13 @@ kernel void internal(device const half *fxn [[buffer(0)]],
     half x2 = 0.0;
     half x3 = 0.0;
     int offset = id*outer_count;
-    
+
     for (int i = 0; i<outer_count; i++) {
         half x = fxn[i];
         x1 += x * w1[offset + i];
         x3 += x * w3[offset + i];
     }
     x2 = x3 * x1 / (1 + exp(-x1));
-    
     result[id] = x2;
 }
 
@@ -104,7 +104,6 @@ kernel void second (device const half *matrix [[buffer(0)]],
                     uint id [[thread_position_in_grid]]) {
     half sum = 0.0;
     int offset = id * 11008;
-    
     for (int i = 0; i < 11008; i++) {
         sum += matrix[(offset + i)] * vector[i];
     }

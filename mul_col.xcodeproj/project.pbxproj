@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A40B31962B9DAAA300095AF5 /* aux.metal in Sources */ = {isa = PBXBuildFile; fileRef = A40B31952B9DAAA300095AF5 /* aux.metal */; };
 		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
+		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
 		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
@@ -33,6 +34,7 @@
 /* Begin PBXFileReference section */
 		A40B31952B9DAAA300095AF5 /* aux.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = aux.metal; sourceTree = "<group>"; };
 		A40B31972B9F476800095AF5 /* gpu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = gpu.swift; sourceTree = "<group>"; };
+		A40B31992BA06D5800095AF5 /* info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = info.plist; sourceTree = "<group>"; };
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
 		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,6 +59,7 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A40B31992BA06D5800095AF5 /* info.plist */,
 				A40B31972B9F476800095AF5 /* gpu.swift */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A43F8F952B63E85D00578E56 /* test_profiling.swift */,
@@ -139,6 +142,7 @@
 			files = (
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
 				A4CE9F7C2B6277E700910766 /* model in Resources */,
+				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,7 +219,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -272,7 +276,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;

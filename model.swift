@@ -85,6 +85,7 @@ class BufferableFloat16 : Bufferable {
     let rows: Int
     let cols: Int?
 
+    
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
         self.rows = shape[0]
         self.cols = shape.count >= 2 ? shape[1] : nil
@@ -227,7 +228,6 @@ class Vector: BufferableFloat16 {
         
         gpu.deploy("sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
         gpu.deploy("normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
-//        gpu.eval()
         
         return output
     }
@@ -270,23 +270,6 @@ class Vector: BufferableFloat16 {
         assert(self.shape[0] == complexArray.rows, "Layer size must be twice the size of the complex array")
 
         gpu.deploy("mul_complex", buffers: [self, complexArray], threadCount: count)
-        //gpu.eval()
-        /*
-        func multiplyComplex(_ num1: (Float16, Float16), _ num2: (Float16, Float16)) -> (Float16, Float16) {
-            let (a, b) = num1
-            let (c, d) = num2
-            return (a * c - b * d, a * d + b * c)
-        }
-        
-        assert(self.shape[0] == complexArray.count * 2, "Layer size must be twice the size of the complex array")
-         let count = self.shape[0] / 2
-
-        for i in 0..<count {
-            let complexNum = (self[2 * i], self[2 * i + 1])
-            let result = multiplyComplex(complexNum, complexArray[i])
-            self[2*i] = result.0
-            self[2*i+1] = result.1
-        }*/
     }
     
 }
@@ -296,13 +279,6 @@ class Vector: BufferableFloat16 {
  array funcs
  
  */
-
-
-func makeArray<T>(dims: [Int], value: T) -> Any {
-    guard !dims.isEmpty else { return value }
-    return Array(repeating: makeArray(dims: Array(dims.dropFirst()), value: value), count: dims.first!)
-}
-
 
 func softmax(_ layer: inout Vector) {
     let rms = ScalarFloat(value: 0.0, device: device)
@@ -324,9 +300,7 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
-    let def: (Float16, Float16) = (0.0, 0.0)
-//    var heads = makeArray(dims: [2*maxSeqLen, freqs.count], value:def) as! [[(Float16, Float16)]]
-    var heads = Matrix(shape: [2*maxSeqLen, freqs.count*2], device: device).asVectorList()
+    let heads = Matrix(shape: [2*maxSeqLen, freqs.count*2], device: device).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
             let freq = freqs[j]
@@ -346,16 +320,16 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let scores = Matrix(shape: [numHeads, thisToken+1], device: device)
 
     assert(thisToken+1 == xkTokenHeads.count)
+    let sum = ScalarFloat(value: 0, device: device)
+
     for t2 in 0...thisToken {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-
-            let sum = ScalarFloat(value: 0, device: device)
+            sum[0] = 0
             gpu.deploy("dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
             gpu.deploy("setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
         }
     }
-    //gpu.eval()
     
     return scores.asVectorList()
 }
@@ -398,19 +372,16 @@ func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     gpu.deploy("internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     gpu.deploy("second", buffers: [w2, fx, h], threadCount: 4096)
 
-//    gpu.eval()
 }
 
 
 func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
     let (rows, cols) = (weights.rows, weights.cols!)
-    let startTime = Date()
 
     let output = Vector(shape: [rows], device: weights.buffer.device)
 
     gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
-    print("Mul_\(cols) total: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
     
     return output
 }
