@@ -78,9 +78,9 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     
     let startTime = Date()
     let shapeDict = readJson()
-    /*
-    let numLayers = 3 // or your actual number of layers
-    var layers = [Int: [String: Layer]]()
+    
+    let numLayers = 31 // or your actual number of layers
+    var layers = [Int: [String: Matrix]]()
 
     // Create a dispatch group to sync completion
     let dispatchGroup = DispatchGroup()
@@ -89,7 +89,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     let layerQueue = DispatchQueue(label: "layerQueue", attributes: .concurrent)
 
     for i in 0...numLayers {
-        layers[i] = [String: Layer]()
+        layers[i] = [String: Matrix]()
 
         for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2", "feed_forward.w3"] {
             dispatchGroup.enter()
@@ -106,9 +106,9 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
         }
     }
 
-    dispatchGroup.wait()*/
-    
-    let numLayers = 3 // 31
+    dispatchGroup.wait()
+    /*
+    let numLayers = 31 // 31
     var layers = [Int: [String: Matrix]]()
     for i in 0...numLayers {
         layers[i] = [String: Matrix]()
@@ -124,6 +124,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
         }
     }
     
+     */
     let model = ModelData(
         norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!, device: device),
         outputs:loadBinaryFile(named: "output", shape: shapeDict["output"]!, device: device),
@@ -139,7 +140,6 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     let endTime = Date()
     print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
 
-    
     return model
 }
 
