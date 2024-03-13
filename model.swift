@@ -151,8 +151,6 @@ class BufferableFloat16 : Bufferable {
         if (!cond) {
             return true
         }
-        gpu.eval()
-//        return true
         let result = self.test(mul: mul, val: val)
         if result {
             print("✔️ \(name)")
@@ -163,6 +161,7 @@ class BufferableFloat16 : Bufferable {
     }
         
     func test(mul:Int, val:[Float16]) -> Bool {
+        gpu.eval()
         for i in 0..<val.count {
             if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
                 print("assert failed for values")
@@ -199,7 +198,14 @@ class BufferableFloat16 : Bufferable {
         }
         return true
     }
+
     
+}
+
+func modelRunTests() {
+    let v = Vector(from: [0.1, 0.22, 0.33, 0.11, -0.21, 2, -0.01, 0.02])
+    v.sort()
+    assert(v.test("v.sort()", mul: 100, val: [-0.21, -0.01, 0.02, 0.1, 0.11, 0.22, 0.33, 2.0]))
 }
 
 class Matrix: BufferableFloat16 {
@@ -220,6 +226,11 @@ class Matrix: BufferableFloat16 {
         }
         return out
     }
+}
+
+
+class VectorFloat: BufferableFloat {
+    
 }
 
 class Vector: BufferableFloat16 {
@@ -282,6 +293,19 @@ class Vector: BufferableFloat16 {
         assert(self.shape[0] == complexArray.rows, "Layer size must be twice the size of the complex array")
 
         gpu.deploy("mul_complex", buffers: [self, complexArray], threadCount: count)
+    }
+    
+    
+    func sort() {
+        guard let logn = Int(exactly: log2(Double(self.rows))) else {
+            fatalError("data.count is not a power of 2")
+        }
+
+        for p in 0..<logn {
+            for q in 0..<p+1 {
+                gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows)
+            }
+        }
     }
     
 }
@@ -391,7 +415,7 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     return output
 }
 
-/*
+
 func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     // name e.g. feed_forward.w1
     let weights = layer[name]!
@@ -412,14 +436,19 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     
     assert(o.test(mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
         
-    sortVec(&o)
+    o.sort()//Vec(&o)
+    
     assert(o[4095]==0.02194)
     assert(o[4094]==0.01575)
 
     let quant = 0.16
     let q = Int(Double(probes)*(1-quant))
-    var cutoff: Float16 = o[q]
+    let cutoff: Float16 = o[q]
 
+    // mul proper
+    let bufferX = VectorFloat(shape:[11008]) // zero it out?
+    gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX], float16s: [cutoff], threadCount: v.rows)
+    /*
     let commandBuffer = commandQueue.makeCommandBuffer()!
     let encoder = commandBuffer.makeComputeCommandEncoder()!
 
@@ -453,13 +482,15 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     encoder.endEncoding()
     commandBuffer.commit()
 
-    commandBuffer.waitUntilCompleted()
+    commandBuffer.waitUntilCompleted()*/
     //PROFILE
     print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
+    /*
     let dataPointer = bufferX.contents().assumingMemoryBound(to: Float.self)
     let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: 11008)
     let floatData = Array.init(dataBufferPointer)
+     */
 
     print("works?")
     print(cutoff)
@@ -467,62 +498,14 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
 
     for i in 0..<8 {
         print(rowIds.getInt(index:i))
-//        print(rowVals[i])
     }
 
     
     for i in 0..<10 {
-        print(floatData[i])
+        print(bufferX[i])
     }
     
     
-    exit(0)
     
-}*/
+}
 
-func sortVec(_ v: inout Vector) {
-    // taken from https://developer.apple.com/forums/thread/674181
-    //            https://github.com/tgymnich/MetalSort
-    
-
-    let device = MTLCreateSystemDefaultDevice()!
-    let commandQueue = device.makeCommandQueue()!
-    let library = device.makeDefaultLibrary()!
-    let sortFunction = library.makeFunction(name: "basicBitonicSort")!
-    let pipeline = try! device.makeComputePipelineState(function: sortFunction)
-
-
-    guard let logn = Int(exactly: log2(Double(v.rows))) else {
-        fatalError("data.count is not a power of 2")
-    }
-    
-    let threadgroupsPerGrid = MTLSize(width: v.rows, height: 1, depth: 1)
-    let threadsPerThreadgroup = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
-    
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-    let startTime = Date()
-
-    for p in 0..<logn {
-        for q in 0..<p+1 {
-            var n1 = p
-            var n2 = q
-
-            encoder.setComputePipelineState(pipeline)
-            encoder.setBuffer(v.buffer, offset: 0, index: 0)
-            encoder.setBytes(&n1, length: MemoryLayout<Float>.stride, index: 1)
-            encoder.setBytes(&n2, length: MemoryLayout<UInt32>.stride, index: 2)
-            encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
-        }
-    }
-    
-    encoder.endEncoding()
-
-    commandBuffer.commit()
-
-    commandBuffer.waitUntilCompleted()
-
-    print("basicSort: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
-    }

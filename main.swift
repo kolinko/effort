@@ -45,6 +45,8 @@ let startTime = Date()
 import Foundation
 import simd
 
+modelRunTests()
+
 gpu.startCapture(cond: captureGPU)
 
 for thisToken in 0..<numTokens {

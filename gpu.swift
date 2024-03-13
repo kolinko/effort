@@ -57,7 +57,7 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
-    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], threadCount: Int) {
+    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int) {
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
@@ -79,6 +79,12 @@ class Gpu {
             encoder.setBytes(&x, length: MemoryLayout<Int>.stride, index: i+buffers.count)
         }
 
+        for i in 0..<float16s.count {
+            var x: Float16 = float16s[i]
+            encoder.setBytes(&x, length: MemoryLayout<Float16>.stride, index: i+buffers.count+ints.count)
+        }
+
+        
         encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     }
     
