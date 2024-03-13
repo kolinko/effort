@@ -14,12 +14,8 @@ let captureGPU = false
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let devices = MTLCopyAllDevices()
 assert(!devices.isEmpty, "No Metal devices available")
-
-// Optionally, you can choose a device based on specific criteria.
-// For simplicity, let's use the first available device.
 let device = devices[0]
-let commandQueue = device.makeCommandQueue()!
-
+ 
 let gpu = Gpu()
 print("loading")
 os_signpost(.begin, log: log, name: "Loading")
@@ -27,25 +23,6 @@ os_signpost(.begin, log: log, name: "Loading")
 let modelData = loadModelData(from: "shape.json", device: device)
 let tokens = loadTokens(device: device)
 os_signpost(.end, log: log, name: "Loading")
-/*assert(modelData.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))*/
-assert(tokens[0].test("h", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
-
-
-let library = device.makeDefaultLibrary()!
-let internalSFunc = library.makeFunction(name:"internal")!
-let internalSState = try! device.makeComputePipelineState(function: internalSFunc)
-let secondSFunc = library.makeFunction(name:"internal")!
-let secondSState = try! device.makeComputePipelineState(function: secondSFunc)
-var globalStates: [String: MTLComputePipelineState] = [:]
-let functionNames = ["sum_of_squares", "normalize_vector",
-                     "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                     "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex"] // Add more function names as needed
-
-for fname in functionNames {
-    let internalFunc = library.makeFunction(name: fname)!
-    globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
-}
-
 
 let dim = 4096
 let dim_range = 0...4095
@@ -57,44 +34,24 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let tokenNum = 0
 
+let numLayers = 31
+let numTokens = 8
 
-var xkLayerTokenHead = [[[Vector]]]()
-var xqLayerTokenHead = [[[Vector]]]()
-var xvLayerToken = [[Vector]]()
+var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
+var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
+var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
-let numLayers2 = 31
-for _ in 0...numLayers2 {
-    xkLayerTokenHead.append([[Vector]]())
-    xqLayerTokenHead.append([[Vector]]())
-    xvLayerToken.append([Vector]())
-
-}
-
-let numTokens = 1
 os_signpost(.begin, log: log, name: "Go Tokens3")
 
 let startTime = Date()
 
-var thisToken = 0
-
 import Foundation
 import simd
 
-let captureManager = MTLCaptureManager.shared()
-let captureDescriptor = MTLCaptureDescriptor()
-if captureGPU {
-    captureDescriptor.captureObject = device
-    do {
-        try captureManager.startCapture(with: captureDescriptor)
-    } catch {
-        fatalError("error when trying to capture: \(error)")
-    }
-}
-    
+gpu.startCapture(cond: captureGPU)
 
-for i in 0..<8 {
-    thisToken = i
-    for layerNo in 0...numLayers2 {
+for thisToken in 0..<numTokens {
+    for layerNo in 0...numLayers {
         var h = tokens[thisToken]
         let layer = modelData.layers[layerNo]!
         
@@ -156,9 +113,6 @@ for i in 0..<8 {
         
         assert(fxn.test("fxn", cond: layerNo+thisToken==0, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
         assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
-//        exit(0)
-
-        
     }
     
     print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -166,15 +120,10 @@ for i in 0..<8 {
         let evalTime = Date()
 
         gpu.eval()
-        print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
-
-        if (captureGPU) {
-            captureManager.stopCapture()
-        }
-        
+        gpu.stopCapture(cond: captureGPU)        
 
     }
     
@@ -184,7 +133,6 @@ os_signpost(.end, log: log, name: "Go Tokens3")
 let evalTime = Date()
 os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
-print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 os_signpost(.end, log: log, name: "Go Eval")
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 

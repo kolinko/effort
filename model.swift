@@ -321,11 +321,9 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
 }
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
-    let scores = Matrix(shape: [numHeads, thisToken+1], device: device)
-
-    assert(thisToken+1 == xkTokenHeads.count)
-
-    for t2 in 0...thisToken {
+    let numTokens = xkTokenHeads.count
+    let scores = Matrix(shape: [numHeads, numTokens], device: device)
+    for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
             let sum = ScalarFloat(value: 0, device: device)
@@ -402,6 +400,7 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     return output
 }
 
+/*
 func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     // name e.g. feed_forward.w1
     let weights = layer[name]!
@@ -488,7 +487,7 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     
     exit(0)
     
-}
+}*/
 
 func sortVec(_ v: inout Vector) {
     // taken from https://developer.apple.com/forums/thread/674181

@@ -33,9 +33,9 @@ func loadTokens(device: MTLDevice) -> [Vector] {
     let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
     let data = fileHandle.readDataToEndOfFile()
 
-    let numLayers = 9
+    let numTokens = 9
     let layerSize = 4096
-    let expectedCount = numLayers * layerSize
+    let expectedCount = numTokens * layerSize
     let expectedSize = expectedCount * MemoryLayout<Float32>.size
 
     // Assert that the data size matches the expected size
@@ -55,21 +55,22 @@ func loadTokens(device: MTLDevice) -> [Vector] {
     // Create MTLBuffer from Float16 data
     let buffer = device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
 
-    var layers: [Vector] = []
+    var tokens: [Vector] = []
 
-    for i in 0..<numLayers {
+    for i in 0..<numTokens {
         let offset = i * layerSize * MemoryLayout<Float16>.size
         let layerBuffer = device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
-        layers.append(Vector(shape: [layerSize], buffer: layerBuffer))
+        tokens.append(Vector(shape: [layerSize], buffer: layerBuffer))
     }
 
     // Directly assert a specific value in the first layer (update the assertion for Float16)
-    let pointer = layers[1].buffer.contents().assumingMemoryBound(to: Float16.self)
+    let pointer = tokens[1].buffer.contents().assumingMemoryBound(to: Float16.self)
     assert(pointer[13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
 
-    assert(layers[1][13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
+    assert(tokens[1][13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
+    assert(tokens[0].test("token[0]", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
 
-    return layers
+    return tokens
 }
 
 
@@ -107,6 +108,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     let testLayer = model.layers[0]!["feed_forward.w1"]!
     assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
     assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
+    assert(model.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))
 
     let endTime = Date()
     print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
@@ -124,14 +126,10 @@ func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> 
 
     // Memory map the file
     let fileDescriptor = open(fileURL.path, O_RDONLY)
-    guard fileDescriptor != -1 else {
-        fatalError("Cannot open file \(fileName).")
-    }
+    precondition(fileDescriptor != -1, "Cannot open file \(fileName).")
 
     let dataPointer = mmap(nil, expectedSize, PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
-    guard dataPointer != MAP_FAILED else {
-        fatalError("Memory mapping of \(fileName) failed.")
-    }
+    precondition(dataPointer != MAP_FAILED, "Memory mapping of \(fileName) failed.")
 
     // Create MTLBuffer from the memory-mapped data
     let buffer = device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
