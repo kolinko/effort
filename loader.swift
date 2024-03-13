@@ -79,53 +79,6 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
     let startTime = Date()
     let shapeDict = readJson()
     
-    let numLayers = 31 // or your actual number of layers
-    var layers = [Int: [String: Matrix]]()
-
-    // Create a dispatch group to sync completion
-    let dispatchGroup = DispatchGroup()
-
-    // Concurrent queue for loading layers
-    let layerQueue = DispatchQueue(label: "layerQueue", attributes: .concurrent)
-
-//    for _ in 0...2 {
-        for i in 0...numLayers {
-            layers[i] = [String: Matrix]()
-            
-            for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2", "feed_forward.w3"] {
-                dispatchGroup.enter()
-                layerQueue.async {
-                    let keyName = "layers.\(i).\(key)"
-                    let layer = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device: device)
-                    
-                    // Synchronize access to the layers dictionary with a barrier
-                    layerQueue.async(flags: .barrier) {
-                        layers[i]![key] = layer
-                        dispatchGroup.leave()
-                    }
-                }
-            }
-            /*
-             for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
-             dispatchGroup.enter()
-             layerQueue.async {
-             let keyName = "layers."+String(i)+"."+key
-             let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
-             let layerIds = loadBinaryFile(named: keyName+".ids.bin", shape: nShape, device:device)
-             let layerVals = loadBinaryFile(named: keyName+".vals.bin", shape: nShape, device:device)
-             layerQueue.async(flags: .barrier) {
-             layers[i]![key+".ids"] = layerIds
-             layers[i]![key+".vals"] = layerVals
-             dispatchGroup.leave()
-             }
-             }
-             }*/
-            
-        }
-//    }
-        
-    dispatchGroup.wait()
-    /*
     let numLayers = 31 // 31
     var layers = [Int: [String: Matrix]]()
     for i in 0...numLayers {
@@ -134,6 +87,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
             let keyName = "layers."+String(i)+"."+key
             layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device:device)
         }
+        
         for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
             let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
@@ -142,7 +96,6 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
         }
     }
     
-     */
     let model = ModelData(
         norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!, device: device),
         outputs:loadBinaryFile(named: "output", shape: shapeDict["output"]!, device: device),
@@ -165,25 +118,23 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
 func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Matrix {
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
-    // Open the file and read its contents
-    let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
-    let data = fileHandle.readDataToEndOfFile()
-
-    // Calculate the expected size based on shape and data type (Float16)
+    // Calculate the expected size
     let expectedCount = shape.reduce(1, *)
     let expectedSize = expectedCount * MemoryLayout<Float16>.size
 
-    // Assert that the data size matches the expected size
-    assert(data.count == expectedSize, "Data size does not match expected size for \(fileName). Expected: \(expectedSize), Actual: \(data.count)")
-
-    // Create a MTLBuffer directly from the data
-    let buffer = data.withUnsafeBytes { pointer -> MTLBuffer in
-        guard let buffer = device.makeBuffer(bytes: pointer.baseAddress!, length: data.count, options: .storageModeShared) else {
-            fatalError("Cannot create buffer for \(fileName)")
-        }
-        
-        return buffer
+    // Memory map the file
+    let fileDescriptor = open(fileURL.path, O_RDONLY)
+    guard fileDescriptor != -1 else {
+        fatalError("Cannot open file \(fileName).")
     }
+
+    let dataPointer = mmap(nil, expectedSize, PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
+    guard dataPointer != MAP_FAILED else {
+        fatalError("Memory mapping of \(fileName) failed.")
+    }
+
+    // Create MTLBuffer from the memory-mapped data
+    let buffer = device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
 
     return Matrix(shape: shape, buffer: buffer)
 }

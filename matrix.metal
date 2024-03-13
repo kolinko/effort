@@ -75,6 +75,23 @@ kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
     result[row] = sum;
 }
 
+
+kernel void mul_col2_4096(device const half *matrix [[buffer(0)]],
+                    device const half *vector [[buffer(1)]],
+                    device half *result [[buffer(2)]],
+                    uint id [[thread_position_in_grid]]) {
+//    half sum = 0.0;
+    int row = id;
+    int offset = id * 4096;
+    
+    float sum = 0.0;
+    for (int i = 0; i < 4096; i++) {
+        sum += matrix[(offset+i)]*vector[i];// * vector[i];
+    }
+
+    result[row] = sum;//vector[id] * matrix[(offset+id)];//sum;
+}
+
 #define outer_count 4096
 
 //constant int outer_count = 4096;

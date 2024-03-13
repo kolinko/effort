@@ -20,6 +20,7 @@ assert(!devices.isEmpty, "No Metal devices available")
 let device = devices[0]
 let commandQueue = device.makeCommandQueue()!
 
+let gpu = Gpu()
 print("loading")
 os_signpost(.begin, log: log, name: "Loading")
 
@@ -90,7 +91,6 @@ if captureGPU {
     }
 }
     
-let gpu = Gpu()
 
 for i in 0..<8 {
     thisToken = i
@@ -125,21 +125,26 @@ for i in 0..<8 {
         
         let xkTokenHeads = xkLayerTokenHead[layerNo]
         let xvToken = xvLayerToken[layerNo]
-        
+
         var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-        
         for headNo in 0..<numHeads {
             softmax(&scores[headNo])
         }
+        assert(xvToken[0].test("attnFfn", cond: layerNo+thisToken==0, mul:1000, val:[-0.001, 0.006, -0.006, 0.028, -0.028]))
         
         let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
+
         let attnOutput = outMatrix.asVector()
+
         let attnFfn = mul_col(vec: attnOutput, by: wo)
+        assert(attnFfn.test("attnFfn", cond: layerNo+thisToken==0, mul:100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
         
+                
         h.add(by: attnFfn)
-        
+        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
+
         let fxn = h.rmsNormed()
-        //    assert(fxn.test("h_norm2", mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
+        assert(fxn.test("h_norm2", cond: layerNo+thisToken==0, mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
         
         let wn = layer["ffn_norm"]!.asVector()
         let w1 = layer["feed_forward.w1"]!
@@ -148,10 +153,11 @@ for i in 0..<8 {
         
         fxn.mul(by:wn)
         ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
-        //    assert(h.test("h", mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
-        //    assert(fxn.test("fxn", mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
-        //    assert(h.test("h", mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
         
+        assert(fxn.test("fxn", cond: layerNo+thisToken==0, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
+        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+//        exit(0)
+
         
     }
     
@@ -162,8 +168,8 @@ for i in 0..<8 {
         gpu.eval()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
-        gpu.wait()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+
 
         if (captureGPU) {
             captureManager.stopCapture()
@@ -179,7 +185,6 @@ let evalTime = Date()
 os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
 print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-gpu.wait()
 os_signpost(.end, log: log, name: "Go Eval")
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
