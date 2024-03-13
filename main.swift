@@ -15,14 +15,14 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
 print("loading")
-os_signpost(.begin, log: log, name: "Loading")
 
+os_signpost(.begin, log: log, name: "Loading")
 let modelData = loadModelData(from: "shape.json")
 let tokens = loadTokens()
 os_signpost(.end, log: log, name: "Loading")
 
-let dim = 4096
-let dim_range = 0...4095
+//let dim = 4096
+//let dim_range = 0...4095
 
 let headDim = 128  // Example head dimension
 let numHeads = 32
@@ -80,15 +80,13 @@ for thisToken in 0..<numTokens {
         let xkTokenHeads = xkLayerTokenHead[layerNo]
         let xvToken = xvLayerToken[layerNo]
 
-        var scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
+        let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
         for headNo in 0..<numHeads {
-            softmax(&scores[headNo])
+            scores[headNo].softmax()
         }
         assert(xvToken[0].test("attnFfn", cond: layerNo+thisToken==0, mul:1000, val:[-0.001, 0.006, -0.006, 0.028, -0.028]))
         
-        let outMatrix = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
-
-        let attnOutput = outMatrix.asVector()
+        let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
         let attnFfn = mul_col(vec: attnOutput, by: wo)
         assert(attnFfn.test("attnFfn", cond: layerNo+thisToken==0, mul:100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
@@ -126,11 +124,11 @@ for thisToken in 0..<numTokens {
     
 }
 os_signpost(.end, log: log, name: "Go Tokens3")
-
 let evalTime = Date()
 os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
 os_signpost(.end, log: log, name: "Go Eval")
+
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
 
@@ -140,6 +138,3 @@ print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precisio
 print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 print("done")
 exit(0)
-/*
-
-*/

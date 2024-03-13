@@ -75,26 +75,7 @@ kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
     result[row] = sum;
 }
 
-
-kernel void mul_col2_4096(device const half *matrix [[buffer(0)]],
-                    device const half *vector [[buffer(1)]],
-                    device half *result [[buffer(2)]],
-                    uint id [[thread_position_in_grid]]) {
-//    half sum = 0.0;
-    int row = id;
-    int offset = id * 4096;
-    
-    float sum = 0.0;
-    for (int i = 0; i < 4096; i++) {
-        sum += matrix[(offset+i)]*vector[i];// * vector[i];
-    }
-
-    result[row] = sum;//vector[id] * matrix[(offset+id)];//sum;
-}
-
 #define outer_count 4096
-
-//constant int outer_count = 4096;
 
 kernel void internal(device const half *fxn [[buffer(0)]],
                      device const half *w1 [[buffer(1)]],
@@ -126,34 +107,6 @@ kernel void second (device const half *matrix [[buffer(0)]],
     }
 
     result[id] += sum;
-}
-
-kernel void bitonicSort(device float     *floats     [[ buffer(0) ]],
-                        device int        *uInts         [[ buffer(1) ]],
-                        constant int     &p             [[ buffer(2) ]],
-                        constant int     &q             [[ buffer(3) ]],
-                        uint             gid         [[ thread_position_in_grid ]])
-{
-    // taken from https://developer.apple.com/forums/thread/674181
-    //            https://github.com/tgymnich/MetalSort
-
-    int pMinusQ = p-q;
-    int distance = 1 << pMinusQ;
-    uint gidShiftedByP = gid >> p;
-    // True: Increasing / False: Descreasing
-    bool direction = (gidShiftedByP & 2) == 0;
-    uint gidDistance = (gid & distance);
-    bool isGidDistanceZero = (gidDistance == 0);
-    uint gidPlusDistance = (gid | distance);
-    bool isLowerIndexGreaterThanHigher = (floats[gid] > floats[gidPlusDistance]);
-    if (isGidDistanceZero && isLowerIndexGreaterThanHigher == direction) {
-        float temp = floats[gid];
-        floats[gid] = floats[gidPlusDistance];
-        floats[gidPlusDistance] = temp;
-        int temp2 = uInts[gid];
-        uInts[gid] = uInts[gidPlusDistance];
-        uInts[gidPlusDistance] = temp2;
-    }
 }
 
 kernel void basicBitonicSort(device half     *floats     [[ buffer(0) ]],

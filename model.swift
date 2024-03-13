@@ -223,6 +223,14 @@ class Matrix: BufferableFloat16 {
 }
 
 class Vector: BufferableFloat16 {
+    
+    func softmax() {
+        let rms = ScalarFloat(value: 0.0)
+        
+        gpu.deploy("sum_of_exps", buffers: [self, rms], threadCount: self.rows)
+        gpu.deploy("softmax_add", buffers: [self, rms], threadCount: self.rows)
+    }
+    
     func rmsNormed() -> Vector {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
@@ -284,12 +292,7 @@ class Vector: BufferableFloat16 {
  
  */
 
-func softmax(_ layer: inout Vector) {
-    let rms = ScalarFloat(value: 0.0)
-    
-    gpu.deploy("sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
-    gpu.deploy("softmax_add", buffers: [layer, rms], threadCount: layer.count())
-}
+
 
 
 /// freqs
@@ -349,17 +352,17 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
     
 }
 
-func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Matrix {
+func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Vector {
     let outMatrix = Matrix(shape: [numHeads, headDim])
     
     let scoresMatrix = gpuConsolidate(vecList: scores)
     let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
 
-    let numTokensX = scores[0].rows
+    let numTokens = scores[0].rows
     let numDims = numHeads*headDim
-    gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokensX], threadCount: numDims)
+    gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
 
-    return outMatrix
+    return outMatrix.asVector()
 }
 
 func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
@@ -373,21 +376,9 @@ func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     
     gpu.deploy("internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     gpu.deploy("second", buffers: [w2, fx, h], threadCount: 4096)
-
 }
 
 
-func mul_col2(vec: Vector, by weights: Matrix) -> Vector {
-    assert(weights.cols == vec.rows, "Weights column count must match vec length")
-    let (rows, cols) = (weights.rows, weights.cols!)
-
-    let output = Vector(shape: [rows])
-
-    print(vec.shape)
-    gpu.deploy("mul_col2_\(cols)", buffers:[weights, vec, output], threadCount: rows)
-    
-    return output
-}
 
 func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
