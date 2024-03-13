@@ -26,7 +26,7 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
-func loadTokens(device: MTLDevice) -> [Vector] {
+func loadTokens() -> [Vector] {
     let fileName = absolutePath + "/tokens.bin"
     let fileURL = URL(fileURLWithPath: fileName)
 
@@ -53,13 +53,13 @@ func loadTokens(device: MTLDevice) -> [Vector] {
     }
 
     // Create MTLBuffer from Float16 data
-    let buffer = device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
+    let buffer = gpu.device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
 
     var tokens: [Vector] = []
 
     for i in 0..<numTokens {
         let offset = i * layerSize * MemoryLayout<Float16>.size
-        let layerBuffer = device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
+        let layerBuffer = gpu.device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
         tokens.append(Vector(shape: [layerSize], buffer: layerBuffer))
     }
 
@@ -75,7 +75,7 @@ func loadTokens(device: MTLDevice) -> [Vector] {
 
 
 
-func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
+func loadModelData(from filePath: String) -> ModelData {
     
     let startTime = Date()
     let shapeDict = readJson()
@@ -86,21 +86,21 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
         layers[i] = [String: Matrix]()
         for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
-            layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!, device:device)
+            layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
         }
         
         for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
             let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
-            layers[i]![key+".ids"] = loadBinaryFile(named: keyName+".ids.bin", shape: nShape, device:device)
-            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape, device:device)
+            layers[i]![key+".ids"] = loadBinaryFile(named: keyName+".ids.bin", shape: nShape)
+            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
         }
     }
     
     let model = ModelData(
-        norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!, device: device),
-        outputs:loadBinaryFile(named: "output", shape: shapeDict["output"]!, device: device),
-        tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!, device: device),
+        norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
+        outputs:loadBinaryFile(named: "output", shape: shapeDict["output"]!),
+        tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
         layers: layers
     )
     
@@ -117,7 +117,7 @@ func loadModelData(from filePath: String, device: MTLDevice) -> ModelData {
 }
 
 
-func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> Matrix {
+func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
@@ -132,7 +132,7 @@ func loadBinaryFile(named fileName: String, shape: [Int], device: MTLDevice) -> 
     precondition(dataPointer != MAP_FAILED, "Memory mapping of \(fileName) failed.")
 
     // Create MTLBuffer from the memory-mapped data
-    let buffer = device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
+    let buffer = gpu.device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
 
     return Matrix(shape: shape, buffer: buffer)
 }

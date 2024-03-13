@@ -12,16 +12,13 @@ import simd
 let captureGPU = false
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
-let devices = MTLCopyAllDevices()
-assert(!devices.isEmpty, "No Metal devices available")
-let device = devices[0]
  
 let gpu = Gpu()
 print("loading")
 os_signpost(.begin, log: log, name: "Loading")
 
-let modelData = loadModelData(from: "shape.json", device: device)
-let tokens = loadTokens(device: device)
+let modelData = loadModelData(from: "shape.json")
+let tokens = loadTokens()
 os_signpost(.end, log: log, name: "Loading")
 
 let dim = 4096

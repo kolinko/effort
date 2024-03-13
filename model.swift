@@ -38,9 +38,9 @@ class BufferableFloat: Bufferable {
         super.init(buffer: buffer, offset: offset*MemoryLayout<Float>.size)
     }
     
-    convenience init(shape: [Int], device: MTLDevice) {
+    convenience init(shape: [Int]) {
         let bufferSize = shape.reduce(1, *) * MemoryLayout<Float>.size
-        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        let buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
         self.init(shape: shape, buffer: buffer)
     }
     
@@ -58,8 +58,8 @@ class BufferableFloat: Bufferable {
 
 class ScalarFloat: BufferableFloat {
     
-    convenience init(value: Float, device: MTLDevice) {
-        self.init(shape: [1], device: device)
+    convenience init(value: Float) {
+        self.init(shape: [1])
         self[0] = value;
     }
     
@@ -68,8 +68,8 @@ class ScalarFloat: BufferableFloat {
 
 class Scalar: BufferableFloat16 {
     
-    convenience init(value: Float16, device: MTLDevice) {
-        self.init(shape: [1], device: device)
+    convenience init(value: Float16) {
+        self.init(shape: [1])
         self[0] = value;
     }
     
@@ -95,25 +95,25 @@ class BufferableFloat16 : Bufferable {
     }
     
     
-    convenience init(shape: [Int], device: MTLDevice) {
+    convenience init(shape: [Int]) {
         let numElements = shape.reduce(1, *)
         let bufferSize = numElements * MemoryLayout<Float16>.size
-        let buffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        let buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
         self.init(shape: shape, buffer: buffer)
     }
 
 
-    convenience init(shape: [Int], with: Float16, device: MTLDevice) {
-        self.init(shape: shape, device: device)
+    convenience init(shape: [Int], with: Float16) {
+        self.init(shape: shape)
         for i in 0..<self.count() {
             self[i] = with
         }
     }
     
-    convenience init(from array: [Float16], using device: MTLDevice) {
+    convenience init(from array: [Float16]) {
         assert(!array.isEmpty, "Array must not be empty")
         let length = array.count * MemoryLayout<Float16>.size
-        let buffer = device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
+        let buffer = gpu.device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
         self.init(shape: [array.count], buffer: buffer)
     }
         
@@ -227,8 +227,8 @@ class Vector: BufferableFloat16 {
         let layer = self
         assert(layer.shape.count == 1, "Only for vectors")
         
-        let output = Vector(shape: layer.shape, device: layer.buffer.device)
-        let rms = ScalarFloat(value:0.0, device: device)
+        let output = Vector(shape: layer.shape)
+        let rms = ScalarFloat(value:0.0)
         
         gpu.deploy("sum_of_squares", buffers: [layer, rms], threadCount: layer.count())
         gpu.deploy("normalize_vector", buffers: [layer, output, rms], ints: [self.count()], threadCount: layer.count())
@@ -285,7 +285,7 @@ class Vector: BufferableFloat16 {
  */
 
 func softmax(_ layer: inout Vector) {
-    let rms = ScalarFloat(value: 0.0, device: device)
+    let rms = ScalarFloat(value: 0.0)
     
     gpu.deploy("sum_of_exps", buffers: [layer, rms], threadCount: layer.count())
     gpu.deploy("softmax_add", buffers: [layer, rms], threadCount: layer.count())
@@ -304,7 +304,7 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
-    let heads = Matrix(shape: [2*maxSeqLen, freqs.count*2], device: device).asVectorList()
+    let heads = Matrix(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
             let freq = freqs[j]
@@ -322,11 +322,11 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let numTokens = xkTokenHeads.count
-    let scores = Matrix(shape: [numHeads, numTokens], device: device)
+    let scores = Matrix(shape: [numHeads, numTokens])
     for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-            let sum = ScalarFloat(value: 0, device: device)
+            let sum = ScalarFloat(value: 0)
 
             gpu.deploy("dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sum], threadCount:xq_heads[headNo].rows)
             gpu.deploy("setScore", buffers:[sum, scores.scalarAt(headNo, t2)], threadCount: 1)
@@ -338,7 +338,7 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
 
 func gpuConsolidate(vecList:[Vector]) -> Matrix {
     assert(vecList.count > 0)
-    let out = Matrix(shape:[vecList.count, vecList[0].rows], device: device)
+    let out = Matrix(shape:[vecList.count, vecList[0].rows])
 
     for i in 0..<vecList.count {
         gpu.deploy("memcpy", buffers: [vecList[i], out.asVectorList()[i]], threadCount: vecList[i].rows)
@@ -350,7 +350,7 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
 }
 
 func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Matrix {
-    let outMatrix = Matrix(shape: [numHeads, headDim], device: device)
+    let outMatrix = Matrix(shape: [numHeads, headDim])
     
     let scoresMatrix = gpuConsolidate(vecList: scores)
     let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
@@ -369,7 +369,7 @@ func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
     assert(w3.shape==[11008, 4096])
     assert(fxn.shape==[4096])
     
-    let fx = Vector(shape: [innerDim], device: device)
+    let fx = Vector(shape: [innerDim])
     
     gpu.deploy("internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
     gpu.deploy("second", buffers: [w2, fx, h], threadCount: 4096)
@@ -381,7 +381,7 @@ func mul_col2(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
     let (rows, cols) = (weights.rows, weights.cols!)
 
-    let output = Vector(shape: [rows], device: weights.buffer.device)
+    let output = Vector(shape: [rows])
 
     print(vec.shape)
     gpu.deploy("mul_col2_\(cols)", buffers:[weights, vec, output], threadCount: rows)
@@ -393,7 +393,7 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
     let (rows, cols) = (weights.rows, weights.cols!)
 
-    let output = Vector(shape: [rows], device: weights.buffer.device)
+    let output = Vector(shape: [rows])
 
     gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
     
@@ -414,7 +414,7 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     print(rowVals.shape)
 
     let probes = 4096
-    var o = Vector(shape: [probes], device: weights.buffer.device)
+    var o = Vector(shape: [probes])
     for i in 0..<probes {
         o[i] = abs(v[i] * weights[i*weights.cols! + i])
     }

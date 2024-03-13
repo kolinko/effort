@@ -20,8 +20,12 @@ class Gpu {
     let library : MTLLibrary
     var globalStates : [String: MTLComputePipelineState]
     let commandQueue : MTLCommandQueue
+    let device : MTLDevice
     
     init() {
+        let devices = MTLCopyAllDevices()
+        assert(!devices.isEmpty, "No Metal devices available")
+        self.device = devices[0]
         self.commandQueue = device.makeCommandQueue()!
         self.commandBuffer = commandQueue.makeCommandBuffer()!
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
