@@ -230,10 +230,21 @@ class Matrix: BufferableFloat16 {
 
 
 class VectorFloat: BufferableFloat {
-    
+    func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
+        let dotBuffer = ScalarFloat(value:0)
+        let normABuffer = ScalarFloat(value: 0)
+        let normBBuffer = ScalarFloat(value: 0)
+        
+        gpu.deploy("cosinePrecalc", buffers: [self, vec, dotBuffer, normABuffer, normBBuffer], threadCount: self.rows)
+        gpu.deploy("cosineCalc", buffers: [dotBuffer, normABuffer, normBBuffer], threadCount: 1)
+        gpu.eval()
+        return dotBuffer
+    }
+
 }
 
 class Vector: BufferableFloat16 {
+    
     
     func softmax() {
         let rms = ScalarFloat(value: 0.0)
@@ -372,8 +383,6 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
     }
 
     return out
-    
-    
 }
 
 func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Vector {
@@ -418,6 +427,7 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
 
 func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     // name e.g. feed_forward.w1
+    gpu.eval()
     let weights = layer[name]!
     let rowIds = layer[name+".ids"]!
     let rowVals = layer[name+".vals"]!
@@ -428,69 +438,30 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     print(rowIds.shape)
     print(rowVals.shape)
 
-    let probes = 4096
-    var o = Vector(shape: [probes])
+    let probes = 4096 // 4096
+    let o = Vector(shape: [probes])
     for i in 0..<probes {
         o[i] = abs(v[i] * weights[i*weights.cols! + i])
     }
     
-    assert(o.test(mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
+    assert(o.test("probes", mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
         
-    o.sort()//Vec(&o)
+    o.sort()
+    gpu.eval()
     
     assert(o[4095]==0.02194)
     assert(o[4094]==0.01575)
 
-    let quant = 0.16
+    let quant = 0.05
     let q = Int(Double(probes)*(1-quant))
     let cutoff: Float16 = o[q]
 
     // mul proper
     let bufferX = VectorFloat(shape:[11008]) // zero it out?
     gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX], float16s: [cutoff], threadCount: v.rows)
-    /*
-    let commandBuffer = commandQueue.makeCommandBuffer()!
-    let encoder = commandBuffer.makeComputeCommandEncoder()!
-
-    let bufferSize = 11008 * MemoryLayout<Float>.stride
-    let bufferX = weights.buffer.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-    let bufferPointer = bufferX.contents().bindMemory(to: Float.self, capacity: 11008)
-
-    let accumFunction = library.makeFunction(name: "accum")!
-    let pipeline = try! device.makeComputePipelineState(function: accumFunction)
-    
-    let threadCount = v.rows
-    let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-    let threadGroupSize = MTLSize(width: pipeline.threadExecutionWidth, height: 1, depth: 1)
-    
-    for i in 0..<11008 {
-        bufferPointer[i] = 0
-    }
-        
-    encoder.setComputePipelineState(pipeline)
-
-    encoder.setBuffer(v.buffer, offset: 0, index: 0)
-    encoder.setBuffer(rowIds.buffer, offset: 0, index: 1)
-    encoder.setBuffer(rowVals.buffer, offset: 0, index: 2)
-    encoder.setBuffer(bufferX, offset: 0, index: 3)
-    encoder.setBytes(&cutoff, length: MemoryLayout<Float16>.stride, index: 4)
-
-    encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-
-    
-    let startTime = Date()
-    encoder.endEncoding()
-    commandBuffer.commit()
-
-    commandBuffer.waitUntilCompleted()*/
+    gpu.eval()
     //PROFILE
     print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
-
-    /*
-    let dataPointer = bufferX.contents().assumingMemoryBound(to: Float.self)
-    let dataBufferPointer = UnsafeMutableBufferPointer(start: dataPointer, count: 11008)
-    let floatData = Array.init(dataBufferPointer)
-     */
 
     print("works?")
     print(cutoff)
@@ -505,7 +476,17 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
         print(bufferX[i])
     }
     
+    let testVals = mul_col(vec: v, by: weights)
+    gpu.eval()
     
+    print("testVals")
     
+    for i in 0..<10 {
+        print(testVals[i])
+    }
+    
+    let sim = bufferX.cosineSimilarityTo(testVals)
+    print(sim[0])
+    
+    exit(0)
 }
-

@@ -106,7 +106,9 @@ for thisToken in 0..<numTokens {
         let w3 = layer["feed_forward.w3"]!
         
         fxn.mul(by:wn)
-        ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
+        mul_vm(v: fxn, layer: layer, name: "feed_forward.w1")
+        exit(0)
+//        ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
         
         assert(fxn.test("fxn", cond: layerNo+thisToken==0, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
         assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))

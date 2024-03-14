@@ -84,7 +84,27 @@ kernel void mul_complex(device half2* v [[buffer(0)]],
     
 }
 
-                        
+// cosine similarity
+
+//gpu.deploy("cosinePrecalc", buffers: [self, vec, dotBuffer, normABuffer, normBBuffer], threadCount: self.rows)
+//gpu.deploy("cosineCalc", buffers: [dotBuffer, normABuffer, normBBuffer], threadCount: 0)
+kernel void cosinePrecalc(const device float *A,
+                                   const device half *B,
+                                   device atomic_float *dotProduct,
+                                   device atomic_float *magnitudeA,
+                                   device atomic_float *magnitudeB,
+                                   uint id [[thread_position_in_grid]]) {
+    // Compute dot product and magnitudes for cosine similarity
+    atomic_fetch_add_explicit(dotProduct, A[id] * B[id], memory_order_relaxed);
+    atomic_fetch_add_explicit(magnitudeA, A[id] * A[id], memory_order_relaxed);
+    atomic_fetch_add_explicit(magnitudeB, B[id] * B[id], memory_order_relaxed);
+}
+
+kernel void cosineCalc(device float *dotProduct,
+                       device float *magnitudeA,
+                       device float *magnitudeB) {
+    dotProduct[0] = dotProduct[0]/(sqrt(magnitudeA[0]) * sqrt(magnitudeB[0]));
+}
 
 
 // dotproduct & scores

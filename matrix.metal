@@ -37,7 +37,6 @@ kernel void accum(device const half *vector [[buffer(0)]],
         atomic_fetch_add_explicit(&counter[rid2[1]], out2[1], memory_order_relaxed);
         atomic_fetch_add_explicit(&counter[rid2[2]], out2[2], memory_order_relaxed);
         atomic_fetch_add_explicit(&counter[rid2[3]], out2[3], memory_order_relaxed);
-
         
         
       if (abs(out[3]) < abs(cutoff)) {
