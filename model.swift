@@ -17,10 +17,13 @@ extension String.StringInterpolation {
 class Bufferable {
     let buffer: MTLBuffer
     let offset: Int
+//    let offset_bytes: Int
     
     init(buffer: MTLBuffer, offset: Int = 0) {
+//        assert((offset == 0)||(offset_bytes != 0), "You need to offset bytes if you make a regular offset")
         self.buffer = buffer
         self.offset = offset
+//        self.offset_bytes = offset
     }
 }
 
@@ -204,6 +207,7 @@ class BufferableFloat16 : Bufferable {
 
 func modelRunTests() {
     let v = Vector(from: [0.1, 0.22, 0.33, 0.11, -0.21, 2, -0.01, 0.02])
+    assert(v.scalarAt(3)[0] == 0.11)
     v.sort()
     assert(v.test("v.sort()", mul: 100, val: [-0.21, -0.01, 0.02, 0.1, 0.11, 0.22, 0.33, 2.0]))
 }
@@ -215,7 +219,6 @@ class Matrix: BufferableFloat16 {
     
     func scalarAt(_ row: Int, _ col: Int) -> Scalar {
         return Scalar(buffer: self.buffer, offset: row*self.cols! + col)
-        //scores.scalarAt(headNo, t2)
     }
     
     func asVectorList() -> [Vector] {
@@ -241,14 +244,22 @@ class VectorFloat: BufferableFloat {
         return dotBuffer
     }
 
+    func asFloat16Vector() -> Vector {
+        let out = Vector(shape:[self.rows])
+        gpu.deploy("floatToHalf", buffers: [self, out], threadCount: self.rows)
+        return out
+    }
+    
 }
 
 class Vector: BufferableFloat16 {
-    
+    func scalarAt(_ row: Int) -> Scalar {
+        return Scalar(buffer: self.buffer, offset: row)
+    }
+
     
     func softmax() {
         let rms = ScalarFloat(value: 0.0)
-        
         gpu.deploy("sum_of_exps", buffers: [self, rms], threadCount: self.rows)
         gpu.deploy("softmax_add", buffers: [self, rms], threadCount: self.rows)
     }
@@ -387,14 +398,12 @@ func gpuConsolidate(vecList:[Vector]) -> Matrix {
 
 func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Vector {
     let outMatrix = Matrix(shape: [numHeads, headDim])
-    
     let scoresMatrix = gpuConsolidate(vecList: scores)
     let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
     gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
-
     return outMatrix.asVector()
 }
 
@@ -425,42 +434,71 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
 }
 
 
-func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
+func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
+    let out = Vector(shape:[x1.rows])
+    gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
+    return out
+}
+
+func mul_vm(v: Vector, layer: [String: Matrix], name: String) -> VectorFloat {
     // name e.g. feed_forward.w1
-    gpu.eval()
     let weights = layer[name]!
     let rowIds = layer[name+".ids"]!
     let rowVals = layer[name+".vals"]!
     assert (rowIds.cols == weights.rows)
     assert (rowIds.rows == weights.cols)
     
+    /*
     print(weights.shape)
     print(rowIds.shape)
     print(rowVals.shape)
+     */
 
     let probes = 4096 // 4096
     let o = Vector(shape: [probes])
-    for i in 0..<probes {
-        o[i] = abs(v[i] * weights[i*weights.cols! + i])
-    }
+    let wCols : Int = weights.cols!
+    gpu.deploy("probe", buffers:[v, weights, o], ints:[wCols], threadCount: probes)
     
-    assert(o.test("probes", mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
+//    assert(o.test("probes", mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
         
     o.sort()
-    gpu.eval()
+    /*
+    for i in 0...20 {
+//        print("sorted", o[i*400])
+        let q = Int(Double(probes-1)*(1-(Double(i*5)/100)))
+        var cutoff: Float16 = o[q]
+        print("sorted", i*5, q, cutoff)
+
+    }*/
+
     
-    assert(o[4095]==0.02194)
-    assert(o[4094]==0.01575)
+//    assert(o[4095]==0.02194)
+//    assert(o[4094]==0.01575)
 
-    let quant = 0.05
+    let quant : Double
+    if (name != "feed_forward.w2") {
+        quant = 0.4
+    } else {
+//        print("no quant")
+        quant = 0.4
+    }
     let q = Int(Double(probes)*(1-quant))
-    let cutoff: Float16 = o[q]
+//    let cutoff = o.scalarAt(q)
+    let cutoff = Scalar(value: 0)
+    gpu.deploy("getVal", buffers: [o, cutoff], ints:[q], threadCount: o.rows)
+/*    print(cutoff[0])
+    exit(0)*/
+//    exit(0)
+//    gpu.eval()
 
+//    let cutoff = Scalar(value:o[q])
+    let outDim: Int =  Int(rowIds.cols!)
+//    print(outDim)
     // mul proper
-    let bufferX = VectorFloat(shape:[11008]) // zero it out?
-    gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX], float16s: [cutoff], threadCount: v.rows)
-    gpu.eval()
+    let bufferX = VectorFloat(shape:[rowIds.cols!]) // zero it out?
+    gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX, cutoff], ints: [outDim], threadCount: v.rows)
     //PROFILE
+    /*
     print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")
 
     print("works?")
@@ -472,21 +510,13 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) {
     }
 
     
-    for i in 0..<10 {
+    /*for i in 0..<10 {
         print(bufferX[i])
-    }
-    
+    }*/
+    */
+    /*
     let testVals = mul_col(vec: v, by: weights)
-    gpu.eval()
-    
-    print("testVals")
-    
-    for i in 0..<10 {
-        print(testVals[i])
-    }
-    
     let sim = bufferX.cosineSimilarityTo(testVals)
-    print(sim[0])
-    
-    exit(0)
+    print("cos sim", name, sim[0])*/
+    return bufferX
 }

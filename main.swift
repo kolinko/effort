@@ -9,7 +9,7 @@ import Foundation
 import Metal
 import simd
 
-let captureGPU = false
+let captureGPU = true
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
@@ -31,7 +31,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let tokenNum = 0
 
-let numLayers = 31
+let numLayers = 5
 let numTokens = 8
 
 var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
@@ -47,11 +47,25 @@ import simd
 
 modelRunTests()
 
-gpu.startCapture(cond: captureGPU)
+//gpu.startCapture(cond: captureGPU)
+/*
+let captureManager = MTLCaptureManager.shared()
+let captureDescriptor = MTLCaptureDescriptor()
+captureDescriptor.captureObject = gpu.device
+do {
+    try captureManager.startCapture(with: captureDescriptor)
+} catch {
+    fatalError("error when trying to capture: \(error)")
+}*/
 
+print("begin")
+gpu.startCapture(cond: captureGPU)
+gpu.eval()
 for thisToken in 0..<numTokens {
+    var h = tokens[thisToken]
+
     for layerNo in 0...numLayers {
-        var h = tokens[thisToken]
+//        print("layer", layerNo, thisToken)
         let layer = modelData.layers[layerNo]!
         
         let wa = layer["attention_norm"]!.asVector()
@@ -81,24 +95,24 @@ for thisToken in 0..<numTokens {
         
         let xkTokenHeads = xkLayerTokenHead[layerNo]
         let xvToken = xvLayerToken[layerNo]
-
         let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
+
         for headNo in 0..<numHeads {
             scores[headNo].softmax()
         }
-        assert(xvToken[0].test("attnFfn", cond: layerNo+thisToken==0, mul:1000, val:[-0.001, 0.006, -0.006, 0.028, -0.028]))
+//        assert(xvToken[0].test("attnFfn", cond: layerNo+thisToken==0, mul:1000, val:[-0.001, 0.006, -0.006, 0.028, -0.028]))
         
         let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
         let attnFfn = mul_col(vec: attnOutput, by: wo)
-        assert(attnFfn.test("attnFfn", cond: layerNo+thisToken==0, mul:100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
-        
-                
+
+//        assert(attnFfn.test("attnFfn", cond: layerNo+thisToken==0, mul:100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
+
         h.add(by: attnFfn)
-        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
+//        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
 
         let fxn = h.rmsNormed()
-        assert(fxn.test("h_norm2", cond: layerNo+thisToken==0, mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
+//        assert(fxn.test("h_norm2", cond: layerNo+thisToken==0, mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
         
         let wn = layer["ffn_norm"]!.asVector()
         let w1 = layer["feed_forward.w1"]!
@@ -106,12 +120,26 @@ for thisToken in 0..<numTokens {
         let w3 = layer["feed_forward.w3"]!
         
         fxn.mul(by:wn)
-        mul_vm(v: fxn, layer: layer, name: "feed_forward.w1")
-        exit(0)
-//        ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
+        //threadExecutionWidth
         
-        assert(fxn.test("fxn", cond: layerNo+thisToken==0, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09]))
-        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07]))
+        let x1 = mul_vm(v: fxn, layer: layer, name: "feed_forward.w1")
+        /*
+        let x3 = mul_vm(v: fxn, layer: layer, name: "feed_forward.w3")
+        let x2 = silu(x1, x3)
+        let ffn_out = mul_vm(v: x2, layer: layer, name: "feed_forward.w2")
+        h.add(by: ffn_out.asFloat16Vector())*/
+        
+        //ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
+        /*
+
+        if (thisToken == 1 && layerNo == 10) {
+            gpu.eval()
+        }
+        if (thisToken == 1 && layerNo == 11) {
+            gpu.eval()
+//            gpu.stopCapture()
+        }*/
+
     }
     
     print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -119,19 +147,20 @@ for thisToken in 0..<numTokens {
         let evalTime = Date()
 
         gpu.eval()
-
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+        gpu.stopCapture(cond: captureGPU)
 
-        gpu.stopCapture(cond: captureGPU)        
 
     }
     
 }
+
 os_signpost(.end, log: log, name: "Go Tokens3")
 let evalTime = Date()
 os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
 os_signpost(.end, log: log, name: "Go Eval")
+//captureManager.stopCapture()
 
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 

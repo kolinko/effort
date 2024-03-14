@@ -80,7 +80,7 @@ func loadModelData(from filePath: String) -> ModelData {
     let startTime = Date()
     let shapeDict = readJson()
     
-    let numLayers = 31 // 31
+    let numLayers = 31
     var layers = [Int: [String: Matrix]]()
     for i in 0...numLayers {
         layers[i] = [String: Matrix]()

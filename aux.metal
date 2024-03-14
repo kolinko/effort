@@ -34,7 +34,7 @@ kernel void sum_of_exps(const device half* input [[buffer(0)]],
 kernel void softmax_add(device half* vec [[buffer(0)]],
                              device float* sum [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
-    vec[id] = exp(vec[id])/sum[0];
+    vec[id] = exp(float(vec[id]))/sum[0];
 }
 // simple ones
 kernel void mul_vec(const device half* v [[buffer(0)]],
@@ -88,6 +88,13 @@ kernel void mul_complex(device half2* v [[buffer(0)]],
 
 //gpu.deploy("cosinePrecalc", buffers: [self, vec, dotBuffer, normABuffer, normBBuffer], threadCount: self.rows)
 //gpu.deploy("cosineCalc", buffers: [dotBuffer, normABuffer, normBBuffer], threadCount: 0)
+//gpu.deploy("floatToHalf", buffers: [self, out], threadCount: self.rows)
+kernel void floatToHalf(const device float *inVec,
+                        device half *outVec,
+                        uint id [[thread_position_in_grid]]) {
+    outVec[id] = inVec[id];
+}
+
 kernel void cosinePrecalc(const device float *A,
                                    const device half *B,
                                    device atomic_float *dotProduct,

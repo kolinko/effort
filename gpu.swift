@@ -36,7 +36,9 @@ class Gpu {
         self.globalStates = [:]
         let functionNames = ["sum_of_squares", "normalize_vector",
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                             "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex"] // Add more function names as needed
+                             "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex",
+                            "mul_col_11008", "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
+        "basicBitonicSort", "probe", "accum", "getVal"] // Add more function names as needed
 
         for fname in functionNames {
             makeFunction(fname)
@@ -44,12 +46,14 @@ class Gpu {
     }
     
     func makeFunction(_ fname: String) {
+        print(fname)
         let internalFunc = library.makeFunction(name: fname)!
         self.globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
     }
     
     
     func eval() {
+        print("!EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -71,7 +75,10 @@ class Gpu {
         encoder.setComputePipelineState(internalState)
 
         for i in 0..<buffers.count {
-            encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset, index: i)
+//            print(buffers[i])
+//            print(buffers[i].offset)
+//            print(buffers[i].)
+            encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset , index: i)
         }
 
         for i in 0..<ints.count {
@@ -89,7 +96,7 @@ class Gpu {
     }
     
     func stopCapture(cond: Bool = true) {
-        if cond && self.captureON {
+        if (cond && self.captureON) {
             self.captureManager.stopCapture()
             self.captureON = false
         }

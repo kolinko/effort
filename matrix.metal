@@ -8,11 +8,40 @@
 #include <metal_stdlib>
 using namespace metal;
 
+kernel void silu(device const float *x1 [[buffer(0)]],
+                 device const float *x3 [[buffer(1)]],
+                 device half *out [[buffer(2)]],
+                 uint id [[thread_position_in_grid]]) {
+    out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));
+}
+
+/*for i in 0..<probes {
+    o[i] = abs(v[i] * weights[i*weights.cols! + i])
+}*/
+
+kernel void probe(device const half *v [[buffer(0)]],
+                  device const half *weights [[buffer(1)]],
+                  device half *out[[buffer(2)]],
+                  constant int &wCols [[buffer(3)]],
+                  uint id [[thread_position_in_grid]]) {
+    out[id] = abs(v[id] * weights[id*wCols + id]);
+}
+
+kernel void getVal(device const half* vector [[buffer(0)]],
+                   device half *val [[buffer(1)]],
+                   const device uint &pos [[buffer(2)]],
+                   uint id [[thread_position_in_grid]]) {
+    if (id == pos) {
+        val[0] = vector[pos];
+    }
+}
+
 kernel void accum(device const half *vector [[buffer(0)]],
                   device const ushort4 *rowIds [[buffer(1)]],
                   device const half4 *rowVals [[buffer(2)]],
-                  constant half &cutoff [[buffer(4)]],
                   device atomic_float *counter [[buffer(3)]],
+                  constant half *cutoff [[buffer(4)]],
+                  constant int &outerDim [[buffer(5)]],
                   uint id [[thread_position_in_grid]]) {
     
     
@@ -20,9 +49,9 @@ kernel void accum(device const half *vector [[buffer(0)]],
     
 #ifdef yolo
     half myVal = vector[id];
-    int offset = id*11008/4;
+    int offset = id*outerDim/4;
     
-    for (int i = 0; i < 11008/4; i+=2) {//1008; i++) {
+    for (int i = 0; i < 400; i+=2) { // outerDim/4
         half4 out = rowVals[offset+i]*myVal;
         half4 out2 = rowVals[offset+i+1]*myVal;
 
@@ -38,10 +67,11 @@ kernel void accum(device const half *vector [[buffer(0)]],
         atomic_fetch_add_explicit(&counter[rid2[2]], out2[2], memory_order_relaxed);
         atomic_fetch_add_explicit(&counter[rid2[3]], out2[3], memory_order_relaxed);
         
-        
-      if (abs(out[3]) < abs(cutoff)) {
+       /*
+      if (abs(out[3]) < abs(cutoff[0])) {
             break;
         }
+        */
     }
     
 #else
@@ -69,10 +99,29 @@ kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
     
     for (int i = 0; i < 4096; i++) {
         sum += matrix[(offset+i)] * vector[i];
+//        sum += matrix[11008*i+id] * vector[i];
+
     }
 
     result[row] = sum;
 }
+
+
+kernel void mul_col_11008(device const half *matrix [[buffer(0)]],
+                    device const half *vector [[buffer(1)]],
+                    device half *result [[buffer(2)]],
+                    uint id [[thread_position_in_grid]]) {
+    half sum = 0.0;
+    int row = id;
+    int offset = id * 11008;
+    
+    for (int i = 0; i < 11008; i++) {
+        sum += matrix[(offset+i)] * vector[i];
+    }
+
+    result[row] = sum;
+}
+
 
 #define outer_count 4096
 
