@@ -297,6 +297,7 @@ class Vector: BufferableFloat16 {
     
     
     func add(by vector: Vector) {
+        print(self.shape)
         assert(self.shape == vector.shape, "Shapes of both layers must match")
 
         gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
@@ -492,11 +493,26 @@ func mul_vm(v: Vector, layer: [String: Matrix], name: String) -> VectorFloat {
 //    gpu.eval()
 
 //    let cutoff = Scalar(value:o[q])
-    let outDim: Int =  Int(rowIds.cols!)
 //    print(outDim)
     // mul proper
-    let bufferX = VectorFloat(shape:[rowIds.cols!]) // zero it out?
-    gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX, cutoff], ints: [outDim], threadCount: v.rows)
+    //    let bufferX = VectorFloat(shape:[rowIds.cols!]) // zero it out?
+
+    let outDim: Int =  Int(rowIds.cols!) / 16
+    let bufferX = VectorFloat(shape:[rowIds.cols!])
+    print("threadCount", v.rows/8)
+    
+    let seedInt = Int.random(in: 0..<65536)
+    //Int.random(in: 0...4095)
+/*    gpu.deploy("bucketMulRows", buffers: [v, rowVals, rowsVec, bufferX], ints:[rowIds.rows, outDim, rowsVec.rows], threadCount: outDim * 64) // 32 = numGroups*/
+
+    for _ in 0..<8 {
+/*        gpu.deploy("bucketMulRows", buffers: [v, rowVals, bufferX], ints:[rowIds.rows, outDim], threadCount: outDim * 64) // 32 = numGroups*/
+        gpu.deploy("bucketMulRows", buffers: [v, rowVals, bufferX], ints:[rowIds.rows, outDim], threadCount: outDim * 64) // 32 = numGroups
+
+        gpu.deploy("bucketMul", buffers: [v, rowVals, bufferX], ints:[rowIds.rows, outDim], threadCount: outDim * 64) // 32 = numGroups
+    }
+
+    //    gpu.deploy("accum", buffers: [v, rowIds, rowVals, bufferX, cutoff], ints: [rowIds.rows, outDim], threadCount: v.rows/16)
     //PROFILE
     /*
     print("YoloMMUL: \(1000*Date().timeIntervalSince(startTime), precision:2) ms")

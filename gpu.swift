@@ -70,14 +70,19 @@ class Gpu {
         let internalState = self.globalStates[fname]!
             
         let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
-        let threadGroupSize = MTLSize(width: internalState.threadExecutionWidth, height: 1, depth: 1)
+//        print(fname, "tgSize", internalState.threadExecutionWidth, internalState.maxTotalThreadsPerThreadgroup)
+        var threadGroupSize : MTLSize
+        if (fname == "accum") {
+            threadGroupSize = MTLSize(width: threadCount, height: 1, depth: 1) //threadExecutionWidth
+        } else {
+            threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
+
+        }
 
         encoder.setComputePipelineState(internalState)
 
         for i in 0..<buffers.count {
-//            print(buffers[i])
-//            print(buffers[i].offset)
-//            print(buffers[i].)
+//            print(i)
             encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset , index: i)
         }
 

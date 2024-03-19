@@ -10,6 +10,7 @@
 		A40B31962B9DAAA300095AF5 /* aux.metal in Sources */ = {isa = PBXBuildFile; fileRef = A40B31952B9DAAA300095AF5 /* aux.metal */; };
 		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
 		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
+		A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A429EFEE2BA81B7600B25B68 /* mps.swift */; };
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
 		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
@@ -35,6 +36,7 @@
 		A40B31952B9DAAA300095AF5 /* aux.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = aux.metal; sourceTree = "<group>"; };
 		A40B31972B9F476800095AF5 /* gpu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = gpu.swift; sourceTree = "<group>"; };
 		A40B31992BA06D5800095AF5 /* info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = info.plist; sourceTree = "<group>"; };
+		A429EFEE2BA81B7600B25B68 /* mps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mps.swift; sourceTree = "<group>"; };
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
 		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,6 +61,7 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A429EFEE2BA81B7600B25B68 /* mps.swift */,
 				A40B31992BA06D5800095AF5 /* info.plist */,
 				A40B31972B9F476800095AF5 /* gpu.swift */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
@@ -157,6 +160,7 @@
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
 				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
 				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
+				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
 				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
 				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,
 				A43F8F982B6CF5C800578E56 /* loader.swift in Sources */,
