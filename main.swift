@@ -67,8 +67,8 @@ let buffer2 = Vector(shape:[weights.rows])
 mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer2)
 gpu.eval()
 print(buffer2.str())
-print("cosine similarity", buffer32.cosineSimilarityTo(buffer2)[0])
-exit(0)
+//print("cosine similarity", buffer32.cosineSimilarityTo(buffer2)[0])
+//exit(0)
 
 var repeats=2;
 //let bufferX = Vector(shape:[weights.rows])

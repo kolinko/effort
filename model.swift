@@ -528,7 +528,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: 
     }
     /* end of base data */
     
-    
+    /*
     for row in 0..<weightVectors.count {
         var min: Float16 = 99
         var max: Float16 = 0
@@ -576,9 +576,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: 
     for i in 8000..<8020 {
         print(dispatch[i*2+1])
     }
-    
-    
-    
+    */
     return dispatch
 }
 

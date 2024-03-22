@@ -36,160 +36,8 @@ kernel void getVal(device const half* vector [[buffer(0)]],
     }
 }
 
-#define SIZE 4096/4
-// #define testChunksY 4
-
-kernel void testBucket(device const half2x4 *weights [[buffer(0)]],
-                       device half *result [[buffer(1)]],
-                       constant uint &rows [[buffer(2)]],
-                       constant uint &cols [[buffer(3)]],
-                       constant uint &testChunksY [[buffer(4)]],
-                       ushort2 id [[thread_position_in_grid]],
-                       ushort2 tpig [[threadgroup_position_in_grid]],
-                       ushort tpisg [[thread_index_in_simdgroup]]
-                       ) {
-    half out = 0;
-  
-    
-    const ushort wX = tpisg / 8;
-    const ushort wY = (tpisg % 8) / 4;
-    const ushort wZ = (tpisg % 8) % 4;
-    const ushort offset = tpig.x;// + wX;
-    const ushort offRows = tpig.y*11008/16;//rows/testChunksY;
-/*
- 
-
- */
-//    for (uint r=offRows; r<offRows+rows/testChunksY; r+=4) {
-//        ushort r = offRows + i;
-    for (uint i = 0; i<11008/16; i+=4) {
-        ushort r = offRows + i;
-        out += weights[r*cols + offset][wY][wZ];
-        out += weights[(r+1)*cols + offset][wY][wZ];
-        out += weights[(r+2)*cols + offset][wY][wZ];
-        out += weights[(r+3)*cols + offset][wY][wZ];
-    }
-    result[id.x] = out;
-//    result[id / 8][id % 8 / 4][id % 4] = id;//out;
-
-    //    result[tpig*32+tpisg][0][1] = 33;
-}
-
-/*
- FAST!
- 
- kernel void testBucket(device const half2x4 *weights [[buffer(0)]],
-                        device half *result [[buffer(1)]],
-                        constant uint &rows [[buffer(2)]],
-                        constant uint &cols [[buffer(3)]],
-                        constant uint &testChunksY [[buffer(4)]],
-                        ushort2 id [[thread_position_in_grid]],
-                        ushort2 tpig [[threadgroup_position_in_grid]],
-                        ushort tpisg [[thread_index_in_simdgroup]]
-                        ) {
-     half out = 0;
-   
-     
-     const ushort wX = tpisg / 8;
-     const ushort wY = (tpisg % 8) / 4;
-     const ushort wZ = (tpisg % 8) % 4;
-     const ushort offset = tpig.x*2;// + wX;
-     const ushort offRows = tpig.y*rows/testChunksY;
-     for (uint r=offRows; r<offRows+rows/testChunksY; r+=8) {
-         out += weights[r*cols + offset][wY][wZ];
-         out += weights[(r+1)*cols + offset][wY][wZ];
-         out += weights[(r+2)*cols + offset][wY][wZ];
-         out += weights[(r+3)*cols + offset][wY][wZ];
-
-         
-     }
-     result[id.x] = out;
- //    result[id / 8][id % 8 / 4][id % 4] = id;//out;
-
-     //    result[tpig*32+tpisg][0][1] = 33;
- }
-
- */
-
-/*
-kernel void testBucket(device const half2x4 *weights [[buffer(0)]],
-                       device half2x4 *result [[buffer(1)]],
-                       constant ushort &rows [[buffer(2)]],
-                       constant ushort &cols [[buffer(3)]],
-
-                       ushort tpig [[threadgroup_position_in_grid]],
-                       ushort tpisg [[thread_index_in_simdgroup]]
-                       ) {
-    float out = 0;
-    const ushort offset = tpig*32;// + tpisg);
-
-    for (int r=0; r<rows; r++) {
-        out += weights[r*cols + offset][0][0];
-    }
-    result[tpig*32+tpisg][0][0] = out;
-    result[tpig*32+tpisg][0][1] = 33;
-} */
-
-kernel void truthBucket(device const half *weights [[buffer(0)]],
-                       device half *result [[buffer(1)]],
-                       constant ushort &rows [[buffer(2)]],
-                       constant ushort &cols [[buffer(3)]],
-
-                       ushort tpig [[thread_position_in_grid]]
-                       ) {
-    float out = 0;
-    const ushort offset = tpig;// + tpisg);
-    for (int r=0; r<rows; r++) {
-        out += weights[r*cols + offset];
-    }
-    result[tpig] = out;
-}
-
-
-kernel void truthBucket2(device const half *weights [[buffer(0)]],
-                       device half *result [[buffer(1)]],
-                       constant ushort &rows [[buffer(2)]],
-                       constant ushort &cols [[buffer(3)]],
-
-                       ushort2 tpig [[thread_position_in_grid]]
-                       ) {
-    half out[16];
-    for (int i = 0; i<16; i++) { out[i] = 0;};
-    const ushort offset = tpig.x+(tpig.y>0?cols*rows/2:0);// + tpisg);
-    for (int r=0; r<rows/2; r+=16) {
-        for (int i=0; i<16; i++) {
-            out[i] += weights[(r+i)*cols + offset];//>0.02?weights[(r+i)*cols + offset]:weights[(r+i)*cols + offset];
-        }
-        
-
-    }
-    for (int i = 0; i<16; i++) { result[tpig.x] += out[i];};
-}
-
-/*
- working?
- 
-kernel void truthBucket2(device const half *weights [[buffer(0)]],
-                       device half *result [[buffer(1)]],
-                       constant ushort &rows [[buffer(2)]],
-                       constant ushort &cols [[buffer(3)]],
-
-                       ushort2 tpig [[thread_position_in_grid]]
-                       ) {
-    half out[16];
-    for (int i = 0; i<16; i++) { out[i] = 0;};
-    const ushort offset = tpig.x+(tpig.y>0?cols*rows/2:0);// + tpisg);
-    for (int r=0; r<rows/2; r+=16) {
-        for (int i=0; i<16; i++) {
-            out[i] += weights[(r+i)*cols + offset];//>0.02?weights[(r+i)*cols + offset]:weights[(r+i)*cols + offset];
-        }
-        
-
-    }
-    for (int i = 0; i<16; i++) { result[tpig.x] += out[i];};
-}
- 
- */
+# define fraction 7
+# define groups 32
 
 kernel void bucketMul(
                    device const half *weights [[buffer(0)]],
@@ -198,90 +46,27 @@ kernel void bucketMul(
                    constant uint &rows [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
 
-                  ushort2 id [[thread_position_in_grid]]
-                      ) {
-    
-    //
-    // for groups == 1: go through every row of inDim, fetch its outCol value and += to myVal
-    // for groups > 1 : go through rows groupId*groupSize to (groupId+1)*groupSize, fetch its outCol value and += to myVal
-    
-
+                  ushort2 id [[thread_position_in_grid]]) {
+                      
     float myVal[16];
-//    float z = 0;
-      for (int i = 0; i<16; i++) { myVal[i] = 0;};
-    
-# define fraction 7
-# define groups 32
-                          
-      const ushort rowOffset = id.y*65536/groups;
-      for (int r=0; r<65536/groups; r+=1) { //65536/groups/fraction    12774/groups
-          float2 d = dispatch[rowOffset + r];
-          half w = weights[int(d[1])*cols + id.x];
-          for (int i=0; i<16; i++) {
-              /*z=as_type<ushort>(w)&15;//(as_type<ushort>(weights[int(d[1])*cols + id.x])&0xF);
-              z=weights[int(d[1])*cols + id.x];
-              z=w;
-              z = d[0]*w;*/
-              myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
-          }
+    for (int i = 0; i<16; i++) { myVal[i] = 0;};
+
+                      
+    const ushort rowOffset = id.y*65536/groups;
+    for (int r=0; r<65536/groups; r+=1) { //65536/groups/fraction    12774/groups
+      float2 d = dispatch[rowOffset + r];
+      half w = weights[int(d[1])*cols + id.x];
+      for (int i=0; i<16; i++) {
+          myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
       }
+    }
+                      
+    for (int i = 0; i<16; i++) {
+      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+    }
                           
-      for (int i = 0; i<16; i++) {
-          atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
-      }
-//                                  };
-
-    /*
-    for (ushort i = 0; i<rows; i++) {
-        half2 d = dispatch[rowOffset + i];
-        int bucketPos = int(d[1]) + bucketCol;// * 86
-        w = weights[bucketPos];
-//        ushort binId = as_type<ushort>(w[wx][wy])&3;
-        myVal[0] += d[0] * w[0][0];
-    }
-    
-    const ushort outCol = id.x * 16 * 4 * 32;
-    int off = 0;
-    for (int j = 0; j<2; j++) {
-        result[off+outCol+j] += myVal[j];//myVal[off+j];
-    }*/
-    
 }
 
-
-
-kernel void mul_col_4096(device const half *matrix [[buffer(0)]],
-                    device const half *vector [[buffer(1)]],
-                    device half *result [[buffer(2)]],
-                    uint id [[thread_position_in_grid]]) {
-    half sum = 0.0;
-    int row = id;
-    int offset = id * 4096;
-    
-    for (int i = 0; i < 4096; i++) {
-        sum += matrix[(offset+i)] * vector[i];
-//        sum += matrix[11008*i+id] * vector[i];
-
-    }
-
-    result[row] = sum;
-}
-
-
-kernel void mul_col_11008(device const half *matrix [[buffer(0)]],
-                    device const half *vector [[buffer(1)]],
-                    device half *result [[buffer(2)]],
-                    uint id [[thread_position_in_grid]]) {
-    half sum = 0.0;
-    int row = id;
-    int offset = id * 11008;
-    
-    for (int i = 0; i < 11008; i++) {
-        sum += matrix[(offset+i)] * vector[i];
-    }
-
-    result[row] = sum;
-}
 
 
 #define outer_count 4096
