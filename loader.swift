@@ -93,7 +93,10 @@ func loadModelData(from filePath: String) -> ModelData {
             let keyName = "layers."+String(i)+"."+key
             let nShape = [shapeDict[keyName]![1]*16, shapeDict[keyName]![0]/16]
             layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: nShape)
-//            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
+            let dShape = [shapeDict[keyName]![1]*16, 4]
+            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: nShape)
+
+            //            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
         }
     }
     

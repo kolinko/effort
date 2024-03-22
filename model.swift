@@ -489,7 +489,7 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
     return out
 }
 
-func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Double) -> VectorFloat {
+func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix, quant: Double) -> VectorFloat {
     
     let probes = 4096 // 4096
     let o = Vector(shape: [probes])
@@ -528,7 +528,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
     }
     /* end of base data */
     
-    /*
+    
     for row in 0..<weightVectors.count {
         var min: Float16 = 99
         var max: Float16 = 0
@@ -577,7 +577,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
         print(dispatch[i*2+1])
     }
     
-    */
+    
     
     return dispatch
 }

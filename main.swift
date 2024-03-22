@@ -56,7 +56,7 @@ let weightBuckets = layer["feed_forward.w1.bins"]!
 var h = tokens[0]
 let buffer16 = Vector(shape:[weights.rows])
 
-let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, quant: 0.20)
+let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: layer["feed_forward.w1.bins.stats"]!, quant: 0.20)
 gpu.eval()
 
 let buffer32 = VectorFloat(shape: [weights.rows])
