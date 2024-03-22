@@ -187,9 +187,9 @@ print("warmed up, redoing now")
 
 //var repeats = 50
 var numLayersProf = 32
-repeats=100
+repeats=30
 let captureGPU = false
-let mine = false
+let mine = true
 
 if captureGPU {
     repeats = 5

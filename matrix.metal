@@ -207,11 +207,11 @@ kernel void bucketMul(
     
 
     float myVal[16];
-    float z = 0;
+//    float z = 0;
       for (int i = 0; i<16; i++) { myVal[i] = 0;};
     
-      const ushort rowOffset = id.y*65536/16;
-      for (int r=0; r<65536/16; r+=1) {
+      const ushort rowOffset = id.y*65536/48;
+      for (int r=0; r<65536/48; r+=1) {
           float2 d = dispatch[rowOffset + r];
           half w = weights[int(d[1])*cols + id.x];
           for (int i=0; i<16; i++) {
@@ -224,8 +224,7 @@ kernel void bucketMul(
       }
                           
       for (int i = 0; i<16; i++) {
-          //result[id.x*16+i] += myVal[i];
-           atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+          atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
       }
 //                                  };
 

@@ -519,7 +519,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
         }
     }
     
-    //    return dispatch.reshaped(newCols: dispatch.rows/8)[0]
+    //     return dispatch.reshaped(newCols: dispatch.rows/8)[0]
 
     return dispatch
 }
@@ -613,6 +613,6 @@ func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFlo
     }
     */
     
-    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:16)
+    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:48)
     
 }
