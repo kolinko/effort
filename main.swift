@@ -151,17 +151,31 @@ print(outStr)
 
 exit(0)
 */
+//gpu.startCapture()
 let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, quant: 0.15)
 gpu.eval()
+
+let buffer32 = VectorFloat(shape: [weights.rows])
+bucketMul(v: h, weightBuckets: layer["feed_forward.w1.bins"]!, weights: weights, out: buffer32, dispatch: dispatch)
+gpu.eval()
+print(buffer32.str())
+//gpu.eval()
+//gpu.stopCapture()
+let buffer2 = Vector(shape:[weights.rows])
+mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer2)
+gpu.eval()
+print(buffer2.str())
+
+
 var repeats=2;
 //let bufferX = Vector(shape:[weights.rows])
 for _ in 0..<5 {
     for layerNo in 0..<32 {
         let layer = modelData.layers[layerNo]!
         let weightBuckets = layer["feed_forward.w1.bins"]!
-        bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer16, dispatch: dispatch)
+        bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32, dispatch: dispatch)
         let weightBuckets2 = layer["feed_forward.w3.bins"]!
-        bucketMul(v: h, weightBuckets: weightBuckets2, weights: weights, out: buffer16, dispatch: dispatch)
+        bucketMul(v: h, weightBuckets: weightBuckets2, weights: weights, out: buffer32, dispatch: dispatch)
 
         mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
     }
@@ -169,11 +183,13 @@ for _ in 0..<5 {
 gpu.eval()
 print("warmed up, redoing now")
 
+
+
 //var repeats = 50
 var numLayersProf = 32
 repeats=100
 let captureGPU = false
-let mine = true
+let mine = false
 
 if captureGPU {
     repeats = 5
@@ -187,7 +203,7 @@ for _ in 0..<repeats*4 {
         let layer = modelData.layers[layerNo]!
         if mine {
             let weightBuckets = layer["feed_forward.w1.bins"]!
-            bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer16, dispatch: dispatch)
+            bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32, dispatch: dispatch)
         } else {
             mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
         }
@@ -203,7 +219,7 @@ print("\ncycle time \(Date().timeIntervalSince(startTime)*1000/Double(repeats), 
 
 gpu.stopCapture(cond:captureGPU)
 print(buffer16[0])
-exit(0)
+//exit(0)
 
 /*
 gpu.startCapture(cond: captureGPU)

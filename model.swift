@@ -50,13 +50,35 @@ class BufferableFloat: Bufferable {
     subscript(index: Int) -> Float {
             get {
                 let bufferPointer = self.bufferPointer
+                return bufferPointer[index+Int(offset/4)]
+            }
+            set(newValue) {
+                let bufferPointer = self.bufferPointer
+                bufferPointer[index+Int(offset/4)] = newValue
+            }
+        }
+    /*
+    subscript(index: Int) -> Float {
+            get {
+                let bufferPointer = self.bufferPointer
+                
                 return bufferPointer[index]
             }
             set(newValue) {
                 let bufferPointer = self.bufferPointer
                 bufferPointer[index] = newValue
             }
+        }*/
+
+    func str() -> String {
+        
+        var outStr = ""
+        for i in 0..<32 {
+            outStr += "\(self[i]); "
         }
+        return outStr
+    }
+
 }
 
 class ScalarFloat: BufferableFloat {
@@ -119,7 +141,16 @@ class BufferableFloat16 : Bufferable {
         let buffer = gpu.device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
         self.init(shape: [array.count], buffer: buffer)
     }
+    
+    func str() -> String {
         
+        var outStr = ""
+        for i in 0..<32 {
+            outStr += "\(self[i]); "
+        }
+        return outStr
+    }
+    
     func count() -> Int {
         return self.shape.reduce(1, *)
     }
@@ -478,10 +509,13 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
     let dispatch = VectorFloat(shape: [weightBuckets.rows*2])
 //    assert(dispatch.rows == v.rows * 16 * 2/4)
     let vectors = dispatch.reshaped(newCols: v.rows*2)
+    var count = 0;
     for bucket_no in 0..<vectors.count {
         for row in 0..<v.rows {
+
             vectors[bucket_no][row*2] = Float(v[row]);// + Float16(Int.random(in:0..<);
-            vectors[bucket_no][row*2+1] = Float(Int.random(in:0..<vectors.count*v.rows))//row*bucket_no)
+            vectors[bucket_no][row*2+1] = Float(count) // Int.random(in:0..<vectors.count*v.rows))//
+            count += 1;
         }
     }
     
@@ -492,7 +526,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
 
 
 
-func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: Vector, dispatch: VectorFloat) {
+func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat, dispatch: VectorFloat) {
     /*
      
      Weights are in a bucket weight format:
@@ -513,16 +547,12 @@ func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: Vector, d
      
      */
     
-//    let out = Vector(shape:[weights.rows])
-    
     let numBatches = 16
-    let batchSize = v.rows // ~ 4000
     let bucketSize = 16
     let numBuckets = out.rows / bucketSize // 11k/16 = ~688
 
     assert(weightBuckets.shape == [numBatches*v.rows, numBuckets])
     
-    let bucketsPerThread = 1
     
     /*
      
@@ -544,11 +574,45 @@ func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: Vector, d
     
     assert(numBuckets % 4 == 0)
     assert(dispatch.rows % 256 == 0)
-    let gridXSize = Int(numBuckets)//bucketsPerThread)
-//    let gridYSize = 128
-//    let chunkSize : Int = dispatch.rows / gridYSize
+/*
+    let idx = 0;
+    for idx in 0..<10 {
+        var myVal: Float = 0.0
+        let weightBucketVecs = weightBuckets.asVectorList()
+        for r in 0..<dispatch.rows/2 {
+            let d0 = dispatch[r*2]
+            let d1 = Int(dispatch[r*2+1])
+            //print(d1)
+            
+            let w = weightBucketVecs[d1][idx/16]
+            let w16 = weightBucketVecs[d1].getInt(index:idx/16)
+           // print(d0, d1, w, w16, w16 & 15)
+            if (w16 & 15) == idx % 16 {
+                myVal += Float(w) * d0
+            }
+        }
+    print(idx, myVal)
 
+    }
+    */
+    /*
+    for (int i = 0; i<16; i++) { myVal[i] = 0;};
+  
+    const ushort rowOffset = id.y*65536/16;
+    for (int r=0; r<65536/16; r+=1) {
+        float2 d = dispatch[rowOffset + r];
+        half w = weights[int(d[1])*cols + id.x];
+        for (int i=0; i<16; i++) {
+            /*
+            z=as_type<ushort>(w)&0x15;//(as_type<ushort>(weights[int(d[1])*cols + id.x])&0xF);
+            z=weights[int(d[1])*cols + id.x];
+            z=w;
+            z = d[0]*w;*/
+            myVal[i] += ((as_type<ushort>(w)&0x15) == i)?d[0]*float(w):0;
+        }
+    }
+    */
+    
     gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:16)
     
-    //gpu.deploy("bucketMul", buffers: [v, weightBuckets, dispatch, out], ints: [chunkSize], threadCount: gridXSize, threadCountY: gridYSize, threadCountZ: 4)
 }

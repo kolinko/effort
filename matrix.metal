@@ -194,9 +194,9 @@ kernel void truthBucket2(device const half *weights [[buffer(0)]],
 kernel void bucketMul(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
-                   device half *result [[buffer(2)]],
-                   constant ushort &rows [[buffer(3)]],
-                   constant ushort &cols [[buffer(4)]],
+                   device atomic_float *result [[buffer(2)]],
+                   constant uint &rows [[buffer(3)]],
+                   constant uint &cols [[buffer(4)]],
 
                   ushort2 id [[thread_position_in_grid]]
                       ) {
@@ -207,7 +207,7 @@ kernel void bucketMul(
     
 
     float myVal[16];
-                          //half z = 0;
+    float z = 0;
       for (int i = 0; i<16; i++) { myVal[i] = 0;};
     
       const ushort rowOffset = id.y*65536/16;
@@ -215,12 +215,19 @@ kernel void bucketMul(
           float2 d = dispatch[rowOffset + r];
           half w = weights[int(d[1])*cols + id.x];
           for (int i=0; i<16; i++) {
-              //z=(as_type<ushort>(weights[int(d[1])*cols + id.x])&0xF);
-              //z=weights[int(d[1])*cols + id.x];
-              myVal[i] += (as_type<ushort>(w)&0x15) == i?d[0]*w:0;
+              /*z=as_type<ushort>(w)&15;//(as_type<ushort>(weights[int(d[1])*cols + id.x])&0xF);
+              z=weights[int(d[1])*cols + id.x];
+              z=w;
+              z = d[0]*w;*/
+              myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
           }
       }
-      for (int i = 0; i<16; i++) { result[id.x*16+i] += myVal[i];};
+                          
+      for (int i = 0; i<16; i++) {
+          //result[id.x*16+i] += myVal[i];
+           atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+      }
+//                                  };
 
     /*
     for (ushort i = 0; i<rows; i++) {
