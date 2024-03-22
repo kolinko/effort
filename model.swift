@@ -490,7 +490,7 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
 }
 
 func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Double) -> VectorFloat {
-    /*
+    
     let probes = 4096 // 4096
     let o = Vector(shape: [probes])
     let wCols : Int = weights.cols!
@@ -503,19 +503,78 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
     let q = Int(Double(probes)*(1-quant))
     let cutoff = Scalar(value: 0)
     gpu.deploy("getVal", buffers: [o, cutoff], ints:[q], threadCount: o.rows)
-    */
+    gpu.eval()
+    print("cutoff", cutoff[0])
     // todo: calc the dispatch vector
     
+    let dispatchStats = Matrix(shape: [weightBuckets.rows, 4]) // min, max, avg//, med
+    let weightVectors = weightBuckets.asVectorList()
+    var counter1 = 0
+    var counter2 = 0
+    var counter3 = 0
+    var counter4 = 0
     let dispatch = VectorFloat(shape: [weightBuckets.rows*2])
+
+    /* base data */
+    
     let vectors = dispatch.reshaped(newCols: v.rows*2)
     var count = 0;
     for bucket_no in 0..<vectors.count {
         for row in 0..<v.rows {
-
             vectors[bucket_no][row*2] = Float(v[row]);// + Float16(Int.random(in:0..<);
-            vectors[bucket_no][row*2+1] = Float(count) // Int.random(in:0..<vectors.count*v.rows))//
+            vectors[bucket_no][row*2+1] = Float(count); // Int.random(in:0..<vectors.count*v.rows))//
             count += 1;
         }
+    }
+    /* end of base data */
+    
+    
+    for row in 0..<weightVectors.count {
+        var min: Float16 = 99
+        var max: Float16 = 0
+        var sum: Float16 = 0
+        for i in 0..<weightVectors[row].rows {
+            let val = weightVectors[row][i]
+            if abs(val) < min {
+                min = abs(val)
+            };
+            if abs(val) > max {
+                max = abs(val)
+            };
+            sum += abs(val);
+            
+        }
+        
+        dispatchStats[row*4+0] = min
+        dispatchStats[row*4+1] = max
+        let avg = sum/Float16(weightVectors[row].rows)
+        dispatchStats[row*4+2] = avg
+        
+        let roNo = row % 4096
+        let coff = cutoff[0] / abs(v[roNo])
+        
+        if coff > min {
+            counter1 += 1
+        }
+        if coff < max {
+            counter2 += 1
+        }
+        if coff > avg {
+            counter3 += 1
+        }
+        if coff < avg {
+            let counter = counter4
+            dispatch[counter*2] = Float(v[roNo])
+            dispatch[counter*2+1] = Float(row)
+            counter4 += 1
+        }
+    }
+    
+    print("counters", counter1, counter2, counter3, counter4)
+    
+    
+    for i in 8000..<8020 {
+        print(dispatch[i*2+1])
     }
     
     //     return dispatch.reshaped(newCols: dispatch.rows/8)[0]
@@ -536,7 +595,7 @@ func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFlo
     assert(numBuckets % 4 == 0)
     assert(dispatch.rows % 256 == 0)
 
-    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:48)
+    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:64)
     
 }
 
