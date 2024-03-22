@@ -210,8 +210,8 @@ kernel void bucketMul(
 //    float z = 0;
       for (int i = 0; i<16; i++) { myVal[i] = 0;};
     
-# define fraction 7
-# define groups 64
+# define fraction 8
+# define groups 32
                           
       const ushort rowOffset = id.y*65536/groups/fraction;
       for (int r=0; r<65536/groups/fraction; r+=1) {

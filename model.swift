@@ -595,7 +595,7 @@ func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFlo
     assert(numBuckets % 4 == 0)
     assert(dispatch.rows % 256 == 0)
 
-    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:64)
+    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:32)
     
 }
 
