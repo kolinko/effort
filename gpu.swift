@@ -38,7 +38,7 @@ class Gpu {
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore", "internal", "second", "mul_col_4096", "mul_vec", "add_vec", "mul_complex",
                             "mul_col_11008", "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-        "basicBitonicSort", "probe", "accum", "getVal"] // Add more function names as needed
+                             "basicBitonicSort", "probe", "getVal", "bucketMul", "testBucket", "truthBucket"] // Add more function names as needed
 
         for fname in functionNames {
             makeFunction(fname)
@@ -51,9 +51,14 @@ class Gpu {
         self.globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
     }
     
+    func reEncode() {
+        encoder.endEncoding()
+        self.encoder = commandBuffer.makeComputeCommandEncoder()!
+
+    }
+    
     
     func eval() {
-        print("!EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -61,7 +66,7 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
-    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int) {
+    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1) {
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
@@ -69,14 +74,14 @@ class Gpu {
         
         let internalState = self.globalStates[fname]!
             
-        let gridSize = MTLSize(width: threadCount, height: 1, depth: 1)
+        let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
 //        print(fname, "tgSize", internalState.threadExecutionWidth, internalState.maxTotalThreadsPerThreadgroup)
         var threadGroupSize : MTLSize
-        if (fname == "accum") {
-            threadGroupSize = MTLSize(width: threadCount, height: 1, depth: 1) //threadExecutionWidth
+        if (fname == "truthBucket2") {
+            threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
+            //print("A")
         } else {
             threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
-
         }
 
         encoder.setComputePipelineState(internalState)

@@ -91,9 +91,9 @@ func loadModelData(from filePath: String) -> ModelData {
         
         for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
-            let nShape = [shapeDict[keyName]![1], shapeDict[keyName]![0]]
-            layers[i]![key+".ids"] = loadBinaryFile(named: keyName+".ids.bin", shape: nShape)
-            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
+            let nShape = [shapeDict[keyName]![1]*16, shapeDict[keyName]![0]/16]
+            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: nShape)
+//            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
         }
     }
     
@@ -108,7 +108,7 @@ func loadModelData(from filePath: String) -> ModelData {
     let testLayer = model.layers[0]!["feed_forward.w1"]!
     assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
     assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
-    assert(model.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))
+//    assert(model.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))
 
     let endTime = Date()
     print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
