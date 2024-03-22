@@ -503,11 +503,10 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
     let q = Int(Double(probes)*(1-quant))
     let cutoff = Scalar(value: 0)
     gpu.deploy("getVal", buffers: [o, cutoff], ints:[q], threadCount: o.rows)
-     */
+    */
     // todo: calc the dispatch vector
     
     let dispatch = VectorFloat(shape: [weightBuckets.rows*2])
-//    assert(dispatch.rows == v.rows * 16 * 2/4)
     let vectors = dispatch.reshaped(newCols: v.rows*2)
     var count = 0;
     for bucket_no in 0..<vectors.count {
@@ -526,93 +525,37 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
 
 
 
+
 func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat, dispatch: VectorFloat) {
-    /*
-     
-     Weights are in a bucket weight format:
-     
-     atch 1
-                row 1: bucket0-15, bucket16-31, bucket32-47...
-                row 2: ...
-                ...
-
-
-             batch 2
-             ...
-
-             total number of rows:
-                 num_batches * shape[0]
-             total positions per row:
-                 batch_size
-     
-     */
-    
     let numBatches = 16
     let bucketSize = 16
     let numBuckets = out.rows / bucketSize // 11k/16 = ~688
 
     assert(weightBuckets.shape == [numBatches*v.rows, numBuckets])
     
-    
-    /*
-     
-     algorithm:
-         - find cutoff point (Y)
-         - calculate dispatch - a list of rows from weights that will be processed
-         - each thread handles 8 buckets, so grid_X = num_buckets/8
-         - we want around 22k threads
-                with grid_Y = 1 one thread processes 4 buckets, so we have ~100 threads running through all the dispatch - too low!
-                let's hardcode grid_Y to be 256 - this gives 100*256 threads running
-         - each thread needs to process chunkSize = dispatch_size / grid_y_size positions from the dispatch table (chunk)
-     
-        - threads need to know:
-            - grid x,y
-            - chunk_size
-     
-     */
-    
-    
     assert(numBuckets % 4 == 0)
     assert(dispatch.rows % 256 == 0)
-/*
-    let idx = 0;
-    for idx in 0..<10 {
-        var myVal: Float = 0.0
-        let weightBucketVecs = weightBuckets.asVectorList()
-        for r in 0..<dispatch.rows/2 {
-            let d0 = dispatch[r*2]
-            let d1 = Int(dispatch[r*2+1])
-            //print(d1)
-            
-            let w = weightBucketVecs[d1][idx/16]
-            let w16 = weightBucketVecs[d1].getInt(index:idx/16)
-           // print(d0, d1, w, w16, w16 & 15)
-            if (w16 & 15) == idx % 16 {
-                myVal += Float(w) * d0
-            }
-        }
-    print(idx, myVal)
 
-    }
-    */
-    /*
-    for (int i = 0; i<16; i++) { myVal[i] = 0;};
-  
-    const ushort rowOffset = id.y*65536/16;
-    for (int r=0; r<65536/16; r+=1) {
-        float2 d = dispatch[rowOffset + r];
-        half w = weights[int(d[1])*cols + id.x];
-        for (int i=0; i<16; i++) {
-            /*
-            z=as_type<ushort>(w)&0x15;//(as_type<ushort>(weights[int(d[1])*cols + id.x])&0xF);
-            z=weights[int(d[1])*cols + id.x];
-            z=w;
-            z = d[0]*w;*/
-            myVal[i] += ((as_type<ushort>(w)&0x15) == i)?d[0]*float(w):0;
-        }
-    }
-    */
-    
     gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:48)
     
 }
+
+/*
+ 
+ Weights are in a bucket weight format:
+ 
+ atch 1
+            row 1: bucket0-15, bucket16-31, bucket32-47...
+            row 2: ...
+            ...
+
+
+         batch 2
+         ...
+
+         total number of rows:
+             num_batches * shape[0]
+         total positions per row:
+             batch_size
+ 
+ */
