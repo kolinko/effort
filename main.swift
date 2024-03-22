@@ -46,126 +46,29 @@ import simd
 
 modelRunTests()
 
-//gpu.startCapture(cond: captureGPU)
-/*
-let captureManager = MTLCaptureManager.shared()
-let captureDescriptor = MTLCaptureDescriptor()
-captureDescriptor.captureObject = gpu.device
-do {
-    try captureManager.startCapture(with: captureDescriptor)
-} catch {
-    fatalError("error when trying to capture: \(error)")
-}*/
 
 print("begin")
 let layer = modelData.layers[31]!
-//let rowVals = layer["feed_forward.w1"+".vals"]!
-//let seedVec = VectorFloat(shape:[rowVals.cols!])
-//let outDim: Int =  Int(rowVals.cols!) / 16
 var weights = layer["feed_forward.w1"]!
 let weightBuckets = layer["feed_forward.w1.bins"]!
 
 
 var h = tokens[0]
 let buffer16 = Vector(shape:[weights.rows])
-/*
-func warmup() {
-    
-    var testOut = Vector(shape:[weights.cols!])
-    gpu.deploy("truthBucket", buffers: [weights, testOut], ints:[weights.rows, weights.cols!], threadCount: weights.rows)
-    gpu.eval()
 
-    var testOut2 = Vector(shape:[weights.cols!], with: 0.0)
-    gpu.deploy("testBucket", buffers: [weights, testOut2], ints:[weights.rows, weights.cols!/8, 4], threadCount: weights.rows)
-    gpu.eval()
-
-    var testOut3 = Vector(shape:[weights.rows], with: 0.0)
-
-    let repeats = 32
-    let testChunksY = 16
-    for r in 0..<repeats {
-        mpsMul(vector: h, weights: modelData.layers[r]!["feed_forward.w1"]!, result: testOut3)
-        let weights = modelData.layers[r]!["feed_forward.w3"]!
-        gpu.deploy("testBucket", buffers: [weights, testOut2], ints:[weights.rows, weights.cols!/8, testChunksY], threadCount: weights.rows, threadCountY: testChunksY)
-        gpu.reEncode()
-
-    }
-
-    
-}
-
-warmup()
-
-var buffers : [Vector] = []
-//gpu.startCapture(cond:true)
-gpu.eval()
-var testOut = Vector(shape:[weights.cols!])
-
-gpu.deploy("truthBucket2", buffers: [weights, testOut], ints:[weights.rows, weights.cols!], threadCount: weights.rows)
-gpu.deploy("truthBucket", buffers: [weights, testOut], ints:[weights.rows, weights.cols!], threadCount: weights.rows)
-gpu.eval()
-
-//let layer = modelData.layers[0]!
-weights = layer["feed_forward.w3"]!
-var testOut2 = Vector(shape:[weights.rows], with: 0.0)
-var testChunksY = 1;
-
-testChunksY = 16
-var repeats = 200
-let layers = 32
-let moje = true
-for _ in 0..<repeats*4 {
-    for l in 0..<layers {
-        if (!moje) {
-            mpsMul(vector: h, weights: modelData.layers[l]!["feed_forward.w1"]!, result: testOut2)
-        } else {
-            let weights = modelData.layers[l]!["feed_forward.w3"]!
-            gpu.deploy("truthBucket2", buffers: [weights, testOut2], ints:[weights.rows, weights.cols!], threadCount: weights.rows, threadCountY: 2)
-
-//            gpu.deploy("testBucket", buffers: [weights, testOut2], ints:[weights.rows, weights.cols!/8, testChunksY], threadCount: weights.rows*4, threadCountY: testChunksY)
-            gpu.reEncode()
-        }
-        
-    }
-}
-print("hello")
-startTime = Date()
-
-gpu.eval()
-print("chunks: \(testChunksY)")
-print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-print("cycle time \(Date().timeIntervalSince(startTime)*1000/Double(repeats*layers), precision: 2) ms\n")
-
-print("weights rows \(weights.rows)")
-
-print(testOut[0],testOut[1], testOut[2])
-var outStr = ""
-for i in 0..<32 {
-    outStr += "\(testOut2[i]); "
-}
-print(outStr)
-
-
-//print(testOut2[0],testOut2[1], testOut2[2], testOut2[31])
-//gpu.stopCapture()
-
-exit(0)
-*/
-//gpu.startCapture()
-let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, quant: 0.15)
+let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, quant: 0.20)
 gpu.eval()
 
 let buffer32 = VectorFloat(shape: [weights.rows])
 bucketMul(v: h, weightBuckets: layer["feed_forward.w1.bins"]!, weights: weights, out: buffer32, dispatch: dispatch)
 gpu.eval()
 print(buffer32.str())
-//gpu.eval()
-//gpu.stopCapture()
 let buffer2 = Vector(shape:[weights.rows])
 mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer2)
 gpu.eval()
 print(buffer2.str())
-
+print("cosine similarity", buffer32.cosineSimilarityTo(buffer2)[0])
+exit(0)
 
 var repeats=2;
 //let bufferX = Vector(shape:[weights.rows])
@@ -184,12 +87,10 @@ gpu.eval()
 print("warmed up, redoing now")
 
 
-
-//var repeats = 50
 var numLayersProf = 32
 repeats=30
 let captureGPU = false
-let mine = false
+let mine = true
 
 if captureGPU {
     repeats = 5

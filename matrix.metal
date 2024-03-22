@@ -210,11 +210,11 @@ kernel void bucketMul(
 //    float z = 0;
       for (int i = 0; i<16; i++) { myVal[i] = 0;};
     
-# define fraction 8
+# define fraction 7
 # define groups 32
                           
-      const ushort rowOffset = id.y*65536/groups/fraction;
-      for (int r=0; r<65536/groups/fraction; r+=1) {
+      const ushort rowOffset = id.y*65536/groups;
+      for (int r=0; r<65536/groups; r+=1) { //65536/groups/fraction    12774/groups
           float2 d = dispatch[rowOffset + r];
           half w = weights[int(d[1])*cols + id.x];
           for (int i=0; i<16; i++) {

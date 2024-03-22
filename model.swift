@@ -528,7 +528,7 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
     }
     /* end of base data */
     
-    
+    /*
     for row in 0..<weightVectors.count {
         var min: Float16 = 99
         var max: Float16 = 0
@@ -577,8 +577,8 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, quant: Doub
         print(dispatch[i*2+1])
     }
     
-    //     return dispatch.reshaped(newCols: dispatch.rows/8)[0]
-
+    */
+    
     return dispatch
 }
 
