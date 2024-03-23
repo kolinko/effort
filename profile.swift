@@ -8,7 +8,7 @@
 import Foundation
 
 func modelProfile() {
-    let bucketMul = BucketMul()
+    let bucketMul = BucketMul.shared
 
     print("begin")
     let layer = modelData.layers[31]!
@@ -16,17 +16,15 @@ func modelProfile() {
 
     let buffer16 = Vector(shape:[layer.w1.outSize])
     let buffer32 = VectorFloat(shape: [layer.w1.outSize])
-
-    gpu.eval()
     
     bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
     bucketMul.mul(v: h, by:layer.w1, out: buffer32)
-    
+    mpsMul(v:h, by:layer.w1, out: buffer16)
+
     gpu.eval()
     print(buffer32.str())
-    mpsMul(v:h, by:layer.w1, out: buffer16)
-    gpu.eval()
     print(buffer16.str())
+    
     print("cosine similarity", buffer32.cosineSimilarityTo(buffer16)[0])
 
     for _ in 0..<5 {

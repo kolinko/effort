@@ -471,45 +471,40 @@ func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
     gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
-let _bucketMul = BucketMul()
-func bucketMul(v: Vector, by: Weights, out: Vector) {
-    fatalError("not Implemented")
+func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.15) {
+    BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
+    BucketMul.shared.mul(v: v, by: by, out: out)
 }
 
 class BucketMul {
-    
     let probesCount = 4096
     let maxDispatchSize = 4096*16
     let dispatch : DynaVectorFloat
     let probes : Vector
     let cutoff : Scalar
     
-    init() {
+    static let shared = BucketMul()
+    
+    private init() {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
         self.probes = Vector(shape: [probesCount])
         self.cutoff = Scalar(value: 0)
     }
  
-    func calcDispatch(v: Vector, weights _weights: Weights, quant: Double) {
-        let weights = _weights.core
-        let weightBuckets = _weights.buckets
-        let binsStats = _weights.stats
-                
-        assert(dispatch.rows >= weightBuckets.rows*2)
+    func calcDispatch(v: Vector, weights w: Weights, quant: Double) {
+        assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
         
-        let wCols : Int = weights.cols!
-        gpu.deploy("probe", buffers:[v, weights, probes], ints:[wCols], threadCount: probesCount)
+        gpu.deploy("probe", buffers:[v, w.core, probes], ints:[w.inSize], threadCount: probesCount)
         probes.sort()
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
 
-        let chunkSize = 16 //binsStats.rows // 16
-        gpu.deploy("prepareDispatch", buffers:[v, binsStats, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize], threadCount: binsStats.rows/chunkSize)
+        let chunkSize = 16
+        gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize], threadCount: w.stats.rows/chunkSize)
     }
-    
     
     func mul(v: Vector, by: Weights, out: VectorFloat) {
         let weightBuckets = by.buckets
@@ -525,7 +520,6 @@ class BucketMul {
                                 ints: [weightBuckets.cols!, groups],
                                 threadCount: weightBuckets.cols!,
                                 threadCountY:groups)
-        
     }
 }
 

@@ -20,15 +20,12 @@ let modelData = loadModelData(from: "shape.json")
 let tokens = loadTokens()
 os_signpost(.end, log: log, name: "Loading")
 
-//let dim = 4096
-//let dim_range = 0...4095
 
 let headDim = 128  // Example head dimension
 let numHeads = 32
 let maxSeqLen = 128  // Example maximum sequence length
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
-//let tokenNum = 0
 
 let goCapture = false
 var numLayers = 32
@@ -45,7 +42,7 @@ var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
 modelRunTests()
 
-modelProfile()
+//modelProfile()
 
 print("tokenCalc")
 var h : Vector = tokens[0]
@@ -57,7 +54,7 @@ let ffn_out = Vector(shape:[stateSize])
 let x1 = Vector(shape:[hiddenSize])
 let x3 = Vector(shape:[hiddenSize])
 let x2 = Vector(shape:[hiddenSize])
-let attnFfnOut = Vector(shape:[modelData.layers[0]!.wo.outSize])
+let attnFfnOut = Vector(shape:[stateSize])
 
 var startTime = Date()
 for thisToken in 0..<numTokens {
@@ -122,16 +119,13 @@ for thisToken in 0..<numTokens {
     }
     
 }
-//exit(0)
+
 let evalTime = Date()
 gpu.eval()
 
 
 
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-
-
-
 print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
 print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
 
@@ -144,7 +138,6 @@ if (numTokens == 8) {
 } else if (!goCapture){
     print("WARNING: Wrong token number, considering no gpucapture")
 }
+
 print("done")
 gpu.stopCapture()
-
-exit(0)
