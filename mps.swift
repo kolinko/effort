@@ -36,13 +36,39 @@ func mpsMul(vector: Vector, weights: Matrix, result: Vector) {
     
     // Prepare a command buffer and encode the matrix-vector multiplication
     gpu.encoder.endEncoding()
-//    gpu.commandBuffer.commit()
 
     matrixVectorMultiplication.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
+}
 
-//    gpu.encoder
-//    gpu.
-//    gpu.encoder.endEncoding()
+func mpsTopK(v: Vector, result: Scalar)  -> MTLBuffer {
+    let topK = 16
+    // Assuming `device` and `commandQueue` are already initialized
+    // Shapes of the matrix and vector
+    let rowCount: Int = v.rows// Number of rows in your matrix
+    
+    // Create MPSMatrixDescriptors for the matrix and the vector
+    let matrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: rowCount, rowBytes: rowCount * MemoryLayout<Float16>.stride, dataType: .float16)
+    let matrix = MPSMatrix(buffer: v.buffer, descriptor: matrixDescriptor)
+
+    let outMatrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: topK, rowBytes: topK * MemoryLayout<Float16>.stride, dataType: .float16)
+
+    let topKValueBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<Float16>.size, options: .storageModeShared)!
+    let topKIndexBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<UInt32>.size, options: .storageModeShared)!
+    let valueMatrix = MPSMatrix(buffer: topKValueBuffer, descriptor: outMatrixDescriptor)
+    let indexMatrix = MPSMatrix(buffer: topKIndexBuffer, descriptor: outMatrixDescriptor)
+
+    
+    // Create a MPSMatrixVectorMultiplication object to perform the multiplication
+    let findTopK = MPSMatrixFindTopK(device: gpu.device, numberOfTopKValues: topK)
+    
+    // Prepare a command buffer and encode the matrix-vector multiplication
+    gpu.encoder.endEncoding()
+
+    findTopK.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, resultIndexMatrix: indexMatrix, resultValueMatrix: valueMatrix)
+/*    matrixVectorMultiplication.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)*/
+    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
+    return topKValueBuffer
+
 
 }

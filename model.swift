@@ -130,10 +130,10 @@ class BufferableFloat16 : Bufferable {
         self.init(shape: [array.count], buffer: buffer)
     }
     
-    func str() -> String {
+    func str(count: Int = 10) -> String {
         
         var outStr = ""
-        for i in 0..<32 {
+        for i in 0..<count {
             outStr += "\(self[i]); "
         }
         return outStr
@@ -480,134 +480,63 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
     return out
 }
 
-func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix, 
-                  dispatch: DynaVectorFloat, quant: Double) {
+class BucketMul {
     
-    /*
-     dispatch & dispatchSize are empty buffers for a start
-     */
-    assert(dispatch.rows == weightBuckets.rows*2)
-    dispatch.size[0] = 0
+    let probesCount = 4096
+    let maxDispatchSize = 4096*16
+    let dispatch : DynaVectorFloat
+    let probes : Vector
+    let cutoff : Scalar
     
-    let probes = 4096 // 4096
-    let o = Vector(shape: [probes])
-    let wCols : Int = weights.cols!
-    gpu.deploy("probe", buffers:[v, weights, o], ints:[wCols], threadCount: probes)
+    init() {
+        self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
+        self.probes = Vector(shape: [probesCount])
+        self.cutoff = Scalar(value: 0)
+    }
+ 
     
-//    assert(o.test("probes", mul: 10000, val: [0.0006, 0.0012, 0.0032, 0.0005, 0.0006]))
+    func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix,
+                      quant: Double) {
         
-    o.sort()
+        /*
+         dispatch & dispatchSize are empty buffers for a start
+         */
+        
+        assert(dispatch.rows >= weightBuckets.rows*2)
+        gpu.deploy("zero32", buffers: [dispatch.size], threadCount: 1)
+        
+        let wCols : Int = weights.cols!
+        gpu.deploy("probe", buffers:[v, weights, probes], ints:[wCols], threadCount: probesCount)
+        probes.sort()
 
-    let q = Int(Double(probes)*(1-quant))
-    let cutoff = Scalar(value: 0)
-    gpu.deploy("getVal", buffers: [o, cutoff], ints:[q], threadCount: o.rows)
-    gpu.eval()
-    print("cutoff", cutoff[0])
-    // todo: calc the dispatch vector
-    
-//    gpu.startCapture()
-    gpu.eval()
-    let chunkSize = binsStats.rows / 10024
-    gpu.deploy("prepareDispatch", buffers:[v, binsStats, cutoff, dispatch, dispatch.size],
-               ints:[chunkSize], threadCount: 10024)
-    gpu.eval()
-    for i in 0..<100 {
-        print(i, dispatch[i*2], dispatch[i*2+1])
-    }
-    print("dispatch size", dispatch.size[0])
-    return
-//    return
-    
-    let dispatchStats = Matrix(shape: [weightBuckets.rows, 4]) // min, max, avg//, med
-    let weightVectors = weightBuckets.asVectorList()
-    var counter1 = 0
-    var counter2 = 0
-    var counter3 = 0
-    var counter4 = 0
+        let q = Int(Double(probesCount)*(1-quant))
+        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
 
-    /* base data */
-    
-    let vectors = dispatch.reshaped(newCols: v.rows*2)
-    var count = 0;
-    for bucket_no in 0..<vectors.count {
-        for row in 0..<v.rows {
-            vectors[bucket_no][row*2] = Float(v[row]);// + Float16(Int.random(in:0..<);
-            vectors[bucket_no][row*2+1] = Float(count); // Int.random(in:0..<vectors.count*v.rows))//
-            count += 1;
-        }
-    }
-    /* end of base data */
-    
-    /*
-    for row in 0..<weightVectors.count {
-        var min: Float16 = 99
-        var max: Float16 = 0
-        var sum: Float16 = 0
-        for i in 0..<weightVectors[row].rows {
-            let val = weightVectors[row][i]
-            if abs(val) < min {
-                min = abs(val)
-            };
-            if abs(val) > max {
-                max = abs(val)
-            };
-            sum += abs(val);
-            
-        }
-        
-        dispatchStats[row*4+0] = min
-        dispatchStats[row*4+1] = max
-        let avg = sum/Float16(weightVectors[row].rows)
-        dispatchStats[row*4+2] = avg
-        
-        let roNo = row % 4096
-        let coff = cutoff[0] / abs(v[roNo])
-        
-        if coff > min {
-            counter1 += 1
-        }
-        if coff < max {
-            counter2 += 1
-        }
-        if coff > avg {
-            counter3 += 1
-        }
-        if coff < avg {
-            let counter = counter4
-            dispatch[counter*2] = Float(v[roNo])
-            dispatch[counter*2+1] = Float(row)
-            counter4 += 1
-        }
+        let chunkSize = 16 //binsStats.rows // 16
+        gpu.deploy("prepareDispatch", buffers:[v, binsStats, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize], threadCount: binsStats.rows/chunkSize)
+        gpu.stopCapture()
     }
     
-    print("counters", counter1, counter2, counter3, counter4)
     
-    
-    for i in 8000..<8020 {
-        print(dispatch[i*2+1])
+    func mul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat) {
+        let bucketSize = 16
+        let numBuckets = out.rows / bucketSize
+
+        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets])
+        
+        assert(numBuckets % 4 == 0)
+
+        let groups = 32
+        gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                                ints: [weightBuckets.cols!, groups],
+                                threadCount: weightBuckets.cols!,
+                                threadCountY:groups)
+        
     }
-    */
 }
 
 
-
-
-func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat, dispatch: DynaVectorFloat) {
-    let bucketSize = 16
-    let numBuckets = out.rows / bucketSize // 11k/16 = ~688
-
-    assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets])
-    
-    assert(numBuckets % 4 == 0)
-    assert(dispatch.rows % 256 == 0)
-
-    let groups = 32
-    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
-                            ints: [weightBuckets.cols!, groups],
-                            threadCount: weightBuckets.cols!,
-                            threadCountY:groups)
-    
-}
 
 /*
  

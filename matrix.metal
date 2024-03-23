@@ -40,6 +40,10 @@ kernel void getVal(device const half* vector [[buffer(0)]],
  
  */
 
+kernel void zero32(device float* v[[buffer(0)]]) {
+    v[0] = 0;
+}
+
 kernel void prepareDispatch(device const half* v[[buffer(0)]],
                             device const half4* binStats[[buffer(1)]],
                             device const half* cutoff[[buffer(2)]],

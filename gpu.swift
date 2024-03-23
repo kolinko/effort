@@ -38,7 +38,7 @@ class Gpu {
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore", "internal", "second",  "mul_vec", "add_vec", "mul_complex",
                            "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-                             "basicBitonicSort", "probe", "getVal", "bucketMul",] // Add more function names as needed
+                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32"] // Add more function names as needed
 
         for fname in functionNames {
             makeFunction(fname)
@@ -46,7 +46,7 @@ class Gpu {
     }
     
     func makeFunction(_ fname: String) {
-        print(fname)
+        //print(fname)
         let internalFunc = library.makeFunction(name: fname)!
         self.globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
     }
