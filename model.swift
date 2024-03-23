@@ -185,13 +185,15 @@ class BufferableFloat16 : Bufferable {
     func test(mul:Int, val:[Float16]) -> Bool {
         gpu.eval()
         for i in 0..<val.count {
-            if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
-                print("assert failed for values")
-                for j in 0..<val.count {
-                    print(self[j])
+            if val[i] != 666 {
+                if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+                    print("assert failed for values")
+                    for j in 0..<val.count {
+                        print(self[j])
+                    }
+                    print("assert failed, on pos \(i), \(self[i]) ≠ \(val[i])")
+                    return false
                 }
-                print("assert failed, on pos \(i), \(self[i]) ≠ \(val[i])")
-                return false
             }
         }
         return true

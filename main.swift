@@ -28,10 +28,16 @@ let numHeads = 32
 let maxSeqLen = 128  // Example maximum sequence length
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
-let tokenNum = 0
+//let tokenNum = 0
 
-let numLayers = 3
-let numTokens = 3
+let goCapture = false
+var numLayers = 32
+var numTokens = 8
+
+if goCapture {
+    numLayers = 4
+    numTokens = 3
+}
 
 var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
@@ -46,8 +52,9 @@ modelRunTests()
 
 
 print("tokenCalc")
+var h : Vector = tokens[0]
 for thisToken in 0..<numTokens {
-    var h = tokens[thisToken]
+    h = tokens[thisToken]
 
     for layerNo in 0..<numLayers {
         let layer = modelData.layers[layerNo]!
@@ -70,8 +77,8 @@ for thisToken in 0..<numTokens {
         let xk_heads = xk.reshaped(newCols: headDim)
         
         for i in 0..<numHeads {
-            xq_heads[i].mul(complexArray: freqsCis[tokenNum])
-            xk_heads[i].mul(complexArray: freqsCis[tokenNum])
+            xq_heads[i].mul(complexArray: freqsCis[thisToken]) // tokenNum
+            xk_heads[i].mul(complexArray: freqsCis[thisToken]) // was tokenNum
         }
         
         xkLayerTokenHead[layerNo].append(xk_heads)
@@ -104,26 +111,22 @@ for thisToken in 0..<numTokens {
         let w3 = layer["feed_forward.w3"]!
         
         fxn.mul(by:wn)
-        //threadExecutionWidth
-        /*
-        let x1 = mul_vm(v: fxn, layer: layer, name: "feed_forward.w1")
-        let x3 = mul_vm(v: fxn, layer: layer, name: "feed_forward.w3")
-        let x2 = silu(x1, x3)
-        let ffn_out = mul_vm(v: x2, layer: layer, name: "feed_forward.w2")*/
-       // h.add(by: ffn_out.asFloat16Vector())
-        let x1 = mul_col(vec: fxn, by: w1)//, name: "feed_forward.w1")
+
+        let x1 = mul_col(vec: fxn, by: w1)
         let x3 = mul_col(vec: fxn, by: w3)
         let x2 = silu(x1, x3)
         let ffn_out = mul_col(vec: x2, by: w2)
         h.add(by: ffn_out)
-
+        
         //ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     }
     
     print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     if (thisToken == 0) {
         let evalTime = Date()
-        gpu.startCapture()
+        if goCapture {
+            gpu.startCapture()
+        }
         gpu.eval()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
         
@@ -135,13 +138,24 @@ for thisToken in 0..<numTokens {
 let evalTime = Date()
 gpu.eval()
 
+
+
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+
 
 
 print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
 print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
 
 print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+
+if (numTokens == 8) {
+    print(h.str())
+    assert(h.test(mul: 10, val: [666, 9.6, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.70]))
+    print("output OK")
+} else if (!goCapture){
+    print("WARNING: Wrong token number, considering no gpucapture")
+}
 print("done")
 gpu.stopCapture()
 
