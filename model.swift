@@ -451,12 +451,11 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
 
 func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
-    let (rows, cols) = (weights.rows, weights.cols!)
+    let rows = weights.rows
 
     let output = Vector(shape: [rows])
 
     mpsMul(vector: vec, weights: weights, result: output)
-//    gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
     
     return output
 }
