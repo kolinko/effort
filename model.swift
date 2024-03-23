@@ -448,20 +448,6 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
     return outMatrix.asVector()
 }
 
-func ffn(_ h: inout Vector, fxn: Vector, w1: Matrix, w2: Matrix, w3: Matrix) {
-    let innerDim = 11008
-    assert(w1.shape==[11008, 4096])
-    assert(w2.shape==[4096, 11008])
-    assert(w3.shape==[11008, 4096])
-    assert(fxn.shape==[4096])
-    
-    let fx = Vector(shape: [innerDim])
-    
-    gpu.deploy("internal", buffers: [fxn, w1, w3, fx], threadCount: 11008)
-    gpu.deploy("second", buffers: [w2, fx, h], threadCount: 4096)
-}
-
-
 
 func mul_col(vec: Vector, by weights: Matrix) -> Vector {
     assert(weights.cols == vec.rows, "Weights column count must match vec length")
