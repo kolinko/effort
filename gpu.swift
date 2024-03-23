@@ -36,7 +36,7 @@ class Gpu {
         self.globalStates = [:]
         let functionNames = ["sum_of_squares", "normalize_vector",
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                             "dot", "setScore", "internal", "second",  "mul_vec", "add_vec", "mul_complex",
+                             "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                            "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
                              "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32"] // Add more function names as needed
 
@@ -47,7 +47,9 @@ class Gpu {
     
     func makeFunction(_ fname: String) {
         //print(fname)
-        let internalFunc = library.makeFunction(name: fname)!
+        guard let internalFunc = library.makeFunction(name: fname) else {
+            fatalError("Cannot find \"\(fname)\" in the library.")
+        }
         self.globalStates[fname] = try! device.makeComputePipelineState(function: internalFunc)
     }
     
