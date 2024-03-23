@@ -67,7 +67,7 @@ func modelProfile() {
         gpu.startCapture(cond:captureGPU)
         gpu.eval()
     }
-    startTime = Date()
+    var startTime = Date()
     
     for _ in 0..<repeats*4 {
         for layerNo in 0..<numLayersProf {

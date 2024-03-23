@@ -474,6 +474,7 @@ func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
     gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
+    
     return outMatrix.asVector()
 }
 
