@@ -11,25 +11,71 @@ class Weights {
     let core: Matrix
     let buckets: Matrix
     let stats: Matrix
+    var outSize: Int {
+        return core.rows
+    }
+    var inSize: Int {
+        return core.cols!
+    }
     
     init(core: Matrix, buckets:Matrix, stats:Matrix) {
         self.core = core
         self.buckets = buckets
         self.stats = stats
+        assert(core.cols!*16 == buckets.rows)
+        assert(core.cols!*16 == stats.rows)
+        
+    }
+}
+class Layer {
+    var data = [String: Matrix]()
+
+    private func getWeights(for key: String) -> Weights {
+        guard let core = data[key],
+              let buckets = data["\(key).bins"],
+              let stats = data["\(key).bins.stats"] else {
+            fatalError("Invalid key or missing data for \(key)")
+        }
+        return Weights(core: core, buckets: buckets, stats: stats)
+    }
+
+    private func getVector(for key: String) -> Vector {
+        guard let matrix = data[key] else {
+            fatalError("Matrix not found for key: \(key)")
+        }
+        return matrix.asVector()
+    }
+
+    var attnNorm: Vector { getVector(for: "attention_norm") }
+    var ffnNorm: Vector { getVector(for: "ffn_norm") }
+
+    var wo: Weights { getWeights(for: "attention.wo") }
+    var wq: Weights { getWeights(for: "attention.wq") }
+    var wk: Weights { getWeights(for: "attention.wk") }
+    var wv: Weights { getWeights(for: "attention.wv") }
+
+    var w1: Weights { getWeights(for: "feed_forward.w1") }
+    var w2: Weights { getWeights(for: "feed_forward.w2") }
+    var w3: Weights { getWeights(for: "feed_forward.w3") }
+
+    subscript(index: String) -> Matrix {
+        get { data[index]! }
+        set { data[index] = newValue }
     }
 }
 
-class Layer {
-    let data = [String: Matrix]()
-    
-    
-}
-
-struct ModelData {
+class ModelData {
     let norm: Matrix
     let outputs: Matrix
     let tokEmbeddings: Matrix
-    let layers: [Int: [String: Matrix]]
+    let layers: [Int: Layer]
+    
+    init(norm: Matrix, outputs: Matrix, tokEmbeddings: Matrix, layers: [Int : Layer]) {
+        self.norm = norm
+        self.outputs = outputs
+        self.tokEmbeddings = tokEmbeddings
+        self.layers = layers
+    }
 }
 
 let absolutePath = "/Users/kolinko/mul_col/model/"
@@ -98,22 +144,20 @@ func loadModelData(from filePath: String) -> ModelData {
     let shapeDict = readJson()
     
     let numLayers = 31
-    var layers = [Int: [String: Matrix]]()
+    var layers = [Int: Layer]()
     for i in 0...numLayers {
-        layers[i] = [String: Matrix]()
+        layers[i] = Layer()
         for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
             let keyName = "layers."+String(i)+"."+key
-            layers[i]![key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
+            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
         }
         
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
+        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", "attention.wv", "attention.wk", "attention.wq" ] {
             let keyName = "layers."+String(i)+"."+key
             let nShape = [shapeDict[keyName]![1]*16, shapeDict[keyName]![0]/16]
             layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: nShape)
             let dShape = [shapeDict[keyName]![1]*16, 4]
             layers[i]![key+".bins.stats"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: dShape)
-
-            //            layers[i]![key+".vals"] = loadBinaryFile(named: keyName+".vals.bin", shape: nShape)
         }
     }
     
@@ -125,7 +169,7 @@ func loadModelData(from filePath: String) -> ModelData {
     )
     
     assert(model.norm[5]==1.544, "data seems loaded incorrectly?")
-    let testLayer = model.layers[0]!["feed_forward.w1"]!
+    let testLayer = model.layers[0]!["feed_forward.w1"]
     assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
     assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
 //    assert(model.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))

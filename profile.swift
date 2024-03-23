@@ -14,23 +14,17 @@ func modelProfile() {
     let layer = modelData.layers[31]!
     let h = tokens[0]
 
-    let weights = layer["feed_forward.w1"]!
-    let weightBuckets = layer["feed_forward.w1.bins"]!
-
-
-    let buffer16 = Vector(shape:[weights.rows])
-    let buffer32 = VectorFloat(shape: [weights.rows])
+    let buffer16 = Vector(shape:[layer.w1.outSize])
+    let buffer32 = VectorFloat(shape: [layer.w1.outSize])
 
     gpu.eval()
-    bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, 
-                           binsStats: layer["feed_forward.w1.bins.stats"]!,
-                           quant: 0.25)
-
-
-    bucketMul.mul(v: h, weightBuckets: layer["feed_forward.w1.bins"]!, weights: weights, out: buffer32)
+    
+    bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
+    bucketMul.mul(v: h, by:layer.w1, out: buffer32)
+    
     gpu.eval()
     print(buffer32.str())
-    mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
+    mpsMul(v:h, by:layer.w1, out: buffer16)
     gpu.eval()
     print(buffer16.str())
     print("cosine similarity", buffer32.cosineSimilarityTo(buffer16)[0])
@@ -38,15 +32,12 @@ func modelProfile() {
     for _ in 0..<5 {
         for layerNo in 0..<32 {
             let layer = modelData.layers[layerNo]!
-            let weightBuckets = layer["feed_forward.w1.bins"]!
-            let weightBuckets3 = layer["feed_forward.w3.bins"]!
-            let weights = layer["feed_forward.w1"]!
-            bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: modelData.layers[31]!["feed_forward.w1.bins.stats"]!, quant: 0.25)
+            bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
 
-            bucketMul.mul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32)
-            bucketMul.mul(v: h, weightBuckets: weightBuckets3, weights: weights, out: buffer32)
+            bucketMul.mul(v: h, by: layer.w1, out: buffer32)
+            bucketMul.mul(v: h, by: layer.w3, out: buffer32)
 
-            mpsMul(vector: h, weights: weights, result: buffer16)
+            mpsMul(v: h, by: layer.w1, out: buffer16)
             gpu.reEncode()
         }
     }
@@ -71,14 +62,10 @@ func modelProfile() {
         for layerNo in 0..<numLayersProf {
             let layer = modelData.layers[layerNo]!
             if mine {
-
-                let weightBuckets = layer["feed_forward.w1.bins"]!
-                let weights = layer["feed_forward.w1"]!
-                bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: modelData.layers[31]!["feed_forward.w1.bins.stats"]!, quant: 0.25)
-//                print(bucketMul.dispatch.size[0])
-                bucketMul.mul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32)
+                bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
+                bucketMul.mul(v: h, by:layer.w1, out: buffer32)
             } else {
-                mpsMul(vector: h, weights: weights, result: buffer16)
+                mpsMul(v: h, by: layer.w1, out: buffer16)
             }
         }
     }

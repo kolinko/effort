@@ -10,11 +10,21 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
-func mpsMul(v: Vector, by: Matrix, out: Vector) {
-    mpsMul(vector: v, weights: by, result: out)
+func mpsMul(v: Vector, by: Weights) -> Vector {
+    let out = Vector(shape:[by.outSize])
+    mpsMul(v: v, by: by.core, out: out)
+    return out
 }
 
-func mpsMul(vector: Vector, weights: Matrix, result: Vector) {
+func mpsMul(v: Vector, by: Weights, out: Vector) {
+    mpsMul(v: v, by: by.core, out: out)
+}
+
+/*func mpsMul(v: Vector, by: Matrix, out: Vector) {
+    mpsMul(vector: v, weights: by, result: out)
+}*/
+
+func mpsMul(v vector: Vector, by weights: Matrix, out result: Vector) {
     result.zero()
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector

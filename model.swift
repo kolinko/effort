@@ -362,7 +362,7 @@ class Vector: BufferableFloat16 {
         gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
     }
 
-    func mul(by wa: Vector) {
+    func mul(byVec wa: Vector) {
         assert(self.shape == wa.shape)
         
         gpu.deploy("mul_vec", buffers:[self, wa, self], threadCount:self.rows)
@@ -471,6 +471,11 @@ func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
     gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
+let _bucketMul = BucketMul()
+func bucketMul(v: Vector, by: Weights, out: Vector) {
+    fatalError("not Implemented")
+}
+
 class BucketMul {
     
     let probesCount = 4096
@@ -485,14 +490,11 @@ class BucketMul {
         self.cutoff = Scalar(value: 0)
     }
  
-    
-    func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix,
-                      quant: Double) {
-        
-        /*
-         dispatch & dispatchSize are empty buffers for a start
-         */
-        
+    func calcDispatch(v: Vector, weights _weights: Weights, quant: Double) {
+        let weights = _weights.core
+        let weightBuckets = _weights.buckets
+        let binsStats = _weights.stats
+                
         assert(dispatch.rows >= weightBuckets.rows*2)
         dispatch.size.zero()
         
@@ -509,10 +511,12 @@ class BucketMul {
     }
     
     
-    func mul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat) {
+    func mul(v: Vector, by: Weights, out: VectorFloat) {
+        let weightBuckets = by.buckets
+        let weights = by.core
+        
         let bucketSize = 16
         let numBuckets = out.rows / bucketSize
-
         assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets])
         
         assert(numBuckets % 4 == 0)

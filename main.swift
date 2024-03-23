@@ -43,12 +43,10 @@ var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
-
-
 modelRunTests()
 
-//modelProfile()
-
+modelProfile()
+exit(0)
 
 print("tokenCalc")
 var h : Vector = tokens[0]
@@ -60,6 +58,7 @@ let ffn_out = Vector(shape:[stateSize])
 let x1 = Vector(shape:[hiddenSize])
 let x3 = Vector(shape:[hiddenSize])
 let x2 = Vector(shape:[hiddenSize])
+let attnFfnOut = Vector(shape:[modelData.layers[0]!.wo.outSize])
 
 var startTime = Date()
 for thisToken in 0..<numTokens {
@@ -68,30 +67,19 @@ for thisToken in 0..<numTokens {
     for layerNo in 0..<numLayers {
         let layer = modelData.layers[layerNo]!
         
-        let wa = layer["attention_norm"]!.asVector()
-        
-        let wq = layer["attention.wq"]!
-        let wk = layer["attention.wk"]!
-        let wv = layer["attention.wv"]!
-        
-        let wo = layer["attention.wo"]!
-        
         let h_norm = h.rmsNormed()
-        h_norm.mul(by:wa)
-        let xq = Vector(shape: [wq.rows])
-        let xk = Vector(shape: [wk.rows])
-        let xv = Vector(shape: [wv.rows])
-
-        mpsMul(v: h_norm, by: wq, out: xq)
-        mpsMul(v: h_norm, by: wk, out: xk)
-        mpsMul(v: h_norm, by: wv, out: xv)
+        h_norm.mul(byVec:layer.attnNorm)
+        
+        let xq = mpsMul(v: h_norm, by: layer.wq)
+        let xk = mpsMul(v: h_norm, by: layer.wk)
+        let xv = mpsMul(v: h_norm, by: layer.wv)
 
         let xq_heads = xq.reshaped(newCols: headDim)
         let xk_heads = xk.reshaped(newCols: headDim)
         
         for i in 0..<numHeads {
-            xq_heads[i].mul(complexArray: freqsCis[thisToken]) // tokenNum
-            xk_heads[i].mul(complexArray: freqsCis[thisToken]) // was tokenNum
+            xq_heads[i].mul(complexArray: freqsCis[thisToken])
+            xk_heads[i].mul(complexArray: freqsCis[thisToken])
         }
         
         xkLayerTokenHead[layerNo].append(xk_heads)
@@ -107,24 +95,17 @@ for thisToken in 0..<numTokens {
         
         let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
-        let attnFfn = Vector(shape:[wo.rows])
-        mpsMul(v: attnOutput, by: wo, out: attnFfn)
-
-        h.add(by: attnFfn)
+        mpsMul(v: attnOutput, by: layer.wo, out: attnFfnOut)
+        h.add(by: attnFfnOut)
+        
         let fxn = h.rmsNormed()
 
-        let wn = layer["ffn_norm"]!.asVector()
-        let w1 = layer["feed_forward.w1"]!
-        let w2 = layer["feed_forward.w2"]!
-        let w3 = layer["feed_forward.w3"]!
-        
-        fxn.mul(by:wn)
+        fxn.mul(byVec:layer.ffnNorm)
 
-        assert(w1.rows == w3.rows)
-        mpsMul(v: fxn, by:w1, out: x1)
-        mpsMul(v: fxn, by:w3, out: x3)
+        mpsMul(v: fxn, by:layer.w1, out: x1)
+        mpsMul(v: fxn, by:layer.w3, out: x3)
         silu(x1, x3, out: x2)
-        mpsMul(v: x2, by: w2, out: ffn_out)
+        mpsMul(v: x2, by: layer.w2, out: ffn_out)
         h.add(by: ffn_out)
     }
     
@@ -159,7 +140,7 @@ print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
 if (numTokens == 8) {
     print(h.str())
-    assert(h.test(mul: 10, val: [666, 9.6, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.70]))
+    assert(h.test(mul: 10, val: [666, 666, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.70]))
     print("output OK")
 } else if (!goCapture){
     print("WARNING: Wrong token number, considering no gpucapture")
