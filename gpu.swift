@@ -105,8 +105,8 @@ class Gpu {
         encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     }
     
-    func stopCapture(cond: Bool = true) {
-        if (cond && self.captureON) {
+    func stopCapture() {
+        if (self.captureON) {
             self.captureManager.stopCapture()
             self.captureON = false
         }

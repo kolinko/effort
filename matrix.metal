@@ -15,9 +15,6 @@ kernel void silu(device const float *x1 [[buffer(0)]],
     out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));
 }
 
-/*for i in 0..<probes {
-    o[i] = abs(v[i] * weights[i*weights.cols! + i])
-}*/
 
 kernel void probe(device const half *v [[buffer(0)]],
                   device const half *weights [[buffer(1)]],
@@ -36,29 +33,55 @@ kernel void getVal(device const half* vector [[buffer(0)]],
     }
 }
 
-# define fraction 7
-# define groups 32
+/*
+ 
+ bucketMul
+
+ 
+ */
+
+kernel void prepareDispatch(device const half* v[[buffer(0)]],
+                            device const half4* binStats[[buffer(1)]],
+                            device const half* cutoff[[buffer(2)]],
+                            device float2* dispatch[[buffer(3)]],
+                            device atomic_float* dispatchCount[[buffer(4)]],
+                            device const int& chunkSize [[buffer(5)]],
+                            uint id [[thread_position_in_grid]]){
+    
+    for (uint i = chunkSize*id; i<(id+1)*chunkSize; i++) {
+        half4 s = binStats[i]; // row, min, max, mean
+        float val = v[int(s[0])];
+        if (cutoff[0] < float(s[3]) * abs(val)) {
+            int idx = atomic_fetch_add_explicit(dispatchCount, 1, memory_order_relaxed);
+            dispatch[idx][0] = val;
+            dispatch[idx][1] = i;
+        }
+    }
+    
+}
 
 kernel void bucketMul(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
                    device atomic_float *result [[buffer(2)]],
-                   constant uint &rows [[buffer(3)]],
+                   constant float *dispatchSize [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
-
-                  ushort2 id [[thread_position_in_grid]]) {
+                   constant int &groups [[buffer(5)]],
+                   ushort2 id [[thread_position_in_grid]]) {
                       
-    float myVal[16];
-    for (int i = 0; i<16; i++) { myVal[i] = 0;};
-
-                      
-    const ushort rowOffset = id.y*65536/groups;
-    for (int r=0; r<65536/groups; r+=1) { //65536/groups/fraction    12774/groups
-      float2 d = dispatch[rowOffset + r];
-      half w = weights[int(d[1])*cols + id.x];
-      for (int i=0; i<16; i++) {
-          myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
-      }
+    float myVal[16] = {0};
+      
+    const ushort rowOffset = id.y*dispatchSize[0]/groups;
+    for (int r=0; r<dispatchSize[0]/groups; r+=32) {
+        for (int s=0; s<32; s++) { // for better optimisation
+            
+            float2 d = dispatch[rowOffset + r+s];
+            half w = weights[int(d[1])*cols + id.x];
+            for (int i=0; i<16; i++) {
+                myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
+            }
+            
+        }
     }
                       
     for (int i = 0; i<16; i++) {
@@ -126,65 +149,3 @@ kernel void basicBitonicSort(device half     *floats     [[ buffer(0) ]],
         floats[gidPlusDistance] = temp;
     }
 }
-
-
-
-/*
- 
- VALID AND TESTED FAST
- kernel void bucketMul(device const half *vector [[buffer(0)]],
-                    device const float4 *weights [[buffer(1)]],
-                    device float *result [[buffer(2)]],
-                    device const half *seedVec [[buffer(3)]],
-                    constant int &inDim [[buffer(4)]],
-                    constant int &outDim [[buffer(5)]],
-
-                   uint id [[thread_position_in_grid]]) {
-     
-     //
-     // for groups == 1: go through every row of inDim, fetch its outCol value and += to myVal
-     // for groups > 1 : go through rows groupId*groupSize to (groupId+1)*groupSize, fetch its outCol value and += to myVal
-     
-     int groups = 32;
-     int inDim4 = inDim/4;
-     int rowsPerGroup = inDim4 / groups;
-     int outCol = id / groups;
-     int outGroup = id % groups;
-     int rowBegin = outGroup * rowsPerGroup;
-     int rowEnd = (outGroup+1) * rowsPerGroup;
-     float myVal[16*4];
-     int row = rowBegin;
-     float4 w1;
-     for (int i = 0; i<250; i+=1) { //
-         w1 = weights[row+i]; //*(int(vector[i])&7)
-         myVal[int(w1.x)&15] += vector[i] * (w1.x);
-         myVal[int(w1.y)&15+16] += vector[i] * (w1.y);
-         myVal[int(w1.z)&15+32] += vector[i] * (w1.z);
-         myVal[int(w1.w)&15+46] += vector[i] * (w1.w);
-     }
-     for(int i = 0; i<4; i++) {
-         int off = i*16;
-         result[off+outCol] += myVal[off+0];
-         result[off+outCol+1] += myVal[off+1];
-         result[off+outCol+2] += myVal[off+2];
-         result[off+outCol+3] += myVal[off+3];
-         result[off+outCol+4] += myVal[off+4];
-         result[off+outCol+5] += myVal[off+5];
-         result[off+outCol+6] += myVal[off+6];
-         result[off+outCol+7] += myVal[off+7];
-         result[off+outCol+8] += myVal[off+8];
-         result[off+outCol+9] += myVal[off+9];
-         result[off+outCol+10] += myVal[off+10];
-         result[off+outCol+11] += myVal[off+11];
-         result[off+outCol+12] += myVal[off+12];
-         result[off+outCol+13] += myVal[off+13];
-         result[off+outCol+14] += myVal[off+14];
-         result[off+outCol+15] += myVal[off+15];
-     }
-
- //    atomic_fetch_add_explicit(&result[outCol], myVal, memory_order_relaxed);
-     
- }
- 
- 
- */

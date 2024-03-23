@@ -57,23 +57,11 @@ class BufferableFloat: Bufferable {
                 bufferPointer[index+Int(offset/4)] = newValue
             }
         }
-    /*
-    subscript(index: Int) -> Float {
-            get {
-                let bufferPointer = self.bufferPointer
-                
-                return bufferPointer[index]
-            }
-            set(newValue) {
-                let bufferPointer = self.bufferPointer
-                bufferPointer[index] = newValue
-            }
-        }*/
 
-    func str() -> String {
+    func str(count: Int = 10) -> String {
         
         var outStr = ""
-        for i in 0..<32 {
+        for i in 0..<count {
             outStr += "\(self[i]); "
         }
         return outStr
@@ -262,6 +250,9 @@ class Matrix: BufferableFloat16 {
     }
 }
 
+class DynaVectorFloat: VectorFloat {
+    let size: ScalarFloat = ScalarFloat(value:0)
+}
 
 class VectorFloat: BufferableFloat {
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
@@ -489,7 +480,14 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
     return out
 }
 
-func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix, quant: Double) -> VectorFloat {
+func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: Matrix, 
+                  dispatch: DynaVectorFloat, quant: Double) {
+    
+    /*
+     dispatch & dispatchSize are empty buffers for a start
+     */
+    assert(dispatch.rows == weightBuckets.rows*2)
+    dispatch.size[0] = 0
     
     let probes = 4096 // 4096
     let o = Vector(shape: [probes])
@@ -507,13 +505,26 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: 
     print("cutoff", cutoff[0])
     // todo: calc the dispatch vector
     
+    //gpu.startCapture()
+    gpu.eval()
+    let chunkSize = binsStats.rows / 1
+    gpu.deploy("prepareDispatch", buffers:[v, binsStats, cutoff, dispatch, dispatch.size],
+               ints:[chunkSize], threadCount: 1)
+    gpu.eval()
+    for i in 0..<100 {
+        print(i, dispatch[i*2], dispatch[i*2+1])
+    }
+    print("dispatch size", dispatch.size[0])
+    //gpu.stopCapture()
+    return
+//    return
+    
     let dispatchStats = Matrix(shape: [weightBuckets.rows, 4]) // min, max, avg//, med
     let weightVectors = weightBuckets.asVectorList()
     var counter1 = 0
     var counter2 = 0
     var counter3 = 0
     var counter4 = 0
-    let dispatch = VectorFloat(shape: [weightBuckets.rows*2])
 
     /* base data */
     
@@ -577,23 +588,25 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: 
         print(dispatch[i*2+1])
     }
     */
-    return dispatch
 }
 
 
 
 
-func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat, dispatch: VectorFloat) {
-    let numBatches = 16
+func bucketMul(v: Vector, weightBuckets: Matrix, weights: Matrix, out: VectorFloat, dispatch: DynaVectorFloat) {
     let bucketSize = 16
     let numBuckets = out.rows / bucketSize // 11k/16 = ~688
 
-    assert(weightBuckets.shape == [numBatches*v.rows, numBuckets])
+    assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets])
     
     assert(numBuckets % 4 == 0)
     assert(dispatch.rows % 256 == 0)
 
-    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out], ints: [dispatch.rows, weightBuckets.cols!], threadCount: weightBuckets.cols!, threadCountY:32)
+    let groups = 32
+    gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                            ints: [weightBuckets.cols!, groups],
+                            threadCount: weightBuckets.cols!,
+                            threadCountY:groups)
     
 }
 

@@ -37,119 +37,13 @@ var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
-os_signpost(.begin, log: log, name: "Go Tokens3")
-
 var startTime = Date()
 
-import Foundation
-import simd
 
 modelRunTests()
 
+modelProfile()
 
-print("begin")
-let layer = modelData.layers[31]!
-var weights = layer["feed_forward.w1"]!
-let weightBuckets = layer["feed_forward.w1.bins"]!
-
-
-var h = tokens[0]
-let buffer16 = Vector(shape:[weights.rows])
-
-let dispatch = calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: layer["feed_forward.w1.bins.stats"]!, quant: 0.20)
-gpu.eval()
-
-let buffer32 = VectorFloat(shape: [weights.rows])
-bucketMul(v: h, weightBuckets: layer["feed_forward.w1.bins"]!, weights: weights, out: buffer32, dispatch: dispatch)
-gpu.eval()
-print(buffer32.str())
-let buffer2 = Vector(shape:[weights.rows])
-mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer2)
-gpu.eval()
-print(buffer2.str())
-//print("cosine similarity", buffer32.cosineSimilarityTo(buffer2)[0])
-//exit(0)
-
-var repeats=2;
-//let bufferX = Vector(shape:[weights.rows])
-for _ in 0..<5 {
-    for layerNo in 0..<32 {
-        let layer = modelData.layers[layerNo]!
-        let weightBuckets = layer["feed_forward.w1.bins"]!
-        bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32, dispatch: dispatch)
-        let weightBuckets2 = layer["feed_forward.w3.bins"]!
-        bucketMul(v: h, weightBuckets: weightBuckets2, weights: weights, out: buffer32, dispatch: dispatch)
-
-        mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
-    }
-}
-gpu.eval()
-print("warmed up, redoing now")
-
-
-var numLayersProf = 32
-repeats=30
-let captureGPU = false
-let mine = true
-
-if captureGPU {
-    repeats = 5
-    numLayersProf = 5
-    gpu.startCapture(cond:captureGPU)
-    gpu.eval()
-}
-startTime = Date()
-
-for _ in 0..<repeats*4 {
-    for layerNo in 0..<numLayersProf {
-        let layer = modelData.layers[layerNo]!
-        if mine {
-            let weightBuckets = layer["feed_forward.w1.bins"]!
-            bucketMul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32, dispatch: dispatch)
-        } else {
-            mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
-        }
-    }
-}
-print("prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-startTime = Date()
-
-print("eval")
-gpu.eval()
-print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-print("\ncycle time \(Date().timeIntervalSince(startTime)*1000/Double(repeats), precision: 2) ms\n")
-
-gpu.stopCapture(cond:captureGPU)
-print(buffer16[0])
-//exit(0)
-
-/*
-gpu.startCapture(cond: captureGPU)
-gpu.eval()
-h = tokens[0]
-
-print("begin benchmark")
-startTime = Date()
-for i in 0..<rowVals.cols! {
-    seedVec[i] = Float.random(in:0..<1)
-}
-let repeats = 100
-for _ in 0..<repeats*4 {
-    //    h = tokens[thisToken]
-    for layerNo in 0..<32 {
-        let layer = modelData.layers[layerNo]!
-        let rowVals = layer["feed_forward.w1"+".vals"]!
-//        mpsMul(vector: h, weights: layer["feed_forward.w1"]!, result: buffer16)
-        gpu.deploy("bucketMul", buffers: [h, rowVals, bufferX], ints:[rowVals.rows, outDim], threadCount: outDim * 32)
-    }
-}
-print("prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-startTime = Date()
-gpu.eval()
-print("final time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms, \(Date().timeIntervalSince(startTime)*1000/Double(repeats), precision: 2)ms")
-print(bufferX[0])
-print("done")
-gpu.stopCapture(cond: captureGPU) */
 exit(0)
 for thisToken in 0..<numTokens {
     var h = tokens[thisToken]
@@ -237,7 +131,7 @@ for thisToken in 0..<numTokens {
 
         gpu.eval()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-        gpu.stopCapture(cond: captureGPU)
+        gpu.stopCapture()
 
 
     }
