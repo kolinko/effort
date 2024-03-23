@@ -38,7 +38,7 @@ class Gpu {
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32"]
+                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec"]
 
         for fname in functionNames {
             makeFunction(fname)

@@ -39,8 +39,14 @@ kernel void getVal(device const half* vector [[buffer(0)]],
 
  */
 
-kernel void zero32(device float* v[[buffer(0)]]) {
-    v[0] = 0;
+kernel void zeroVec(device half* v[[buffer(0)]],
+                    uint id [[thread_position_in_grid]]) {
+    v[id] = 0;
+}
+
+kernel void zero32(device float* v[[buffer(0)]],
+                   uint id [[thread_position_in_grid]]) {
+    v[id] = 0;
 }
 
 kernel void prepareDispatch(device const half* v[[buffer(0)]],

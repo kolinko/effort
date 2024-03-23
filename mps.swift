@@ -10,7 +10,12 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
+func mpsMul(v: Vector, by: Matrix, out: Vector) {
+    mpsMul(vector: v, weights: by, result: out)
+}
+
 func mpsMul(vector: Vector, weights: Matrix, result: Vector) {
+    result.zero()
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
     let matrixRows: Int = weights.rows// Number of rows in your matrix

@@ -43,7 +43,6 @@ var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
-var startTime = Date()
 
 
 modelRunTests()
@@ -53,6 +52,16 @@ modelRunTests()
 
 print("tokenCalc")
 var h : Vector = tokens[0]
+
+let hiddenSize = 11008
+let stateSize = 4096
+
+let ffn_out = Vector(shape:[stateSize])
+let x1 = Vector(shape:[hiddenSize])
+let x3 = Vector(shape:[hiddenSize])
+let x2 = Vector(shape:[hiddenSize])
+
+var startTime = Date()
 for thisToken in 0..<numTokens {
     h = tokens[thisToken]
 
@@ -69,10 +78,14 @@ for thisToken in 0..<numTokens {
         
         let h_norm = h.rmsNormed()
         h_norm.mul(by:wa)
-        
-        let xq = mul_col(vec: h_norm, by: wq)
-        let xk = mul_col(vec: h_norm, by: wk)
-        let xv = mul_col(vec: h_norm, by: wv)
+        let xq = Vector(shape: [wq.rows])
+        let xk = Vector(shape: [wk.rows])
+        let xv = Vector(shape: [wv.rows])
+
+        mpsMul(v: h_norm, by: wq, out: xq)
+        mpsMul(v: h_norm, by: wk, out: xk)
+        mpsMul(v: h_norm, by: wv, out: xv)
+
         let xq_heads = xq.reshaped(newCols: headDim)
         let xk_heads = xk.reshaped(newCols: headDim)
         
@@ -91,20 +104,15 @@ for thisToken in 0..<numTokens {
         for headNo in 0..<numHeads {
             scores[headNo].softmax()
         }
-//        assert(xvToken[0].test("attnFfn", cond: layerNo+thisToken==0, mul:1000, val:[-0.001, 0.006, -0.006, 0.028, -0.028]))
         
         let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
-        let attnFfn = mul_col(vec: attnOutput, by: wo)
-
-//        assert(attnFfn.test("attnFfn", cond: layerNo+thisToken==0, mul:100, val:[-0.05, -0.02, -0.09, -0.07, -0.04]))
+        let attnFfn = Vector(shape:[wo.rows])
+        mpsMul(v: attnOutput, by: wo, out: attnFfn)
 
         h.add(by: attnFfn)
-//        assert(h.test("h", cond: layerNo+thisToken==0, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05]))
-
         let fxn = h.rmsNormed()
-//        assert(fxn.test("h_norm2", cond: layerNo+thisToken==0, mul:100, val:[-0.74, -0.69, -1.71, -0.949, -1.246]))
-        
+
         let wn = layer["ffn_norm"]!.asVector()
         let w1 = layer["feed_forward.w1"]!
         let w2 = layer["feed_forward.w2"]!
@@ -112,13 +120,12 @@ for thisToken in 0..<numTokens {
         
         fxn.mul(by:wn)
 
-        let x1 = mul_col(vec: fxn, by: w1)
-        let x3 = mul_col(vec: fxn, by: w3)
-        let x2 = silu(x1, x3)
-        let ffn_out = mul_col(vec: x2, by: w2)
+        assert(w1.rows == w3.rows)
+        mpsMul(v: fxn, by:w1, out: x1)
+        mpsMul(v: fxn, by:w3, out: x3)
+        silu(x1, x3, out: x2)
+        mpsMul(v: x2, by: w2, out: ffn_out)
         h.add(by: ffn_out)
-        
-        //ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     }
     
     print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -130,11 +137,12 @@ for thisToken in 0..<numTokens {
         gpu.eval()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
         
+        startTime = Date()
 
     }
     
 }
-
+//exit(0)
 let evalTime = Date()
 gpu.eval()
 

@@ -7,6 +7,23 @@
 import Metal
 import Foundation
 
+class Weights {
+    let core: Matrix
+    let buckets: Matrix
+    let stats: Matrix
+    
+    init(core: Matrix, buckets:Matrix, stats:Matrix) {
+        self.core = core
+        self.buckets = buckets
+        self.stats = stats
+    }
+}
+
+class Layer {
+    let data = [String: Matrix]()
+    
+    
+}
 
 struct ModelData {
     let norm: Matrix
