@@ -21,7 +21,6 @@ func modelProfile() {
     let buffer16 = Vector(shape:[weights.rows])
     let buffer32 = VectorFloat(shape: [weights.rows])
 
-//    gpu.startCapture()
     gpu.eval()
     bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, 
                            binsStats: layer["feed_forward.w1.bins.stats"]!,
@@ -35,7 +34,6 @@ func modelProfile() {
     gpu.eval()
     print(buffer16.str())
     print("cosine similarity", buffer32.cosineSimilarityTo(buffer16)[0])
-    gpu.stopCapture()
 
     for _ in 0..<5 {
         for layerNo in 0..<32 {
@@ -44,9 +42,6 @@ func modelProfile() {
             let weightBuckets3 = layer["feed_forward.w3.bins"]!
             let weights = layer["feed_forward.w1"]!
             bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: modelData.layers[31]!["feed_forward.w1.bins.stats"]!, quant: 0.25)
-
-            //calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: layer["feed_forward.w1.bins.stats"]!,
-            //             dispatch: dispatch, quant: 0.25)
 
             bucketMul.mul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32)
             bucketMul.mul(v: h, weightBuckets: weightBuckets3, weights: weights, out: buffer32)
@@ -80,10 +75,8 @@ func modelProfile() {
                 let weightBuckets = layer["feed_forward.w1.bins"]!
                 let weights = layer["feed_forward.w1"]!
                 bucketMul.calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: modelData.layers[31]!["feed_forward.w1.bins.stats"]!, quant: 0.25)
-//                gpu.eval()
 //                print(bucketMul.dispatch.size[0])
-//                bucketMul.mul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32)
-//                gpu.reEncode()
+                bucketMul.mul(v: h, weightBuckets: weightBuckets, weights: weights, out: buffer32)
             } else {
                 mpsMul(vector: h, weights: weights, result: buffer16)
             }

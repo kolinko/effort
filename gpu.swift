@@ -59,6 +59,7 @@ class Gpu {
     
     
     func eval() {
+        print("EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()

@@ -8,8 +8,8 @@
 #include <metal_stdlib>
 using namespace metal;
 
-kernel void silu(device const float *x1 [[buffer(0)]],
-                 device const float *x3 [[buffer(1)]],
+kernel void silu(device const half *x1 [[buffer(0)]],
+                 device const half *x3 [[buffer(1)]],
                  device half *out [[buffer(2)]],
                  uint id [[thread_position_in_grid]]) {
     out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));

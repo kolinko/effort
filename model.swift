@@ -336,7 +336,6 @@ class Vector: BufferableFloat16 {
     
     
     func add(by vector: Vector) {
-        print(self.shape)
         assert(self.shape == vector.shape, "Shapes of both layers must match")
 
         gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
@@ -468,13 +467,14 @@ func mul_col(vec: Vector, by weights: Matrix) -> Vector {
 
     let output = Vector(shape: [rows])
 
-    gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
+    mpsMul(vector: vec, weights: weights, result: output)
+//    gpu.deploy("mul_col_\(cols)", buffers:[weights, vec, output], threadCount: rows)
     
     return output
 }
 
 
-func silu(_ x1: VectorFloat, _ x3: VectorFloat) -> Vector {
+func silu(_ x1: Vector, _ x3: Vector) -> Vector {
     let out = Vector(shape:[x1.rows])
     gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
     return out

@@ -30,8 +30,8 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let tokenNum = 0
 
-let numLayers = 5
-let numTokens = 8
+let numLayers = 3
+let numTokens = 3
 
 var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xqLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
@@ -42,14 +42,14 @@ var startTime = Date()
 
 modelRunTests()
 
-modelProfile()
+//modelProfile()
 
-exit(0)
+
+print("tokenCalc")
 for thisToken in 0..<numTokens {
     var h = tokens[thisToken]
 
-    for layerNo in 0...numLayers {
-//        print("layer", layerNo, thisToken)
+    for layerNo in 0..<numLayers {
         let layer = modelData.layers[layerNo]!
         
         let wa = layer["attention_norm"]!.asVector()
@@ -111,39 +111,29 @@ for thisToken in 0..<numTokens {
         let x2 = silu(x1, x3)
         let ffn_out = mul_vm(v: x2, layer: layer, name: "feed_forward.w2")*/
        // h.add(by: ffn_out.asFloat16Vector())
-        
-        ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
-        /*
+        let x1 = mul_col(vec: fxn, by: w1)//, name: "feed_forward.w1")
+        let x3 = mul_col(vec: fxn, by: w3)
+        let x2 = silu(x1, x3)
+        let ffn_out = mul_col(vec: x2, by: w2)
+        h.add(by: ffn_out)
 
-        if (thisToken == 1 && layerNo == 10) {
-            gpu.eval()
-        }
-        if (thisToken == 1 && layerNo == 11) {
-            gpu.eval()
-//            gpu.stopCapture()
-        }*/
-
+        //ffn(&h, fxn:fxn, w1:w1, w2:w2, w3:w3)
     }
     
     print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     if (thisToken == 0) {
         let evalTime = Date()
-
+        gpu.startCapture()
         gpu.eval()
         print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-        gpu.stopCapture()
-
+        
 
     }
     
 }
 
-os_signpost(.end, log: log, name: "Go Tokens3")
 let evalTime = Date()
-os_signpost(.begin, log: log, name: "Go Eval")
 gpu.eval()
-os_signpost(.end, log: log, name: "Go Eval")
-//captureManager.stopCapture()
 
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
@@ -153,4 +143,6 @@ print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precisio
 
 print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 print("done")
+gpu.stopCapture()
+
 exit(0)
