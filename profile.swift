@@ -21,10 +21,10 @@ func modelProfile() {
     let buffer32 = VectorFloat(shape: [weights.rows])
 
     let dispatch = DynaVectorFloat(shape: [weightBuckets.rows*2])
-    let dispatchSize = ScalarFloat(value: 0.0)
-
+    gpu.startCapture()
+    gpu.eval()
     calcDispatch(v: h, weights: weights, weightBuckets: weightBuckets, binsStats: layer["feed_forward.w1.bins.stats"]!,
-                 dispatch: dispatch, quant: 1.0)
+                 dispatch: dispatch, quant: 0.25)
     gpu.eval()
 
     bucketMul(v: h, weightBuckets: layer["feed_forward.w1.bins"]!, weights: weights, out: buffer32, dispatch: dispatch)
@@ -34,7 +34,9 @@ func modelProfile() {
     gpu.eval()
     print(buffer16.str())
     print("cosine similarity", buffer32.cosineSimilarityTo(buffer16)[0])
-    //exit(0)
+    gpu.stopCapture()
+
+    exit(0)
 
     for _ in 0..<5 {
         for layerNo in 0..<32 {

@@ -505,17 +505,16 @@ func calcDispatch(v: Vector, weights: Matrix, weightBuckets: Matrix, binsStats: 
     print("cutoff", cutoff[0])
     // todo: calc the dispatch vector
     
-    //gpu.startCapture()
+//    gpu.startCapture()
     gpu.eval()
-    let chunkSize = binsStats.rows / 1
+    let chunkSize = binsStats.rows / 10024
     gpu.deploy("prepareDispatch", buffers:[v, binsStats, cutoff, dispatch, dispatch.size],
-               ints:[chunkSize], threadCount: 1)
+               ints:[chunkSize], threadCount: 10024)
     gpu.eval()
     for i in 0..<100 {
         print(i, dispatch[i*2], dispatch[i*2+1])
     }
     print("dispatch size", dispatch.size[0])
-    //gpu.stopCapture()
     return
 //    return
     

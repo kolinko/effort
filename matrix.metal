@@ -47,14 +47,21 @@ kernel void prepareDispatch(device const half* v[[buffer(0)]],
                             device atomic_float* dispatchCount[[buffer(4)]],
                             device const int& chunkSize [[buffer(5)]],
                             uint id [[thread_position_in_grid]]){
+
+    int idx;
+    const uint idxIncr = 1;
+    ushort counter = idxIncr;
     
     for (uint i = chunkSize*id; i<(id+1)*chunkSize; i++) {
         half4 s = binStats[i]; // row, min, max, mean
-        float val = v[int(s[0])];
+        float val = v[i % 4096]; // int(s[0])
         if (cutoff[0] < float(s[3]) * abs(val)) {
-            int idx = atomic_fetch_add_explicit(dispatchCount, 1, memory_order_relaxed);
-            dispatch[idx][0] = val;
-            dispatch[idx][1] = i;
+            if (counter == idxIncr) {
+                idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
+                counter = 0;
+            }
+            dispatch[idx+counter] = {val, float(i)};
+            counter += 1;
         }
     }
     
