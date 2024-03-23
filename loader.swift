@@ -147,13 +147,15 @@ func loadModelData(from filePath: String) -> ModelData {
     var layers = [Int: Layer]()
     for i in 0...numLayers {
         layers[i] = Layer()
-        for key in ["attention.wq", "ffn_norm", "attention_norm", "attention.wv", "attention.wk", "attention.wo", "feed_forward.w1", "feed_forward.w2","feed_forward.w3"] {
+        for key in ["ffn_norm", "attention_norm"] {
             let keyName = "layers."+String(i)+"."+key
             layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
         }
         
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", "attention.wv", "attention.wk", "attention.wq" ] {
+        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", "attention.wv", "attention.wk", "attention.wq",
+        "attention.wo"] {
             let keyName = "layers."+String(i)+"."+key
+            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
             let nShape = [shapeDict[keyName]![1]*16, shapeDict[keyName]![0]/16]
             layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: nShape)
             let dShape = [shapeDict[keyName]![1]*16, 4]

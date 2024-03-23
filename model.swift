@@ -513,7 +513,6 @@ class BucketMul {
     
     func mul(v: Vector, by: Weights, out: VectorFloat) {
         let weightBuckets = by.buckets
-        let weights = by.core
         
         let bucketSize = 16
         let numBuckets = out.rows / bucketSize

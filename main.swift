@@ -46,7 +46,6 @@ var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 modelRunTests()
 
 modelProfile()
-exit(0)
 
 print("tokenCalc")
 var h : Vector = tokens[0]
