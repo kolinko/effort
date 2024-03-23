@@ -111,8 +111,8 @@ func runNetwork(isTest: Bool) -> Archive{
             fxn.mul(byVec:layer.ffnNorm)
 
             if isTest {
-                bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.25)
-                bucketMul(v: fxn, by:layer.w3, out: x3, quant:0.25)
+                bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.10)
+                bucketMul(v: fxn, by:layer.w3, out: x3, quant:0.10)
                 
 //                mpsMul(v: fxn, by:layer.w1, out: x1)
 //                mpsMul(v: fxn, by:layer.w3, out: x3)
@@ -130,7 +130,7 @@ func runNetwork(isTest: Bool) -> Archive{
         }
 
         archive["token \(thisToken)"] = h.copy()
-
+       // archive["                        rms_norm \(thisToken)"] = h.rmsNormed()
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
@@ -181,6 +181,9 @@ for (key, vector) in a2 {
     print(key, vector.str())
 }
 
+for (key, sim) in a1.cosineSimsTo(a2) {
+    print(key, sim)
+}
 
 print("done")
 gpu.stopCapture()

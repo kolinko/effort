@@ -89,6 +89,18 @@ kernel void cosinePrecalc(const device float *A,
     atomic_fetch_add_explicit(magnitudeB, B[id] * B[id], memory_order_relaxed);
 }
 
+kernel void cosinePrecalc16(const device half *A,
+                                   const device half *B,
+                                   device atomic_float *dotProduct,
+                                   device atomic_float *magnitudeA,
+                                   device atomic_float *magnitudeB,
+                                   uint id [[thread_position_in_grid]]) {
+    // Compute dot product and magnitudes for cosine similarity
+    atomic_fetch_add_explicit(dotProduct, A[id] * B[id], memory_order_relaxed);
+    atomic_fetch_add_explicit(magnitudeA, A[id] * A[id], memory_order_relaxed);
+    atomic_fetch_add_explicit(magnitudeB, B[id] * B[id], memory_order_relaxed);
+}
+
 kernel void cosineCalc(device float *dotProduct,
                        device float *magnitudeA,
                        device float *magnitudeB) {
@@ -120,28 +132,6 @@ kernel void sumScores(const device half* scores [[buffer(0)]],
     out[id] = suma;
 }
 
-
-/*
-deploy(encoder, fname: "sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numHeads*headDim)
-encoder.endEncoding()
-commandBuffer.commit()
-commandBuffer.waitUntilCompleted()
-
-let scoresMatrix = gpuConsolidate(vecList: scores).asVectorList()
-let xvTokenMatrix = gpuConsolidate(vecList: xvToken).asVectorList()
-
-for headNo in 0..<numHeads {
-    for i in 0..<headDim {
-        var suma: Float16 = 0.0
-        for tok2 in 0...thisToken {
-            suma += scoresMatrix[headNo][tok2] * xvTokenMatrix[tok2][headNo*headDim+i]
-        }
-        out[headNo][i] = suma
-    }
-}*/
-
-/*deploy(encoder, fname: "dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo]], numThreads:xq_heads[headNo].rows)
-deploy(encoder, fname: "setScore", buffers:[sum, scores.ScalarAt().buffer], numThreads: 1)*/
 kernel void dot(const device half* v [[buffer(0)]],
                 const device half* w [[buffer(1)]],
                 device atomic_float* sum [[buffer(2)]],
@@ -155,16 +145,3 @@ kernel void setScore(const device float* sum [[buffer(0)]],
     target[0] = float(sum[0]) / sqrt(float(headDim));
 }
                     
-
-/*
-func softmax(_ array: inout [Float16]) {
-    // Compute exponentials and sum them up
-    let exps = array.map { Float16(exp(Float($0))) }
-    let sumExps = exps.reduce(Float16(0.0), +)
-
-    // Normalize each element
-    for i in array.indices {
-        array[i] = exps[i] / sumExps
-    }
-}
-*/

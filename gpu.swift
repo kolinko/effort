@@ -38,7 +38,8 @@ class Gpu {
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec"]
+                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec",
+        "cosinePrecalc16"]
 
         for fname in functionNames {
             makeFunction(fname)
@@ -61,7 +62,7 @@ class Gpu {
     
     
     func eval() {
-        print("EVAL")
+        //print("EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()

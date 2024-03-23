@@ -67,18 +67,22 @@ func modelProfile() {
         gpu.startCapture(cond:captureGPU)
         gpu.eval()
     }
+
     var startTime = Date()
-    
+
+//    bucketMul.calcDispatch(v: hx, weights: layer.w2, quant: 0.10)
+
     for _ in 0..<repeats*4 {
         for layerNo in 0..<numLayersProf {
             let layer = modelData.layers[layerNo]!
             if mine {
 //                bucketMul.calcDispatch(v: hx, weights: layer.w2, quant: 0.25)
-                bucketMul.calcDispatch(v: hx, weights: layer.w2, quant: 0.25)
-                bucketMul.mul(v: hx, by:layer.w2, out: buffer32x)
+//                bucketMul.mul(v: hx, by:layer.w2, out: buffer32x)
 
 //                bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
-//                bucketMul.mul(v: h, by:layer.w1, out: buffer32)
+                
+                bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.10)
+                bucketMul.mul(v: h, by:layer.w1, out: buffer32)
             } else {
                 
                 mpsMul(v: hx, by: layer.w2, out: buffer16x)
@@ -94,6 +98,7 @@ func modelProfile() {
     print("\ncycle time \(Date().timeIntervalSince(startTime)*1000/Double(repeats), precision: 2) ms\n")
 
     gpu.stopCapture()
+    exit(0)
     print(buffer16[0])
     
 }

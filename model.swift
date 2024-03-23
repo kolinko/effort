@@ -313,6 +313,16 @@ class VectorFloat: BufferableFloat {
 let _rms = ScalarFloat(value: 0.0)
 
 class Vector: BufferableFloat16 {
+    func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
+        let dotBuffer = ScalarFloat(value:0)
+        _normABuffer.zero()
+        _normBBuffer.zero()
+        gpu.deploy("cosinePrecalc16", buffers: [self, vec, dotBuffer, _normABuffer, _normBBuffer], threadCount: self.rows)
+        gpu.deploy("cosineCalc", buffers: [dotBuffer, _normABuffer, _normBBuffer], threadCount: 1)
+        gpu.eval()
+        return dotBuffer
+    }
+    
     func scalarAt(_ row: Int) -> Scalar {
         return Scalar(buffer: self.buffer, offset: row)
     }
