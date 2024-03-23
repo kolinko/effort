@@ -55,6 +55,7 @@ kernel void prepareDispatch(device const half* v[[buffer(0)]],
                             device float2* dispatch[[buffer(3)]],
                             device atomic_float* dispatchCount[[buffer(4)]],
                             device const int& chunkSize [[buffer(5)]],
+                            device const uint& rowsCount [[buffer(6)]],
                             uint id [[thread_position_in_grid]]){
 
     int idx;
@@ -63,7 +64,7 @@ kernel void prepareDispatch(device const half* v[[buffer(0)]],
     
     for (uint i = chunkSize*id; i<(id+1)*chunkSize; i++) {
         half4 s = binStats[i]; // row, min, max, mean
-        float val = v[i % 4096]; // int(s[0])
+        float val = v[i % rowsCount]; // int(s[0])
         if (cutoff[0] < float(s[3]) * abs(val)) {
             if (counter == idxIncr) {
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
@@ -83,11 +84,11 @@ kernel void bucketMul(
                    constant float *dispatchSize [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
                    constant int &groups [[buffer(5)]],
-                   ushort2 id [[thread_position_in_grid]]) {
+                   uint2 id [[thread_position_in_grid]]) {
                       
     float myVal[16] = {0};
       
-    const ushort rowOffset = id.y*dispatchSize[0]/groups;
+    const uint rowOffset = id.y*dispatchSize[0]/groups;
     for (int r=0; r<dispatchSize[0]/groups; r+=32) {
         for (int s=0; s<32; s++) { // for better optimisation
             

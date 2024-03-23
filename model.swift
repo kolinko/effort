@@ -317,6 +317,16 @@ class Vector: BufferableFloat16 {
         return Scalar(buffer: self.buffer, offset: row)
     }
 
+    func copyFrom32(_ vec: VectorFloat) {
+        assert(self.rows == vec.rows)
+        gpu.deploy("floatToHalf", buffers: [vec, self], threadCount: self.rows)
+    }
+    
+    func copy() -> Vector {
+        let out = Vector(shape:self.shape)
+        gpu.deploy("memcpy", buffers: [self, out], threadCount: self.rows)
+        return out
+    }
     
     func softmax() {
         _rms.zero()
@@ -471,14 +481,16 @@ func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
     gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
-func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.15) {
+func bucketMul(v: Vector, by: Weights, out: Vector, quant: Double = 0.25) {
+    let outFloat = VectorFloat(shape: out.shape)
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    BucketMul.shared.mul(v: v, by: by, out: out)
+    BucketMul.shared.mul(v: v, by: by, out: outFloat)
+    out.copyFrom32(outFloat)
 }
 
 class BucketMul {
     let probesCount = 4096
-    let maxDispatchSize = 4096*16
+    let maxDispatchSize = 176128
     let dispatch : DynaVectorFloat
     let probes : Vector
     let cutoff : Scalar
@@ -500,10 +512,10 @@ class BucketMul {
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-
+        
         let chunkSize = 16
         gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize], threadCount: w.stats.rows/chunkSize)
+                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
     }
     
     func mul(v: Vector, by: Weights, out: VectorFloat) {
@@ -511,7 +523,7 @@ class BucketMul {
         
         let bucketSize = 16
         let numBuckets = out.rows / bucketSize
-        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets])
+        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets], "\(weightBuckets.shape) ≠ \([bucketSize*v.rows, numBuckets])")
         
         assert(numBuckets % 4 == 0)
 

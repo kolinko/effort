@@ -67,28 +67,10 @@ kernel void mul_complex(device half2* v [[buffer(0)]],
     out.x = a * c - b * d;
     out.y = a * d + b * c;
     
-    v[id] = out;
-    /*
-    for i in 0..<count {
-        let complexNum = (self[2 * i], self[2 * i + 1])
-        let result = multiplyComplex(complexNum, complexArray[i])
-        self[2*i] = result.0
-        self[2*i+1] = result.1
-    }
-     */
-    /*
-    let (a, b) = num1
-    let (c, d) = num2
-    return (a * c - b * d, a * d + b * c)*/
-
-    
+    v[id] = out;    
 }
 
 // cosine similarity
-
-//gpu.deploy("cosinePrecalc", buffers: [self, vec, dotBuffer, normABuffer, normBBuffer], threadCount: self.rows)
-//gpu.deploy("cosineCalc", buffers: [dotBuffer, normABuffer, normBBuffer], threadCount: 0)
-//gpu.deploy("floatToHalf", buffers: [self, out], threadCount: self.rows)
 kernel void floatToHalf(const device float *inVec,
                         device half *outVec,
                         uint id [[thread_position_in_grid]]) {
