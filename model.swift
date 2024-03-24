@@ -461,12 +461,14 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-            gpu.deploy("dotSetScore", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
-                       ints: [xq_heads[headNo].rows], threadCount:1)
-            /*
+//            gpu.deploy("dotSetScore", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+//                       ints: [xq_heads[headNo].rows], threadCount:1)
+            
+
             assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
-            gpu.deploy("dotSetScore2", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], s2],//, scores.scalarAt(headNo, t2)],
-                       ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])*/
+            gpu.deploy("dotSetScore2", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+                       ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
+ 
         }
     }
     
