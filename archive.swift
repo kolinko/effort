@@ -45,7 +45,10 @@ class Archive : OrderedDict<Vector> {
     private var _addPrefix = "idx"
     var addIdx = 0
 
-    func add(prefix pref: String? = nil, _ value: Vector) {
+    func add(prefix pref: String? = nil, _ value: Vector, seriously: Bool = false) {
+        //return;
+        
+        if !seriously {return}
         let valueCopy = value.copy()
         if let pref = pref {
             super.self["\(pref) \(addIdx)"] = valueCopy
@@ -54,9 +57,9 @@ class Archive : OrderedDict<Vector> {
         }
         self.addIdx += 1
     }
-    func add(prefix pref: String = "idx", _ value: [Vector]) {
+    func add(prefix pref: String = "idx", _ value: [Vector], seriously: Bool = false) {
         for item in value {
-            self.add(item)
+            self.add(item, seriously: seriously)
         }
     }
 

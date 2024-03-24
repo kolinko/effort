@@ -318,6 +318,12 @@ class Vector: BufferableFloat16 {
         gpu.eval()
         return _normABuffer[0] == 0
     }
+    func strictCompareTo2(_ vec: Vector) -> Float {
+        _normABuffer.zero()
+        gpu.deploy("strictDiff", buffers: [self, vec, _normABuffer], threadCount: self.rows)
+        gpu.eval()
+        return _normABuffer[0]
+    }
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
         let dotBuffer = ScalarFloat(value:0)
         _normABuffer.zero()
@@ -523,8 +529,9 @@ class BucketMul {
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        
-        let chunkSize = 16
+        gpu.eval()
+        //print(cutoff[0])
+        let chunkSize = w.stats.rows//16
         gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
     }

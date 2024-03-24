@@ -143,33 +143,33 @@ func runNetwork(isTest: Bool) -> Archive{
             archive.add(fxn)
             archive.addPrefix = "\(thisToken):\(layerNo):g:"
 
+            archive.addPrefix = "\(thisToken):\(layerNo):=====:"
+            archive.add(fxn, seriously: true)
+
             if isTest {
-                bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.10)
-                bucketMul(v: fxn, by:layer.w3, out: x3, quant:0.10)
-                
-//                mpsMul(v: fxn, by:layer.w1, out: x1)
-//                mpsMul(v: fxn, by:layer.w3, out: x3)
+                bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.1)
+                bucketMul(v: fxn, by:layer.w3, out: x3, quant:0.1)
                 silu(x1, x3, out: x2)
                 bucketMul(v: x2, by: layer.w2, out: ffn_out, quant: 1)
-//                mpsMul(v: x2, by: layer.w2, out: ffn_out)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
                 silu(x1, x3, out: x2)
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
             }
-            archive.add([x1, x2, x3, ffn_out])
+            archive.addPrefix = "\(thisToken):\(layerNo):-----:"
+            archive.add([x1, x2, x3, ffn_out], seriously: true)
             h.add(by: ffn_out)
             archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
-            archive.add(h)
+            archive.add([h], seriously: true)
         }
 
         archive["token \(thisToken)"] = h.copy()
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
-            let evalTime = Date()
+            //let evalTime = Date()
             if goCapture {
                 gpu.startCapture()
             }
@@ -202,25 +202,18 @@ func runNetwork(isTest: Bool) -> Archive{
     return archive
 }
 
-var errors = [String: Int]()
-for i in 0..<40 {
-    print("##### iteration", i)
-    let a1 = runNetwork(isTest: false)
-    let a2 = runNetwork(isTest: false)
-    
-    for (key, sim) in a1.strictCompareTo(a2) {
-        if !sim {
-            print(key, sim)
-            errors[key] = (errors[key] ?? 0) + 1
-            break
-        }
-    }
-    
-    for (item, val) in errors {
-        print(item,val)
-    }
-}
 
+var errors = [String: Int]()
+let i = 0
+print("##### iteration", i)
+let a1 = runNetwork(isTest: true)
+let a2 = runNetwork(isTest: true)
+
+for (key, _) in a1 {
+    print(key, a1[key].str())
+    print(key, a2[key].str())
+    print(key, a1[key].cosineSimilarityTo(a2[key])[0])
+}
 
 
     
