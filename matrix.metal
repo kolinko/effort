@@ -15,6 +15,13 @@ kernel void silu(device const half *x1 [[buffer(0)]],
     out[id] = float(x3[id]) * float(x1[id]) / (1 + exp(-float(x1[id])));
 }
 
+kernel void silu32(device const float *x1 [[buffer(0)]],
+                 device const float *x3 [[buffer(1)]],
+                 device float *out [[buffer(2)]],
+                 uint id [[thread_position_in_grid]]) {
+    out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));
+}
+
 
 kernel void probe(device const half *v [[buffer(0)]],
                   device const half *weights [[buffer(1)]],
@@ -47,6 +54,34 @@ kernel void zeroVec(device half* v[[buffer(0)]],
 kernel void zero32(device float* v[[buffer(0)]],
                    uint id [[thread_position_in_grid]]) {
     v[id] = 0;
+}
+
+kernel void prepareDispatch32(device const float* v[[buffer(0)]],
+                            device const half4* binStats[[buffer(1)]],
+                            device const half* cutoff[[buffer(2)]],
+                            device float2* dispatch[[buffer(3)]],
+                            device atomic_float* dispatchCount[[buffer(4)]],
+                            device const int& chunkSize [[buffer(5)]],
+                            device const uint& rowsCount [[buffer(6)]],
+                            uint id [[thread_position_in_grid]]){
+
+    int idx;
+    const uint idxIncr = 1;
+    ushort counter = idxIncr;
+    
+    for (uint i = chunkSize*id; i<(id+1)*chunkSize; i++) {
+        half4 s = binStats[i]; // row, min, max, mean
+        float val = v[i % rowsCount]; // int(s[0])
+        if (cutoff[0] < float(s[3]) * abs(val)) {
+            if (counter == idxIncr) {
+                idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
+                counter = 0;
+            }
+            dispatch[idx+counter] = {val, float(i)};
+            counter += 1;
+        }
+    }
+    
 }
 
 kernel void prepareDispatch(device const half* v[[buffer(0)]],

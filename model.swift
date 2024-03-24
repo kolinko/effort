@@ -20,10 +20,8 @@ class Bufferable {
 //    let offset_bytes: Int
     
     init(buffer: MTLBuffer, offset: Int = 0) {
-//        assert((offset == 0)||(offset_bytes != 0), "You need to offset bytes if you make a regular offset")
         self.buffer = buffer
         self.offset = offset
-//        self.offset_bytes = offset
     }
 }
 
@@ -498,6 +496,25 @@ func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
     gpu.deploy("silu", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
+func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
+    gpu.deploy("silu32", buffers: [x1, x3, out], threadCount: x1.rows)
+}
+
+
+func bucketMul(v: VectorFloat, by: Weights, quant: Double = 0.25) -> VectorFloat {
+    let outFloat = VectorFloat(shape: [by.outSize])
+    BucketMul.shared.calcDispatch(v32: v, weights: by, quant: quant)
+    BucketMul.shared.mul(v: v.asFloat16Vector(), by: by, out: outFloat)
+    return outFloat
+}
+
+func bucketMul(v: Vector, by: Weights, quant: Double = 0.25) -> VectorFloat {
+    let outFloat = VectorFloat(shape: [by.outSize])
+    BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
+    BucketMul.shared.mul(v: v, by: by, out: outFloat)
+    return outFloat
+}
+
 func bucketMul(v: Vector, by: Weights, out: Vector, quant: Double = 0.25) {
     let outFloat = VectorFloat(shape: out.shape)
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
@@ -535,6 +552,22 @@ class BucketMul {
         gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
     }
+
+    func calcDispatch(v32: VectorFloat, weights w: Weights, quant: Double) {
+        let v = v32.asFloat16Vector()
+        assert(dispatch.rows >= w.buckets.rows*2)
+        dispatch.size.zero()
+        
+        gpu.deploy("probe", buffers:[v, w.core, probes], ints:[w.inSize], threadCount: probesCount)
+        probes.sort()
+
+        let q = Int(Double(probesCount)*(1-quant))
+        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
+        let chunkSize = w.stats.rows//16
+        gpu.deploy("prepareDispatch32", buffers:[v32, w.stats, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
+    }
+
     
     func mul(v: Vector, by: Weights, out: VectorFloat) {
         let weightBuckets = by.buckets

@@ -147,10 +147,12 @@ func runNetwork(isTest: Bool) -> Archive{
             archive.add(fxn, seriously: true)
 
             if isTest {
-                bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.1)
-                bucketMul(v: fxn, by:layer.w3, out: x3, quant:0.1)
+                let x1 = bucketMul(v: fxn, by:layer.w1, quant:0.25)
+                let x3 = bucketMul(v: fxn, by:layer.w3, quant:0.25)
+                let x2 = VectorFloat(shape: [x1.rows])
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: layer.w2, out: ffn_out, quant: 1)
+                let ffn_out2 = bucketMul(v: x2, by: layer.w2, quant: 0.1)
+                ffn_out.copyFrom32(ffn_out2)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
@@ -158,7 +160,7 @@ func runNetwork(isTest: Bool) -> Archive{
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
             }
             archive.addPrefix = "\(thisToken):\(layerNo):-----:"
-            archive.add([x1, x2, x3, ffn_out], seriously: true)
+//            archive.add([x1.asFloat16Vector(), x2, x3, ffn_out], seriously: true)
             h.add(by: ffn_out)
             archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
@@ -206,7 +208,7 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: true)
+let a1 = runNetwork(isTest: false)
 let a2 = runNetwork(isTest: true)
 
 for (key, _) in a1 {

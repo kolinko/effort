@@ -39,7 +39,7 @@ class Gpu {
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
                              "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec",
-        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore"]
+        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32"]
 
         for fname in functionNames {
             makeFunction(fname)

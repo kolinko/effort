@@ -46,7 +46,7 @@ class Archive : OrderedDict<Vector> {
     var addIdx = 0
 
     func add(prefix pref: String? = nil, _ value: Vector, seriously: Bool = false) {
-        //return;
+        return;
         
         if !seriously {return}
         let valueCopy = value.copy()
