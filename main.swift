@@ -27,10 +27,10 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelRunTests()
 
-modelProfile()
+//modelProfile()
 //exit(0)
 
-let goCapture = false
+let goCapture = true
 var numLayers = 32
 var numTokens = 8
 
@@ -155,10 +155,10 @@ func runNetwork(isTest: Bool) -> Archive{
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:1)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:1)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.15)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 1)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.15)
                 ffn_out.copyFrom32(ffn_out32)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)

@@ -62,7 +62,7 @@ class Gpu {
     
     
     func eval() {
-        //print("EVAL")
+        print("EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -117,6 +117,7 @@ class Gpu {
     
     func startCapture(cond: Bool = true) {
         if !cond { return }
+        if self.captureON { return }
         
         let captureDescriptor = MTLCaptureDescriptor()
         captureDescriptor.captureObject = device

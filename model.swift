@@ -535,9 +535,8 @@ class BucketMul {
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        gpu.eval()
         //print(cutoff[0])
-        let chunkSize = w.stats.rows//16
+        let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
     }
@@ -552,7 +551,7 @@ class BucketMul {
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        let chunkSize = w.stats.rows//16
+        let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareDispatch32", buffers:[v32, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
     }
