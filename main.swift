@@ -30,6 +30,24 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 //modelProfile()
 //exit(0)
 
+/*
+let h1 = tokens[0]
+let h2 = tokens[1]
+let s = ScalarFloat(value:0)
+gpu.startCapture()
+gpu.eval()
+gpu.deploy("dot2", buffers: [h1, h2, s], ints:[4], threadCount: 1024, threadGroupSize: [1024, 1, 1])
+gpu.eval()
+print(s[0])
+var sum : Float16 = 0.0
+for i in 0..<h1.rows {
+    sum += h1[i]// * h2[i]
+}
+print(sum)
+gpu.stopCapture()
+exit(0)*/
+
+
 let goCapture = true
 var numLayers = 32
 var numTokens = 8

@@ -173,6 +173,47 @@ kernel void dotSetScore(const device half* v [[buffer(0)]],
     target[0] = sum / sqrt(float(headDim));
 }
 
+kernel void dotSetScore2(const device half* v [[buffer(0)]],
+                        const device half* w [[buffer(1)]],
+                        device half* target [[buffer(2)]],
+                        const device int& chunkSize [[buffer(3)]],
+                        ushort id [[thread_position_in_grid]],
+                        ushort tiisg [[thread_index_in_simdgroup]],
+                        ushort sgiitg [[simdgroup_index_in_threadgroup]],
+                        ushort sgptg [[simdgroups_per_threadgroup]]
+                                //threadgroup size == thread count!
+                        ) {
+    threadgroup half temp[32] = {0};
+    float sum = 0;
+    uint begin = id*chunkSize;
+    uint end = (id+1)*chunkSize;
+    for (uint i = begin; i<end; i++) {
+        sum += float(v[i])*float(w[i]);
+    }
+    sum = simd_sum(sum);
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (tiisg == 0) {
+        temp[sgiitg] = sum;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+/*    if (sgiitg == 0) {
+        sum = temp[tiisg];
+        sum = simd_sum(sum);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);*/
+    if (id==0) {
+        sum = 0;
+        for (int i=0; i<sgptg; i++) {
+            sum += temp[i];
+        }
+        assert(tiisg == 0);
+        assert(sgiitg == 0);
+        target[0] = sum/sqrt(float(headDim));
+    }
+}
+
+
 kernel void dot(const device half* v [[buffer(0)]],
                 const device half* w [[buffer(1)]],
                 device atomic_float* sum [[buffer(2)]],

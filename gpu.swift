@@ -70,7 +70,7 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
-    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1) {
+    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1, threadGroupSize tgs: [Int] = [32,1,1]) {
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
@@ -79,18 +79,11 @@ class Gpu {
         let internalState = self.globalStates[fname]!
             
         let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
-//        print(fname, "tgSize", internalState.threadExecutionWidth, internalState.maxTotalThreadsPerThreadgroup)
-        var threadGroupSize : MTLSize
-        if (fname == "truthBucket2") {
-            threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
-        } else {
-            threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
-        }
+        var threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2]) //threadExecutionWidth
 
         encoder.setComputePipelineState(internalState)
 
         for i in 0..<buffers.count {
-//            print(i)
             encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset , index: i)
         }
 
@@ -103,7 +96,6 @@ class Gpu {
             var x: Float16 = float16s[i]
             encoder.setBytes(&x, length: MemoryLayout<Float16>.stride, index: i+buffers.count+ints.count)
         }
-
         
         encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     }

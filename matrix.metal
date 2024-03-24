@@ -141,7 +141,23 @@ kernel void bucketMul(
     }
                           
 }
+/*
+kernel void findCutoff(device half8x8 *p [[buffer(1)]],
+                       uint tpig [[thread_position_in_grid]],
+                       uint tpisg [[thread_index_in_simdgroup]],
+                       uint siitg [[simdgroup_index_in_threadgroup]]) {
+    
+    // numProbes = 4096
+    simdgroup_half8x8 h;
+    uint offset = (p+siitg)*4;
+    for (int i=0; i<4; i++) {
+        simdgroup_load(h, p+offset+i);
+        simdgroup_
+        //        simdgroup
+    }
 
+    
+}*/
 
 kernel void basicBitonicSort(device half     *floats     [[ buffer(0) ]],
                              constant int     &p             [[ buffer(1) ]],
