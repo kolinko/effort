@@ -157,6 +157,22 @@ kernel void sumScores(const device half* scores [[buffer(0)]],
     out[id] = suma;
 }
 
+// setScore
+
+
+kernel void dotSetScore(const device half* v [[buffer(0)]],
+                        const device half* w [[buffer(1)]],
+                        device half* target [[buffer(2)]],
+                        const device int& count [[buffer(3)]]
+                        ) {
+    float sum = 0;
+    for (int i = 0; i<count; i++) {
+        sum += float(v[i])*float(w[i]);
+    }
+    
+    target[0] = sum / sqrt(float(headDim));
+}
+
 kernel void dot(const device half* v [[buffer(0)]],
                 const device half* w [[buffer(1)]],
                 device atomic_float* sum [[buffer(2)]],
@@ -167,6 +183,6 @@ kernel void dot(const device half* v [[buffer(0)]],
 
 kernel void setScore(const device float* sum [[buffer(0)]],
                      device half* target) {
-    target[0] = float(sum[0]) / sqrt(float(headDim) + 1e-6);
+    target[0] = float(sum[0]) / sqrt(float(headDim));
 }
                     

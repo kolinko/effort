@@ -59,9 +59,9 @@ class BufferableFloat: Bufferable {
         }
 
     func str(count: Int = 10) -> String {
-        
+        let _count = count>=self.rows ? count : self.rows
         var outStr = ""
-        for i in 0..<count {
+        for i in 0..<_count {
             outStr += "\(self[i]); "
         }
         return outStr
@@ -89,7 +89,6 @@ class ScalarFloat: BufferableFloat {
 
 
 class Scalar: BufferableFloat16 {
-    
     convenience init(value: Float16) {
         self.init(shape: [1])
         self[0] = value;
@@ -144,9 +143,9 @@ class BufferableFloat16 : Bufferable {
     }
     
     func str(count: Int = 10) -> String {
-        
+        let _count = count<self.rows ? count : self.rows
         var outStr = ""
-        for i in 0..<count {
+        for i in 0..<_count {
             outStr += "\(self[i]); "
         }
         return outStr
@@ -449,7 +448,7 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
 }
 
 
-let sm = ScalarFloat(value: 0)
+//let sm = ScalarFloat(value: 0)
 
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let numTokens = xkTokenHeads.count
@@ -458,10 +457,8 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-
-            sm.zero()
-            gpu.deploy("dot", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], sm], threadCount:xq_heads[headNo].rows)
-            gpu.deploy("setScore", buffers:[sm, scores.scalarAt(headNo, t2)], threadCount: 1)
+            gpu.deploy("dotSetScore", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+                       ints: [xq_heads[headNo].rows], threadCount:1)
         }
     }
     

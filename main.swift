@@ -167,7 +167,7 @@ func runNetwork(isTest: Bool) -> Archive{
 
         archive["token \(thisToken)"] = h.copy()
         
-        //print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+        print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
             let evalTime = Date()
             if goCapture {

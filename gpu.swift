@@ -39,7 +39,7 @@ class Gpu {
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
                              "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec",
-        "cosinePrecalc16"]
+        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore"]
 
         for fname in functionNames {
             makeFunction(fname)
@@ -83,7 +83,6 @@ class Gpu {
         var threadGroupSize : MTLSize
         if (fname == "truthBucket2") {
             threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
-            //print("A")
         } else {
             threadGroupSize = MTLSize(width: 32, height: 1, depth: 1) //threadExecutionWidth
         }
