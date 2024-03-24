@@ -10,7 +10,7 @@ import Foundation
 class OrderedDict<Value>: Sequence {
     var data = [String: Value]()
     var order = [String]()
-    
+        
     subscript(index: String) -> Value {
         get { return data[index]! }
         set {
@@ -38,11 +38,41 @@ class OrderedDict<Value>: Sequence {
 }
 
 class Archive : OrderedDict<Vector> {
+    var addPrefix : String {
+        get {return _addPrefix}
+        set (pref){_addPrefix = pref;addIdx=0}
+    }
+    private var _addPrefix = "idx"
+    var addIdx = 0
 
+    func add(prefix pref: String? = nil, _ value: Vector) {
+        let valueCopy = value.copy()
+        if let pref = pref {
+            super.self["\(pref) \(addIdx)"] = valueCopy
+        } else {
+            super.self["\(addPrefix)\(addIdx)"] = valueCopy
+        }
+        self.addIdx += 1
+    }
+    func add(prefix pref: String = "idx", _ value: [Vector]) {
+        for item in value {
+            self.add(item)
+        }
+    }
+
+    
     func cosineSimsTo(_ a2: Archive) -> OrderedDict<Float>{
         let out = OrderedDict<Float>()
         for (key, vec) in self {
             out[key] = vec.cosineSimilarityTo(a2[key])[0]
+        }
+        return out
+    }
+    
+    func strictCompareTo(_ a2: Archive) -> OrderedDict<Bool>{
+        let out = OrderedDict<Bool>()
+        for (key, vec) in self {
+            out[key] = vec.strictCompareTo(a2[key])
         }
         return out
     }

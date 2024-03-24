@@ -53,7 +53,6 @@ func runNetwork(isTest: Bool) -> Archive{
     gpu.eval()
      */
     
-    print("numLayers", numLayers)
     var h : Vector = tokens[0]
 
     let hiddenSize = 11008
@@ -72,18 +71,24 @@ func runNetwork(isTest: Bool) -> Archive{
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
+            archive.addPrefix = "\(thisToken):\(layerNo):a:"
+            archive.addIdx = 0
             let layer = modelData.layers[layerNo]!
-            
+            archive.add(h)
             let h_norm = h.rmsNormed()
+            archive.add(h_norm)
             h_norm.mul(byVec:layer.attnNorm)
-            
+            archive.add(h_norm)
+
             let xq = mpsMul(v: h_norm, by: layer.wq)
             let xk = mpsMul(v: h_norm, by: layer.wk)
             let xv = mpsMul(v: h_norm, by: layer.wv)
+            archive.add([xq, xk, xv])
 
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
-            
+            archive.addPrefix = "\(thisToken):\(layerNo):b:"
+
             for i in 0..<numHeads {
                 xq_heads[i].mul(complexArray: freqsCis[thisToken])
                 xk_heads[i].mul(complexArray: freqsCis[thisToken])
@@ -91,24 +96,52 @@ func runNetwork(isTest: Bool) -> Archive{
             
             xkLayerTokenHead[layerNo].append(xk_heads)
             xvLayerToken[layerNo].append(xv)
-            
+            archive.addPrefix = "\(thisToken):\(layerNo):b':"
+
+            archive.add(xk_heads)
+            archive.addPrefix = "\(thisToken):\(layerNo):b'':"
+
+            archive.add(xv)
+
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
+            archive.addPrefix = "\(thisToken):\(layerNo):b1:"
+            archive.add(xq_heads)
+            archive.addPrefix = "\(thisToken):\(layerNo):b2:"
+
+            for i in xkTokenHeads {
+                archive.add(i)
+            }
+            archive.addPrefix = "\(thisToken):\(layerNo):b3:"
+
             let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-            
+            archive.add(scores)
+            archive.addPrefix = "\(thisToken):\(layerNo):c:"
+
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
-            
+            archive.add(scores)
+            archive.addPrefix = "\(thisToken):\(layerNo):c':"
+
             let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
-            
-            
-            let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)//, out: attnFfnOut)
+            archive.add(attnOutput)
+
+            let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)
+            archive.add(attnFfnOut)
+            archive.addPrefix = "\(thisToken):\(layerNo):d:"
+
             h.add(by: attnFfnOut)
-            
+            archive.add(h)
+            archive.addPrefix = "\(thisToken):\(layerNo):e:"
+
             let fxn = h.rmsNormed()
+            archive.add(fxn)
+            archive.addPrefix = "\(thisToken):\(layerNo):f:"
 
             fxn.mul(byVec:layer.ffnNorm)
+            archive.add(fxn)
+            archive.addPrefix = "\(thisToken):\(layerNo):g:"
 
             if isTest {
                 bucketMul(v: fxn, by:layer.w1, out: x1, quant:0.10)
@@ -125,21 +158,23 @@ func runNetwork(isTest: Bool) -> Archive{
                 silu(x1, x3, out: x2)
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
             }
+            archive.add([x1, x2, x3, ffn_out])
             h.add(by: ffn_out)
+            archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
+            archive.add(h)
         }
 
         archive["token \(thisToken)"] = h.copy()
-       // archive["                        rms_norm \(thisToken)"] = h.rmsNormed()
         
-        print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+        //print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
             let evalTime = Date()
             if goCapture {
                 gpu.startCapture()
             }
             gpu.eval()
-            print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+            //print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             
             startTime = Date()
 
@@ -149,7 +184,7 @@ func runNetwork(isTest: Bool) -> Archive{
 
     let evalTime = Date()
     gpu.eval()
-
+    
     print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
     print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
     print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
@@ -167,23 +202,27 @@ func runNetwork(isTest: Bool) -> Archive{
     return archive
 }
 
-let a1 = runNetwork(isTest: false)
-let a2 = runNetwork(isTest: true)
-
-
-print("original")
-for (key, vector) in a1 {
-    print(key, vector.str())
+var errors = [String: Int]()
+for i in 0..<40 {
+    print("##### iteration", i)
+    let a1 = runNetwork(isTest: false)
+    let a2 = runNetwork(isTest: false)
+    
+    for (key, sim) in a1.strictCompareTo(a2) {
+        if !sim {
+            print(key, sim)
+            errors[key] = (errors[key] ?? 0) + 1
+            break
+        }
+    }
+    
+    for (item, val) in errors {
+        print(item,val)
+    }
 }
 
-print("test")
-for (key, vector) in a2 {
-    print(key, vector.str())
-}
 
-for (key, sim) in a1.cosineSimsTo(a2) {
-    print(key, sim)
-}
 
+    
 print("done")
 gpu.stopCapture()

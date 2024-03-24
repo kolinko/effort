@@ -313,6 +313,12 @@ class VectorFloat: BufferableFloat {
 let _rms = ScalarFloat(value: 0.0)
 
 class Vector: BufferableFloat16 {
+    func strictCompareTo(_ vec: Vector) -> Bool {
+        _normABuffer.zero()
+        gpu.deploy("strictDiff", buffers: [self, vec, _normABuffer], threadCount: self.rows)
+        gpu.eval()
+        return _normABuffer[0] == 0
+    }
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
         let dotBuffer = ScalarFloat(value:0)
         _normABuffer.zero()
@@ -349,11 +355,8 @@ class Vector: BufferableFloat16 {
         assert(layer.shape.count == 1, "Only for vectors")
         
         let output = Vector(shape: layer.shape)
-        
-        _rms.zero()
-        gpu.deploy("sum_of_squares", buffers: [layer, _rms], threadCount: layer.count())
-        gpu.deploy("normalize_vector", buffers: [layer, output, _rms], ints: [self.count()], threadCount: layer.count())
-        
+        gpu.deploy("rms_norm", buffers: [layer, output], ints: [self.count()], threadCount: layer.count())
+
         return output
     }
     

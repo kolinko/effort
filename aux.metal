@@ -8,12 +8,37 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// rms_norm
+
+kernel void strictDiff(const device half* a [[buffer(0)]],
+                       const device half* b [[buffer(1)]],
+                           device atomic_float* diff [[buffer(2)]],
+                           uint id [[thread_position_in_grid]]) {
+    if (a[id] != b[id]) {
+        atomic_fetch_add_explicit(diff, 1, memory_order_relaxed);
+    }
+}
+
+// rms norm
+
+kernel void rms_norm(device half* input [[buffer(0)]],
+                             device half* output [[buffer(1)]],
+                             const device int& count [[buffer(2)]],
+                             uint id [[thread_position_in_grid]]) {
+    float sum = 0;
+    for (int i=0; i<count; i++) {
+        sum += float(input[i]) * float(input[i]);
+    }
+    output[id] = input[id] / sqrt(sum/count + 1e-6);
+}
+
+/* unused below ?*/
+
 kernel void sum_of_squares(const device half* input [[buffer(0)]],
                            device atomic_float* sum [[buffer(1)]],
                            uint id [[thread_position_in_grid]]) {
     atomic_fetch_add_explicit(sum, input[id] * input[id], memory_order_relaxed);
 }
+
 
 kernel void normalize_vector(device half* input [[buffer(0)]],
                              device half* output [[buffer(1)]],
@@ -142,6 +167,6 @@ kernel void dot(const device half* v [[buffer(0)]],
 
 kernel void setScore(const device float* sum [[buffer(0)]],
                      device half* target) {
-    target[0] = float(sum[0]) / sqrt(float(headDim));
+    target[0] = float(sum[0]) / sqrt(float(headDim) + 1e-6);
 }
                     
