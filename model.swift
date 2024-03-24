@@ -236,12 +236,6 @@ class BufferableFloat16 : Bufferable {
     
 }
 
-func modelRunTests() {
-    let v = Vector(from: [0.1, 0.22, 0.33, 0.11, -0.21, 2, -0.01, 0.02])
-    assert(v.scalarAt(3)[0] == 0.11)
-    v.sort()
-    assert(v.test("v.sort()", mul: 100, val: [-0.21, -0.01, 0.02, 0.1, 0.11, 0.22, 0.33, 2.0]))
-}
 
 class Matrix: BufferableFloat16 {
     func asVector() -> Vector {
@@ -463,7 +457,6 @@ func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
             assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
 //            gpu.deploy("dotSetScore", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
 //                       ints: [xq_heads[headNo].rows], threadCount:1)
-            
 
             assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
             gpu.deploy("dotSetScore2", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],

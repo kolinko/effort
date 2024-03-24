@@ -197,11 +197,6 @@ kernel void dotSetScore2(const device half* v [[buffer(0)]],
         temp[sgiitg] = sum;
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
-/*    if (sgiitg == 0) {
-        sum = temp[tiisg];
-        sum = simd_sum(sum);
-    }
-    threadgroup_barrier(mem_flags::mem_threadgroup);*/
     if (id==0) {
         sum = 0;
         for (int i=0; i<sgptg; i++) {

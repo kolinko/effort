@@ -30,25 +30,8 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 //modelProfile()
 //exit(0)
 
-/*
-let h1 = tokens[0]
-let h2 = tokens[1]
-let s = ScalarFloat(value:0)
-gpu.startCapture()
-gpu.eval()
-gpu.deploy("dot2", buffers: [h1, h2, s], ints:[4], threadCount: 1024, threadGroupSize: [1024, 1, 1])
-gpu.eval()
-print(s[0])
-var sum : Float16 = 0.0
-for i in 0..<h1.rows {
-    sum += h1[i]// * h2[i]
-}
-print(sum)
-gpu.stopCapture()
-exit(0)*/
 
-
-let goCapture = true
+let goCapture = false
 var numLayers = 32
 var numTokens = 8
 
@@ -57,7 +40,6 @@ if goCapture {
     numTokens = 3
 }
 
-//var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
 var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
 gpu.eval()
@@ -173,10 +155,10 @@ func runNetwork(isTest: Bool) -> Archive{
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.15)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.15)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.15)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.5)
                 ffn_out.copyFrom32(ffn_out32)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
@@ -196,15 +178,11 @@ func runNetwork(isTest: Bool) -> Archive{
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
-            //let evalTime = Date()
             if goCapture {
                 gpu.startCapture()
             }
             gpu.eval()
-            //print("eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-            
             startTime = Date()
-
         }
         
     }
@@ -220,7 +198,9 @@ func runNetwork(isTest: Bool) -> Archive{
 
     if ((numTokens == 8) ){
             print(h.str())
-        //    assert(h.test(mul: 10, val: [666, 666, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.70]))
+            if (!isTest) {
+                assert(h.test(mul: 10, val: [-6.6, 9.5, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.7]))
+            }
             print("output OK")
         } else if (!goCapture){
             print("WARNING: Wrong token number, considering no gpucapture: \(numTokens)")
@@ -233,7 +213,7 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: false)
+let a1 = runNetwork(isTest: true)
 let a2 = runNetwork(isTest: true)
 
 for (key, _) in a1 {

@@ -39,7 +39,7 @@ class Gpu {
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
                              "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec",
-        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32"]
+        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32", "dotSetScore2"]
 
         for fname in functionNames {
             makeFunction(fname)
@@ -47,7 +47,6 @@ class Gpu {
     }
     
     func makeFunction(_ fname: String) {
-        //print(fname)
         guard let internalFunc = library.makeFunction(name: fname) else {
             fatalError("Cannot find \"\(fname)\" in the library.")
         }
@@ -62,7 +61,7 @@ class Gpu {
     
     
     func eval() {
-        print("EVAL")
+//        print("EVAL")
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
