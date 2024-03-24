@@ -18,7 +18,7 @@ func modelProfile() {
     let buffer32 = VectorFloat(shape: [layer.w1.outSize])
     
     bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
-    bucketMul.mul(v: h, by:layer.w1, out: buffer32)
+    bucketMul.mul(by:layer.w1, out: buffer32)
     mpsMul(v:h, by:layer.w1, out: buffer16)
     gpu.eval()
     print(buffer32.str())
@@ -32,50 +32,21 @@ func modelProfile() {
     mpsMul(v:hx, by:layer.w2, out: buffer16x)
     gpu.eval()
     bucketMul.calcDispatch(v: hx, weights: layer.w2, quant: 1)
-    bucketMul.mul(v: hx, by:layer.w2, out: buffer32x)
+    bucketMul.mul(by:layer.w2, out: buffer32x)
     gpu.eval()
     print(buffer32x.str())
     print(buffer16x.str())
     print("cosine similarity", buffer32x.cosineSimilarityTo(buffer16x)[0])
 
-    let layerNo=0
-//    let layer = modelData.layers[layerNo]!
-
-    print("?")
-    let c = VectorFloat(shape: [layer.w1.outSize])
-//    mpsMul(v: h, by: layer.w1, out: c)a
-    bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.10)
-    bucketMul.mul(v: h, by: layer.w1, out: c)
-
     gpu.eval()
     
-    for _ in 0..<50 {
-//        buffer16.zero()
-//        buffer16.zero()
-        buffer32.zero()
-        bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.10)
-        bucketMul.mul(v: h, by: layer.w1, out: buffer32)
-        let n = buffer32.asFloat16Vector()
-        let m = c.asFloat16Vector()
-        print(m.strictCompareTo2(n))
-        print("---")
-        for i in 0..<buffer32.rows {
-            if m[i] != n[i] {
-               print(i,m[i],n[i])
-            }
-        }
-        
-    }
-    
-    exit(0)
-
     for _ in 0..<5 {
         for layerNo in 0..<32 {
             let layer = modelData.layers[layerNo]!
             bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
 
-            bucketMul.mul(v: h, by: layer.w1, out: buffer32)
-            bucketMul.mul(v: h, by: layer.w3, out: buffer32)
+            bucketMul.mul(by: layer.w1, out: buffer32)
+            bucketMul.mul(by: layer.w3, out: buffer32)
 
             mpsMul(v: h, by: layer.w1, out: buffer16)
             gpu.reEncode()
@@ -111,7 +82,7 @@ func modelProfile() {
 
 //                bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
                 
-                bucketMul.mul(v: h, by:layer.w1, out: buffer32)
+                bucketMul.mul(by:layer.w1, out: buffer32)
             } else {
                 
                 mpsMul(v: hx, by: layer.w2, out: buffer16x)

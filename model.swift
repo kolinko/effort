@@ -501,25 +501,14 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 }
 
 
-func bucketMul(v: VectorFloat, by: Weights, quant: Double = 0.25) -> VectorFloat {
-    let outFloat = VectorFloat(shape: [by.outSize])
+func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v32: v, weights: by, quant: quant)
-    BucketMul.shared.mul(v: v.asFloat16Vector(), by: by, out: outFloat)
-    return outFloat
+    BucketMul.shared.mul(by: by, out: out)
 }
 
-func bucketMul(v: Vector, by: Weights, quant: Double = 0.25) -> VectorFloat {
-    let outFloat = VectorFloat(shape: [by.outSize])
+func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    BucketMul.shared.mul(v: v, by: by, out: outFloat)
-    return outFloat
-}
-
-func bucketMul(v: Vector, by: Weights, out: Vector, quant: Double = 0.25) {
-    let outFloat = VectorFloat(shape: out.shape)
-    BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    BucketMul.shared.mul(v: v, by: by, out: outFloat)
-    out.copyFrom32(outFloat)
+    BucketMul.shared.mul(by: by, out: out)
 }
 
 class BucketMul {
@@ -569,12 +558,12 @@ class BucketMul {
     }
 
     
-    func mul(v: Vector, by: Weights, out: VectorFloat) {
+    func mul(by: Weights, out: VectorFloat) {
         let weightBuckets = by.buckets
         
         let bucketSize = 16
         let numBuckets = out.rows / bucketSize
-        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets], "\(weightBuckets.shape) ≠ \([bucketSize*v.rows, numBuckets])")
+//        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets], "\(weightBuckets.shape) ≠ \([bucketSize*v.rows, numBuckets])")
         
         assert(numBuckets % 4 == 0)
 

@@ -27,7 +27,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelRunTests()
 
-//modelProfile()
+modelProfile()
 //exit(0)
 
 let goCapture = false
@@ -58,10 +58,15 @@ func runNetwork(isTest: Bool) -> Archive{
     let hiddenSize = 11008
     let stateSize = 4096
 
-    let ffn_out = Vector(shape:[stateSize])
     let x1 = Vector(shape:[hiddenSize])
     let x3 = Vector(shape:[hiddenSize])
     let x2 = Vector(shape:[hiddenSize])
+    let ffn_out = Vector(shape:[stateSize])
+
+    let x1_32 = VectorFloat(shape:[hiddenSize])
+    let x3_32 = VectorFloat(shape:[hiddenSize])
+    let x2_32 = VectorFloat(shape:[hiddenSize])
+    let ffn_out32 = VectorFloat(shape:[stateSize])
 
     let archive = Archive()
 
@@ -147,12 +152,14 @@ func runNetwork(isTest: Bool) -> Archive{
             archive.add(fxn, seriously: true)
 
             if isTest {
-                let x1 = bucketMul(v: fxn, by:layer.w1, quant:0.25)
-                let x3 = bucketMul(v: fxn, by:layer.w3, quant:0.25)
-                let x2 = VectorFloat(shape: [x1.rows])
-                silu(x1, x3, out: x2)
-                let ffn_out2 = bucketMul(v: x2, by: layer.w2, quant: 0.1)
-                ffn_out.copyFrom32(ffn_out2)
+                x1_32.zero()
+                x3_32.zero()
+                ffn_out32.zero()
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:1)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:1)
+                silu(x1_32, x3_32, out: x2_32)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 1)
+                ffn_out.copyFrom32(ffn_out32)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
@@ -164,7 +171,7 @@ func runNetwork(isTest: Bool) -> Archive{
             h.add(by: ffn_out)
             archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
-            archive.add([h], seriously: true)
+            //archive.add([h], seriously: true)
         }
 
         archive["token \(thisToken)"] = h.copy()
