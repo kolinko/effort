@@ -74,13 +74,13 @@ class Layer {
 
 class ModelData {
     let norm: Matrix
-    let outputs: Weights
+    let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    init(norm: Matrix, outputs: Weights, tokEmbeddings: Matrix, layers: [Int : Layer]) {
+    init(norm: Matrix, output: Weights, tokEmbeddings: Matrix, layers: [Int : Layer]) {
         self.norm = norm
-        self.outputs = outputs
+        self.output = output
         self.tokEmbeddings = tokEmbeddings
         self.layers = layers
     }
@@ -160,8 +160,8 @@ func loadModelData(from filePath: String) -> ModelData {
             layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
         }
         
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", "attention.wv", "attention.wk", "attention.wq",
-        "attention.wo"] {
+        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", 
+                    "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
             let keyName = "layers.\(i).\(key)"
             let shape = shapeDict[keyName]!
             layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shape)
@@ -172,7 +172,7 @@ func loadModelData(from filePath: String) -> ModelData {
     
     let model = ModelData(
         norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
-        outputs: Weights(fromFile: "output", shape: shapeDict["output"]!),
+        output: Weights(fromFile: "output", shape: shapeDict["output"]!),
         tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
         layers: layers
     )
@@ -181,7 +181,6 @@ func loadModelData(from filePath: String) -> ModelData {
     let testLayer = model.layers[0]!["feed_forward.w1"]
     assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
     assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
-//    assert(model.layers[0]!["feed_forward.w1.ids"]!.testInt("w1ids", val:[3260, 7938, 9263, 9670]))
 
     let endTime = Date()
     print("data load time \(endTime.timeIntervalSince(startTime)) seconds")

@@ -11,6 +11,7 @@
 		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
 		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
 		A4260AED2BB0CC0900DB76DA /* tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEC2BB0CC0900DB76DA /* tests.swift */; };
+		A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */; };
 		A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A429EFEE2BA81B7600B25B68 /* mps.swift */; };
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
 		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
@@ -40,6 +41,7 @@
 		A40B31972B9F476800095AF5 /* gpu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = gpu.swift; sourceTree = "<group>"; };
 		A40B31992BA06D5800095AF5 /* info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = info.plist; sourceTree = "<group>"; };
 		A4260AEC2BB0CC0900DB76DA /* tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tests.swift; sourceTree = "<group>"; };
+		A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser.swift; sourceTree = "<group>"; };
 		A429EFEE2BA81B7600B25B68 /* mps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mps.swift; sourceTree = "<group>"; };
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
 		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
@@ -67,6 +69,7 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */,
 				A4260AEC2BB0CC0900DB76DA /* tests.swift */,
 				A45C6C912BAEC56D004AE765 /* profile.swift */,
 				A429EFEE2BA81B7600B25B68 /* mps.swift */,
@@ -171,6 +174,7 @@
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
 				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
 				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
+				A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */,
 				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
 				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
 				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,

@@ -19,6 +19,8 @@ let modelData = loadModelData(from: "shape.json")
 let tokens = loadTokens()
 os_signpost(.end, log: log, name: "Loading")
 
+print(modelData.tokEmbeddings.shape)
+exit(0)
 
 let headDim = 128  // Example head dimension
 let numHeads = 32
@@ -33,16 +35,18 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let goCapture = false
 var numLayers = 32
-var numTokens = 8
+//var numTokens = 8
 
 if goCapture {
     numLayers = 4
-    numTokens = 3
+//    numTokens = 3
 }
 
 var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
 gpu.eval()
+
+let t = Tokeniser()
 
 func runNetwork(isTest: Bool) -> Archive{
     
@@ -72,7 +76,7 @@ func runNetwork(isTest: Bool) -> Archive{
 
     print("Begin token calc")
     var startTime = Date()
-    for thisToken in 0..<numTokens {
+    for thisToken in 0..<20 { //numTokens
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
@@ -155,10 +159,10 @@ func runNetwork(isTest: Bool) -> Archive{
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.15)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.05)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.1)//quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.1)//quant:0.05)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.05)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.1)// quant: 0.05)
                 ffn_out.copyFrom32(ffn_out32)
                 archive.add([x1_32.asFloat16Vector(), x2_32.asFloat16Vector(), x3_32.asFloat16Vector(), ffn_out], seriously: true)
             } else {
@@ -177,6 +181,12 @@ func runNetwork(isTest: Bool) -> Archive{
         }
 
         archive["token \(thisToken)"] = h.copy()
+        let outputVector = Vector(shape:[modelData.output.outSize])
+        mpsMul(v: h, by: modelData.output, out: outputVector)
+        archive["output \(thisToken)"] = outputVector
+        let topKVector = mpsTopK(v: outputVector)
+        archive["topK \(thisToken)"] = topKVector
+
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         if (thisToken == 0) {
@@ -197,7 +207,7 @@ func runNetwork(isTest: Bool) -> Archive{
     print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
 
     print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-
+    /*
     if ((numTokens == 8) ){
             print(h.str())
             if (!isTest) {
@@ -207,6 +217,7 @@ func runNetwork(isTest: Bool) -> Archive{
         } else if (!goCapture){
             print("WARNING: Wrong token number, considering no gpucapture: \(numTokens)")
         }
+     */
     
     return archive
 }
@@ -215,7 +226,7 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: true)
+let a1 = runNetwork(isTest: false)
 let a2 = runNetwork(isTest: true)
 
 for (key, _) in a1 {
@@ -223,7 +234,25 @@ for (key, _) in a1 {
     print(key, a2[key].str())
     print(key, a1[key].cosineSimilarityTo(a2[key])[0])
 }
+
+for i in 0..<8 {
+    let key = "topK \(i)"
+    print(key)
+    var s = ""
+    for j in 0..<a1[key].rows/2 {
+        s+="\(t.decode([Int(a1[key].getInt(index: j*2))])) "
+    }
+    print(key, s)
     
+    s = ""
+    for j in 0..<a1[key].rows/2 {
+        s+="\(t.decode([Int(a2[key].getInt(index: j*2))])) "
+    }
+    print(key, s)
+
+}
+
+
 print("done")
 
 //a1.serialize(fname: "a1")

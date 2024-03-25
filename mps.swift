@@ -56,7 +56,7 @@ func mpsMul(v vector: Vector, by weights: Matrix, out result: Vector) {
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
 }
 
-func mpsTopK(v: Vector, result: Scalar)  -> MTLBuffer {
+func mpsTopK(v: Vector)  -> Vector {
     let topK = 16
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
@@ -69,9 +69,10 @@ func mpsTopK(v: Vector, result: Scalar)  -> MTLBuffer {
     let outMatrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: topK, rowBytes: topK * MemoryLayout<Float16>.stride, dataType: .float16)
 
     let topKValueBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let topKIndexBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<UInt32>.size, options: .storageModeShared)!
+    let topKVector = Vector(shape:[topK*2])
+//    let topKIndexBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<UInt32>.size, options: .storageModeShared)!
     let valueMatrix = MPSMatrix(buffer: topKValueBuffer, descriptor: outMatrixDescriptor)
-    let indexMatrix = MPSMatrix(buffer: topKIndexBuffer, descriptor: outMatrixDescriptor)
+    let indexMatrix = MPSMatrix(buffer: topKVector.buffer, descriptor: outMatrixDescriptor)
 
     
     // Create a MPSMatrixVectorMultiplication object to perform the multiplication
@@ -83,7 +84,7 @@ func mpsTopK(v: Vector, result: Scalar)  -> MTLBuffer {
     findTopK.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, resultIndexMatrix: indexMatrix, resultValueMatrix: valueMatrix)
 /*    matrixVectorMultiplication.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)*/
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
-    return topKValueBuffer
+    return topKVector
 
 
 }
