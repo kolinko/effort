@@ -124,16 +124,15 @@ kernel void bucketMul(
     float myVal[16] = {0};
       
     const uint rowOffset = id.y*dispatchSize[0]/groups;
-    for (int r=0; r<dispatchSize[0]/groups; r+=32) {
-        for (int s=0; s<32; s++) { // for better optimisation
+    for (int r=0; r<dispatchSize[0]/groups; r+=1) { //32) {
+    //    for (int s=0; s<32; s++) { // for better optimisation
             
-            float2 d = dispatch[rowOffset + r+s];
+            float2 d = dispatch[rowOffset + r];//+s
             half w = weights[int(d[1])*cols + id.x];
             for (int i=0; i<16; i++) {
                 myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
             }
-            
-        }
+//        }
     }
                       
     for (int i = 0; i<16; i++) {

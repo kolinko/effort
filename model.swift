@@ -57,7 +57,7 @@ class BufferableFloat: Bufferable {
         }
 
     func str(count: Int = 10) -> String {
-        let _count = count>=self.rows ? count : self.rows
+        let _count = count<=self.rows ? count : self.rows
         var outStr = ""
         for i in 0..<_count {
             outStr += "\(self[i]); "
@@ -503,11 +503,26 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v32: v, weights: by, quant: quant)
     BucketMul.shared.mul(by: by, out: out)
+
 }
 
 func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    BucketMul.shared.mul(by: by, out: out)
+    BucketMul.shared.mul(by: by, out: out)/*
+    gpu.eval()
+    for i in 0..<out.rows {
+        if abs(out[i])>40 {
+            print("oh hello", out[i])
+            let n = mpsMul(v: v, by: by);
+            gpu.eval();
+            if out.cosineSimilarityTo(n)[0]<0.90 {
+                let disp = BucketMul.shared.dispatch
+                print("xx")
+            }
+            break
+
+        }
+    }*/
 }
 
 class BucketMul {

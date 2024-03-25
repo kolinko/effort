@@ -155,19 +155,21 @@ func runNetwork(isTest: Bool) -> Archive{
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.15)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.5)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.05)
                 ffn_out.copyFrom32(ffn_out32)
+                archive.add([x1_32.asFloat16Vector(), x2_32.asFloat16Vector(), x3_32.asFloat16Vector(), ffn_out], seriously: true)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
                 silu(x1, x3, out: x2)
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
+                archive.add([x1, x2, x3, ffn_out])
+
             }
             archive.addPrefix = "\(thisToken):\(layerNo):-----:"
-//            archive.add([x1.asFloat16Vector(), x2, x3, ffn_out], seriously: true)
             h.add(by: ffn_out)
             archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
@@ -213,16 +215,16 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: true)
+let a1 = runNetwork(isTest: false)
 let a2 = runNetwork(isTest: true)
 
 for (key, _) in a1 {
-    print(key, a1[key].str())
-    print(key, a2[key].str())
+//    print(key, a1[key].str())
+//    print(key, a2[key].str())
     print(key, a1[key].cosineSimilarityTo(a2[key])[0])
 }
-
-
     
 print("done")
+
+//a1.serialize(fname: "a1")
 gpu.stopCapture()
