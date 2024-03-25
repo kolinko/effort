@@ -24,6 +24,10 @@ class Weights {
         self.stats = stats
         assert(core.cols!*16 == buckets.rows)
         assert(core.cols!*16 == stats.rows)
+    }
+    
+    convenience init(fromFile: String) {
+//        loadBinaryFile(named: "output", shape: shapeDict["output"]!),
         
     }
 }
@@ -165,7 +169,7 @@ func loadModelData(from filePath: String) -> ModelData {
     
     let model = ModelData(
         norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
-        outputs:loadBinaryFile(named: "output", shape: shapeDict["output"]!),
+        outputs:Weights.fromFile("output"),
         tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
         layers: layers
     )

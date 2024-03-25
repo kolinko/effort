@@ -156,7 +156,7 @@ func runNetwork(isTest: Bool) -> Archive{
                 x3_32.zero()
                 ffn_out32.zero()
                 bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.15)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.05)
                 silu(x1_32, x3_32, out: x2_32)
                 bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant: 0.05)
                 ffn_out.copyFrom32(ffn_out32)
@@ -215,12 +215,12 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: false)
+let a1 = runNetwork(isTest: true)
 let a2 = runNetwork(isTest: true)
 
 for (key, _) in a1 {
-//    print(key, a1[key].str())
-//    print(key, a2[key].str())
+    print(key, a1[key].str())
+    print(key, a2[key].str())
     print(key, a1[key].cosineSimilarityTo(a2[key])[0])
 }
     
