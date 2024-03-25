@@ -26,9 +26,13 @@ class Weights {
         assert(core.cols!*16 == stats.rows)
     }
     
-    convenience init(fromFile: String) {
-//        loadBinaryFile(named: "output", shape: shapeDict["output"]!),
-        
+    convenience init(fromFile: String, shape: [Int]) {
+        let core = loadBinaryFile(named: fromFile, shape: shape)
+        let bShape = [shape[1]*16, shape[0]/16]
+        let buckets = loadBinaryFile(named: fromFile+".bins.bin", shape: bShape)
+        let sShape = [shape[1]*16, 4]
+        let stats = loadBinaryFile(named: fromFile+".bins.stats.bin", shape: sShape)
+        self.init(core: core, buckets: buckets, stats: stats)
     }
 }
 class Layer {
@@ -70,11 +74,11 @@ class Layer {
 
 class ModelData {
     let norm: Matrix
-    let outputs: Matrix
+    let outputs: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    init(norm: Matrix, outputs: Matrix, tokEmbeddings: Matrix, layers: [Int : Layer]) {
+    init(norm: Matrix, outputs: Weights, tokEmbeddings: Matrix, layers: [Int : Layer]) {
         self.norm = norm
         self.outputs = outputs
         self.tokEmbeddings = tokEmbeddings
@@ -158,18 +162,17 @@ func loadModelData(from filePath: String) -> ModelData {
         
         for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", "attention.wv", "attention.wk", "attention.wq",
         "attention.wo"] {
-            let keyName = "layers."+String(i)+"."+key
-            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
-            let nShape = [shapeDict[keyName]![1]*16, shapeDict[keyName]![0]/16]
-            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: nShape)
-            let dShape = [shapeDict[keyName]![1]*16, 4]
-            layers[i]![key+".bins.stats"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: dShape)
+            let keyName = "layers.\(i).\(key)"
+            let shape = shapeDict[keyName]!
+            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shape)
+            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
+            layers[i]![key+".bins.stats"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: [shape[1]*16, 4])
         }
     }
     
     let model = ModelData(
         norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
-        outputs:Weights.fromFile("output"),
+        outputs: Weights(fromFile: "output", shape: shapeDict["output"]!),
         tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
         layers: layers
     )
