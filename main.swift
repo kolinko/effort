@@ -43,7 +43,6 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 //modelRunTests()
 
 //modelProfile()
-//exit(0)
 
 
 let goCapture = false
@@ -52,10 +51,8 @@ var numTokens = 8
 
 if goCapture {
     numLayers = 4
-//    numTokens = 3
+    numTokens = 3
 }
-
-var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
 gpu.eval()
 
@@ -65,7 +62,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     var tokens = _tokens
     var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
     
-    xvLayerToken = Array(repeating: [Vector](), count: numLayers)
+    var xvLayerToken = Array(repeating: [Vector](), count: numLayers)
     /*
     gpu.eval()
      */
@@ -89,28 +86,20 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 
     print("Begin token calc")
     var startTime = Date()
-    var newH : Vector = Vector(shape:[4096])
     for thisToken in 0...numTokens { //numTokens
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
-            archive.addPrefix = "\(thisToken):\(layerNo):a:"
-            archive.addIdx = 0
             let layer = modelData.layers[layerNo]!
-            archive.add(h)
             let h_norm = h.rmsNormed()
-            archive.add(h_norm)
             h_norm.mul(byVec:layer.attnNorm)
-            archive.add(h_norm)
 
             let xq = mpsMul(v: h_norm, by: layer.wq)
             let xk = mpsMul(v: h_norm, by: layer.wk)
             let xv = mpsMul(v: h_norm, by: layer.wv)
-            archive.add([xq, xk, xv])
 
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
-            archive.addPrefix = "\(thisToken):\(layerNo):b:"
 
             for i in 0..<numHeads {
                 xq_heads[i].mul(complexArray: freqsCis[thisToken])
@@ -119,87 +108,50 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             
             xkLayerTokenHead[layerNo].append(xk_heads)
             xvLayerToken[layerNo].append(xv)
-            archive.addPrefix = "\(thisToken):\(layerNo):b':"
-
-            archive.add(xk_heads)
-            archive.addPrefix = "\(thisToken):\(layerNo):b'':"
-
-            archive.add(xv)
 
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
-            archive.addPrefix = "\(thisToken):\(layerNo):b1:"
-            archive.add(xq_heads)
-            archive.addPrefix = "\(thisToken):\(layerNo):b2:"
-
-            for i in xkTokenHeads {
-                archive.add(i)
-            }
-            archive.addPrefix = "\(thisToken):\(layerNo):b3:"
 
             let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-            archive.add(scores)
-            archive.addPrefix = "\(thisToken):\(layerNo):c:"
 
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
-            archive.add(scores)
-            archive.addPrefix = "\(thisToken):\(layerNo):c':"
-
             let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
-            archive.add(attnOutput)
 
             let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)
-            archive.add(attnFfnOut)
-            archive.addPrefix = "\(thisToken):\(layerNo):d:"
 
             h.add(by: attnFfnOut)
-            archive.add(h)
-            archive.addPrefix = "\(thisToken):\(layerNo):e:"
 
             let fxn = h.rmsNormed()
-            archive.add(fxn)
-            archive.addPrefix = "\(thisToken):\(layerNo):f:"
 
             fxn.mul(byVec:layer.ffnNorm)
-            archive.add(fxn)
-            archive.addPrefix = "\(thisToken):\(layerNo):g:"
-
-            archive.addPrefix = "\(thisToken):\(layerNo):=====:"
-            archive.add(fxn, seriously: true)
 
             if isTest {
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)//quant:0.15)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)//quant:0.05)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.15)// quant: 0.05)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.15)
                 ffn_out.copyFrom32(ffn_out32)
-                archive.add([x1_32.asFloat16Vector(), x2_32.asFloat16Vector(), x3_32.asFloat16Vector(), ffn_out], seriously: true)
             } else {
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
                 silu(x1, x3, out: x2)
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
-                archive.add([x1, x2, x3, ffn_out])
-
             }
-            archive.addPrefix = "\(thisToken):\(layerNo):-----:"
             h.add(by: ffn_out)
-            archive.addPrefix = "\(thisToken):\(layerNo):h:"
 
-            //archive.add([h], seriously: true)
         }
 
         archive["token \(thisToken)"] = h.copy()
         let outputVector = Vector(shape:[modelData.output.outSize])
         mpsMul(v: h, by: modelData.output, out: outputVector)
-        archive["output \(thisToken)"] = outputVector
+        //archive["output \(thisToken)"] = outputVector
         let topKVector = mpsTopK(v: outputVector)
-        archive["topK \(thisToken)"] = topKVector
+        //archive["topK \(thisToken)"] = topKVector
 
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -207,6 +159,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             if goCapture {
                 gpu.startCapture()
             }
+            print("evaling first token...")
             gpu.eval()
             startTime = Date()
         }
@@ -228,17 +181,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
 
     print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-    /*
-    if ((numTokens == 8) ){
-            print(h.str())
-            if (!isTest) {
-                assert(h.test(mul: 10, val: [-6.6, 9.5, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.7]))
-            }
-            print("output OK")
-        } else if (!goCapture){
-            print("WARNING: Wrong token number, considering no gpucapture: \(numTokens)")
-        }
-     */
     
     return archive
 }
@@ -256,6 +198,8 @@ for (key, _) in a1 {
     print(key, a2[key].str())
     print(key, a1[key].cosineSimilarityTo(a2[key])[0])
 }
+
+exit(0)
 
 var s1 = t.decode(tokIds, delim: "")
 var s2 = t.decode(tokIds, delim: "")
