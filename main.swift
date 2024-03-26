@@ -48,7 +48,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let goCapture = false
 var numLayers = 32
-//var numTokens = 8
+var numTokens = 8
 
 if goCapture {
     numLayers = 4
@@ -90,7 +90,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     print("Begin token calc")
     var startTime = Date()
     var newH : Vector = Vector(shape:[4096])
-    for thisToken in 0...50 { //numTokens
+    for thisToken in 0...numTokens { //numTokens
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
@@ -260,7 +260,7 @@ for (key, _) in a1 {
 var s1 = t.decode(tokIds, delim: "")
 var s2 = t.decode(tokIds, delim: "")
 
-for i in 0..<50 {
+for i in 0..<numTokens {
     let key = "topK \(i)"
     print(key)
     var s = ""
