@@ -15,27 +15,68 @@ extension String.StringInterpolation {
 }
 
 class MTLBufferable {
-    let buffer: MTLBuffer
+    private var _buffer: MTLBuffer? = nil
+    private let _fname: String?
+    private let _expectedShape: [Int]?
+    
     let offsetBytes: Int
     
     init(buffer: MTLBuffer, offsetBytes: Int = 0) {
-        self.buffer = buffer
+        self._buffer = buffer
         self.offsetBytes = offsetBytes
+        self._fname = nil
+        self._expectedShape = nil
     }
+    
+    init(fname: String, expectedShape: [Int]) {
+        self.offsetBytes = 0
+        self._fname = fname
+        self._expectedShape = expectedShape
+    }
+    
+    var buffer: MTLBuffer {
+        if self._buffer != nil {
+            return self._buffer!
+        } else {
+            assert(_fname != nil)
+            self._buffer = loadBinaryFile(named: _fname!, shape: _expectedShape!)
+            return self._buffer!
+        }
+    }
+    
+    func unloadBuffer() {
+        self._buffer = nil // does this erase memory?
+    }
+
 }
 
 class Bufferable<Type: FloatingPoint> : MTLBufferable {
-    let bufferPointer: UnsafeMutablePointer<Type>
+    var bufferPointer: UnsafeMutablePointer<Type> {
+        if self._bufferPointer == nil {
+            self._bufferPointer = buffer.contents().bindMemory(to: Type.self, capacity: self.shape.reduce(1, *))
+        }
+        return self._bufferPointer!
+    }
     let shape: [Int]
     let rows: Int
     let cols: Int?
     let byteSize: Int
     let bitSize: Int
+    var _bufferPointer : UnsafeMutablePointer<Type>? = nil
     
     var count : Int {
         return self.shape.reduce(1, *)
     }
 
+    init(shape: [Int], fname: String) {
+        self.byteSize = MemoryLayout<Type>.size
+        self.bitSize = byteSize * 8
+        assert((byteSize == 4) || (byteSize == 2), "untested for others")
+        self.rows = shape[0]
+        self.cols = shape.count >= 2 ? shape[1] : nil
+        self.shape = shape
+        super.init(fname: fname, expectedShape: shape)
+    }
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
         self.byteSize = MemoryLayout<Type>.size
@@ -45,7 +86,6 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         self.rows = shape[0]
         self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
-        self.bufferPointer = buffer.contents().bindMemory(to: Type.self, capacity: self.shape.reduce(1, *))
         super.init(buffer: buffer, offsetBytes: offset*self.byteSize)
 
     }

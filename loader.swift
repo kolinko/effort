@@ -23,11 +23,11 @@ class Weights {
     }
     
     convenience init(fromFile: String, shape: [Int]) {
-        let core = loadBinaryFile(named: fromFile, shape: shape)
+        let core : Matrix = loadBinaryFile(named: fromFile, shape: shape)
         let bShape = [shape[1]*16, shape[0]/16]
-        let buckets = loadBinaryFile(named: fromFile+".bins.bin", shape: bShape)
+        let buckets : Matrix = loadBinaryFile(named: fromFile+".bins.bin", shape: bShape)
         let sShape = [shape[1]*16, 4]
-        let stats = loadBinaryFile(named: fromFile+".bins.stats.bin", shape: sShape)
+        let stats : Matrix = loadBinaryFile(named: fromFile+".bins.stats.bin", shape: sShape)
         self.init(core: core, buckets: buckets, stats: stats)
     }
 }
@@ -71,6 +71,11 @@ class Layer {
     func load(key: String, fname: String, shape: [Int]) {
         self.data[key] = loadBinaryFile(named: fname, shape: shape)
     }
+
+    func loadLazy(key: String, fname: String, shape: [Int]) {
+        self.data[key] = Matrix(shape: shape, fname: fname)
+    }
+
     
     init(_ layerNo: Int, shapeDict: [String: [Int]]) {
         let layerName = "layers.\(layerNo)."
@@ -83,9 +88,9 @@ class Layer {
                     "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
             let elName = layerName + key
             let shape = shapeDict[elName]!
-            self.load(key: key, fname: elName, shape: shape)
-            self.load(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
-            self.load(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
+            self.loadLazy(key: key, fname: elName, shape: shape)
+            self.loadLazy(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
+            self.loadLazy(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
         }
     }
 
@@ -145,7 +150,8 @@ func loadModelData(from filePath: String) -> ModelData {
 }
 
 
-func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
+func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
+    
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
@@ -161,7 +167,10 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
 
     // Create MTLBuffer from the memory-mapped data
     let buffer = gpu.device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
+    return buffer
+}
 
-    return Matrix(shape: shape, buffer: buffer)
+func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
+    return Matrix(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
 
