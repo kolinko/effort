@@ -16,11 +16,24 @@ print("loading")
 
 os_signpost(.begin, log: log, name: "Loading")
 let modelData = loadModelData(from: "shape.json")
-let tokens = loadTokens()
+//var tokens = loadTokens()
+
+var tokens = [Vector]()
+//Albert Einstein was born in
+//let tokIds = [1, 10537, 2694, 5465, 471, 6345, 297, 29871]
+//Benefits of a car made of jelly beans is better
+//let tokIds = [1, 319, 1559, 1754, 310, 12736, 368, 367, 550, 338, 2253]
+//Back to the future IV is about
+let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
+
+
+let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+for t in tokIds {
+    tokens.append(tokEmbeddings[t])
+}
+
 os_signpost(.end, log: log, name: "Loading")
 
-print(modelData.tokEmbeddings.shape)
-exit(0)
 
 let headDim = 128  // Example head dimension
 let numHeads = 32
@@ -48,8 +61,8 @@ gpu.eval()
 
 let t = Tokeniser()
 
-func runNetwork(isTest: Bool) -> Archive{
-    
+func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
+    var tokens = _tokens
     var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
     
     xvLayerToken = Array(repeating: [Vector](), count: numLayers)
@@ -76,7 +89,8 @@ func runNetwork(isTest: Bool) -> Archive{
 
     print("Begin token calc")
     var startTime = Date()
-    for thisToken in 0..<20 { //numTokens
+    var newH : Vector = Vector(shape:[4096])
+    for thisToken in 0...50 { //numTokens
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
@@ -159,10 +173,10 @@ func runNetwork(isTest: Bool) -> Archive{
                 x1_32.zero()
                 x3_32.zero()
                 ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.1)//quant:0.15)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.1)//quant:0.05)
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)//quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)//quant:0.05)
                 silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.1)// quant: 0.05)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.15)// quant: 0.05)
                 ffn_out.copyFrom32(ffn_out32)
                 archive.add([x1_32.asFloat16Vector(), x2_32.asFloat16Vector(), x3_32.asFloat16Vector(), ffn_out], seriously: true)
             } else {
@@ -197,6 +211,13 @@ func runNetwork(isTest: Bool) -> Archive{
             startTime = Date()
         }
         
+        if tokens.count-1 == thisToken {
+            gpu.eval()
+            let topToken = Int(topKVector.getInt(index: 0))
+            let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+            tokens.append(tokEmbeddings[topToken])
+
+        }
     }
 
     let evalTime = Date()
@@ -226,8 +247,9 @@ func runNetwork(isTest: Bool) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: false)
-let a2 = runNetwork(isTest: true)
+let a1 = runNetwork(isTest: false, tokens: tokens)
+print(tokens.count)
+let a2 = runNetwork(isTest: true, tokens: tokens)
 
 for (key, _) in a1 {
     print(key, a1[key].str())
@@ -235,12 +257,18 @@ for (key, _) in a1 {
     print(key, a1[key].cosineSimilarityTo(a2[key])[0])
 }
 
-for i in 0..<8 {
+var s1 = t.decode(tokIds, delim: "")
+var s2 = t.decode(tokIds, delim: "")
+
+for i in 0..<50 {
     let key = "topK \(i)"
     print(key)
     var s = ""
     for j in 0..<a1[key].rows/2 {
         s+="\(t.decode([Int(a1[key].getInt(index: j*2))])) "
+    }
+    if i >= tokIds.count {
+        s1+=t.decode([Int(a1[key].getInt(index: 0))], delim: "")
     }
     print(key, s)
     
@@ -248,10 +276,20 @@ for i in 0..<8 {
     for j in 0..<a1[key].rows/2 {
         s+="\(t.decode([Int(a2[key].getInt(index: j*2))])) "
     }
+    
+    if i >= tokIds.count {
+        s2+=t.decode([Int(a2[key].getInt(index: 0))], delim: "")
+    }
+
     print(key, s)
 
 }
 
+print("original")
+print(s1.replacingOccurrences(of: "_", with: " "))
+
+print("approx")
+print(s2.replacingOccurrences(of: "_", with: " "))
 
 print("done")
 
