@@ -7,7 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A40B31962B9DAAA300095AF5 /* aux.metal in Sources */ = {isa = PBXBuildFile; fileRef = A40B31952B9DAAA300095AF5 /* aux.metal */; };
+		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
+		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
+		A4260AED2BB0CC0900DB76DA /* tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEC2BB0CC0900DB76DA /* tests.swift */; };
+		A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */; };
+		A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A429EFEE2BA81B7600B25B68 /* mps.swift */; };
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
+		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
+		A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A445AABE2BAF5B63003AD4E7 /* archive.swift */; };
+		A45C6C922BAEC56E004AE765 /* profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C6C912BAEC56D004AE765 /* profile.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
 		A4CE9F7C2B6277E700910766 /* model in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7B2B6277E700910766 /* model */; };
@@ -28,7 +37,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A40B31952B9DAAA300095AF5 /* aux.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = aux.metal; sourceTree = "<group>"; };
+		A40B31972B9F476800095AF5 /* gpu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = gpu.swift; sourceTree = "<group>"; };
+		A40B31992BA06D5800095AF5 /* info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = info.plist; sourceTree = "<group>"; };
+		A4260AEC2BB0CC0900DB76DA /* tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tests.swift; sourceTree = "<group>"; };
+		A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser.swift; sourceTree = "<group>"; };
+		A429EFEE2BA81B7600B25B68 /* mps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mps.swift; sourceTree = "<group>"; };
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
+		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
+		A445AABE2BAF5B63003AD4E7 /* archive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = archive.swift; sourceTree = "<group>"; };
+		A45C6C912BAEC56D004AE765 /* profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = profile.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A4CE9F6E2B626DB500910766 /* model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = model.swift; sourceTree = "<group>"; };
@@ -51,11 +69,20 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */,
+				A4260AEC2BB0CC0900DB76DA /* tests.swift */,
+				A45C6C912BAEC56D004AE765 /* profile.swift */,
+				A429EFEE2BA81B7600B25B68 /* mps.swift */,
+				A40B31992BA06D5800095AF5 /* info.plist */,
+				A40B31972B9F476800095AF5 /* gpu.swift */,
+				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A43F8F952B63E85D00578E56 /* test_profiling.swift */,
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
 				A4CE9F6E2B626DB500910766 /* model.swift */,
+				A43F8F972B6CF5C800578E56 /* loader.swift */,
 				A4AB4DC42B6144350098B05D /* main.swift */,
+				A445AABE2BAF5B63003AD4E7 /* archive.swift */,
 				A4CE9F7B2B6277E700910766 /* model */,
 				A4AB4DC22B6144350098B05D /* Products */,
 			);
@@ -98,7 +125,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1520;
-				LastUpgradeCheck = 1520;
+				LastUpgradeCheck = 1530;
 				TargetAttributes = {
 					A4AB4DC02B6144350098B05D = {
 						CreatedOnToolsVersion = 15.2;
@@ -130,6 +157,7 @@
 			files = (
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
 				A4CE9F7C2B6277E700910766 /* model in Resources */,
+				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,10 +168,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A45C6C922BAEC56E004AE765 /* profile.swift in Sources */,
 				A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */,
+				A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */,
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
 				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
 				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
+				A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */,
+				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
+				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
+				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,
+				A4260AED2BB0CC0900DB76DA /* tests.swift in Sources */,
+				A43F8F982B6CF5C800578E56 /* loader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,11 +239,11 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = macosx14.4;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -260,10 +296,11 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = macosx;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx14.4;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;

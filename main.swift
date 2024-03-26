@@ -4,266 +4,294 @@
 //
 //  Created by Tomasz Kolinko on 24/01/2024.
 //
-
+import os
 import Foundation
 import Metal
+import simd
 
-let devices = MTLCopyAllDevices()
-assert(!devices.isEmpty, "No Metal devices available")
-
-// Optionally, you can choose a device based on specific criteria.
-// For simplicity, let's use the first available device.
-let device = devices[0]
-
-let res = test(device: device)
-//print("done")
-//exit(res)
-
+let log = OSLog(subsystem: "com.kolinko", category: "Performance")
+ 
+let gpu = Gpu()
 print("loading")
-let modelData = loadModelData(from: "shape.json", device: device)
-let tokens = loadTokens(device: device)
 
-print("Hello, World!")
+os_signpost(.begin, log: log, name: "Loading")
+let modelData = loadModelData(from: "shape.json")
+//var tokens = loadTokens()
 
-let commandQueue = device.makeCommandQueue()!
-let library = device.makeDefaultLibrary()!
-let computeFunction = library.makeFunction(name: "matrixVectorMultiply")!
+var tokens = [Vector]()
+//Albert Einstein was born in
+//let tokIds = [1, 10537, 2694, 5465, 471, 6345, 297, 29871]
+//Benefits of a car made of jelly beans is better
+//let tokIds = [1, 319, 1559, 1754, 310, 12736, 368, 367, 550, 338, 2253]
+//Back to the future IV is about
+let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
 
-let dim = 4096
-let dim_range = 0...4095
+
+let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+for t in tokIds {
+    tokens.append(tokEmbeddings[t])
+}
+
+os_signpost(.end, log: log, name: "Loading")
+
 
 let headDim = 128  // Example head dimension
 let numHeads = 32
 let maxSeqLen = 128  // Example maximum sequence length
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
-let tokenNum = 0
+//modelRunTests()
 
-var xkLayerTokenHead = [[[Layer]]]()
-var xvLayerTokenHead = [[[Layer]]]()
-var xqLayerTokenHead = [[[Layer]]]()
+//modelProfile()
+//exit(0)
 
 
-for _ in 0...3 {
-    xkLayerTokenHead.append([[Layer]]())
-    xvLayerTokenHead.append([[Layer]]())
-    xqLayerTokenHead.append([[Layer]]())
+let goCapture = false
+var numLayers = 32
+//var numTokens = 8
+
+if goCapture {
+    numLayers = 4
+//    numTokens = 3
 }
 
-let numTokens = 1
+var xvLayerToken = Array(repeating: [Vector](), count: numLayers + 1)
 
-for layerNo in 0...3 { //modelData.layers {
-    var h = tokens[0]
-    assert_vec(layer: h, mul: 10, val: [0.02, -0.01, 0.01, 0.02, -0.01])
-    let layer = modelData.layers[layerNo]!
-    let wa = layer["attention_norm"]!
-    let wq = layer["attention.wq"]!
-    let wk = layer["attention.wk"]!
-    let wv = layer["attention.wv"]!
-    let wo = layer["attention.wo"]!
+gpu.eval()
+
+let t = Tokeniser()
+
+func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
+    var tokens = _tokens
+    var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
     
-    let h_norm = rms_norm(layer: h)
-
-//    print(wa.shape)
-    let xn = mul(vec: h_norm, by:wa)
-
-    let xq = mul_col(vec: xn, by: wq)
-    let xk = mul_col(vec: xn, by: wk)
-    let xv = mul_col(vec: xn, by: wv)
+    xvLayerToken = Array(repeating: [Vector](), count: numLayers)
+    /*
+    gpu.eval()
+     */
     
-    var xq_heads = reshape(vec: xq, newDimSize: headDim)
-    var xk_heads = reshape(vec: xk, newDimSize: headDim)
-    let xv_heads = reshape(vec: xv, newDimSize: headDim)
-    
-    for i in 0..<numHeads {
-        xq_heads[i] = multiplyLayerByComplexArray(layer: xq_heads[i], complexArray: freqsCis[tokenNum])
-        xk_heads[i] = multiplyLayerByComplexArray(layer: xk_heads[i], complexArray: freqsCis[tokenNum])
-    }
+    var h : Vector = tokens[0]
 
-    xkLayerTokenHead[layerNo].append(xk_heads)
-    xvLayerTokenHead[layerNo].append(xv_heads)
-    xqLayerTokenHead[layerNo].append(xq_heads)
-    
-    let xkTokenHeads = xkLayerTokenHead[layerNo]
-    let xvTokenHeads = xvLayerTokenHead[layerNo]
-    let xqTokenHeads = xqLayerTokenHead[layerNo]
+    let hiddenSize = 11008
+    let stateSize = 4096
 
-    var scores = [[[Float16]]]()
-    for head in 0..<numHeads {
-        scores.append([[Float16]]())
-        for t1 in 0..<numTokens {
-            scores[head].append([Float16]())
-            for _ in 0..<numTokens {
-                scores[head][t1].append(-100)
+    let x1 = Vector(shape:[hiddenSize])
+    let x3 = Vector(shape:[hiddenSize])
+    let x2 = Vector(shape:[hiddenSize])
+    let ffn_out = Vector(shape:[stateSize])
+
+    let x1_32 = VectorFloat(shape:[hiddenSize])
+    let x3_32 = VectorFloat(shape:[hiddenSize])
+    let x2_32 = VectorFloat(shape:[hiddenSize])
+    let ffn_out32 = VectorFloat(shape:[stateSize])
+
+    let archive = Archive()
+
+    print("Begin token calc")
+    var startTime = Date()
+    var newH : Vector = Vector(shape:[4096])
+    for thisToken in 0...50 { //numTokens
+        h = tokens[thisToken].copy()
+
+        for layerNo in 0..<numLayers {
+            archive.addPrefix = "\(thisToken):\(layerNo):a:"
+            archive.addIdx = 0
+            let layer = modelData.layers[layerNo]!
+            archive.add(h)
+            let h_norm = h.rmsNormed()
+            archive.add(h_norm)
+            h_norm.mul(byVec:layer.attnNorm)
+            archive.add(h_norm)
+
+            let xq = mpsMul(v: h_norm, by: layer.wq)
+            let xk = mpsMul(v: h_norm, by: layer.wk)
+            let xv = mpsMul(v: h_norm, by: layer.wv)
+            archive.add([xq, xk, xv])
+
+            let xq_heads = xq.reshaped(newCols: headDim)
+            let xk_heads = xk.reshaped(newCols: headDim)
+            archive.addPrefix = "\(thisToken):\(layerNo):b:"
+
+            for i in 0..<numHeads {
+                xq_heads[i].mul(complexArray: freqsCis[thisToken])
+                xk_heads[i].mul(complexArray: freqsCis[thisToken])
             }
-        }
-    }
+            
+            xkLayerTokenHead[layerNo].append(xk_heads)
+            xvLayerToken[layerNo].append(xv)
+            archive.addPrefix = "\(thisToken):\(layerNo):b':"
 
-    // calculate scores
-    //scores = np.matmul(xk, xq, axes=[(0,2),(2,0),(2,1)]) / np.sqrt(head_dim)
+            archive.add(xk_heads)
+            archive.addPrefix = "\(thisToken):\(layerNo):b'':"
 
-    for t1 in 0..<numTokens {
-        for t2 in 0..<numTokens {
+            archive.add(xv)
+
+            let xkTokenHeads = xkLayerTokenHead[layerNo]
+            let xvToken = xvLayerToken[layerNo]
+            archive.addPrefix = "\(thisToken):\(layerNo):b1:"
+            archive.add(xq_heads)
+            archive.addPrefix = "\(thisToken):\(layerNo):b2:"
+
+            for i in xkTokenHeads {
+                archive.add(i)
+            }
+            archive.addPrefix = "\(thisToken):\(layerNo):b3:"
+
+            let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
+            archive.add(scores)
+            archive.addPrefix = "\(thisToken):\(layerNo):c:"
+
             for headNo in 0..<numHeads {
-                var sum: Float16 = 0.0;
-                for i in 0..<headDim {
-                    sum += xkTokenHeads[t2][headNo][i] * xqTokenHeads[t1][headNo][i]
-                }
-                scores[headNo][t1][t2] = sum / sqrt(Float16(headDim))
+                scores[headNo].softmax()
             }
-        }
-    }
-    
-    // masking scores 0 for lower layers
-    for headNo in 0..<numHeads {
-        for t1 in 0..<numTokens {
-            for t2 in t1+1..<numTokens {
-                scores[headNo][t1][t2] -= 10000.0
-            }
-        }
-    }
-    
-    // softmax
-    for headNo in 0..<numHeads {
-        for t1 in 0..<numTokens {
-            var maxVal = Float16(0.0)
-            var sum = Float16(0.0)
-            
-            for t2 in 0..<numTokens {
-                if scores[headNo][t1][t2]>maxVal {
-                    maxVal = scores[headNo][t1][t2]
-                }
-            }
-            
-            for t2 in 0..<numTokens {
-                let v = Float16(exp(Double(scores[headNo][t1][t2] - maxVal)))
-                scores[headNo][t1][t2] = v
-                sum += v
-            }
-            
-            for t2 in 0..<numTokens {
-                scores[headNo][t1][t2] /= sum
-            }
-        }
-    }
-    
-    var out = [[[(Float16)]]]()
-    
-    for tok1 in 0..<numTokens {
-        out.append([[(Float16)]]())
-        for headNo in 0..<numHeads {
-            out[tok1].append([(Float16)]())
-            for i in 0..<headDim {
-                var suma: Float16 = 0.0
-                for tok2 in 0..<numTokens {
-                    suma += scores[headNo][tok1][tok2] * xvTokenHeads[tok1][headNo][i]
-                }
-                out[tok1][headNo].append(suma)
-            }
-        }
-    }
-    
-    // merge heads
-    var output = [[Float16]]()
-    for tok1 in 0..<numTokens {
-        output.append([Float16]())
-        for headNo in 0..<numHeads {
-            for i in 0..<headDim {
-                output[tok1].append(out[tok1][headNo][i])
-            }
-        }
-    }
-    
-    // ffn output
-    let attnOutput = createLayer(from: output[0], using: device)
-    let attnFfn = mul_row(vec:attnOutput, by: wo)
+            archive.add(scores)
+            archive.addPrefix = "\(thisToken):\(layerNo):c':"
 
-    assert_vec(layer: h, mul:100, val:[0.02, -0.01, 0.01, 0.02, -0.01])
-    assert_vec(layer: attnFfn, mul: 100, val:[-0.05, -0.02, -0.09, -0.07, -0.04])
-    
-    add(dest: &h, by: attnFfn)
-    assert_vec(layer: h, mul:100, val:[-0.03, -0.03, -0.07, -0.04, -0.05])
-    
-    let h_norm2 = rms_norm(layer: h)
-    assert_vec(layer: h_norm2, mul:100, val:[-0.75, -0.68, -1.72, -0.944, -1.26])
+            let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
+            archive.add(attnOutput)
 
-    let wn = layer["ffn_norm"]!
-    let w1 = layer["feed_forward.w1"]!
-    let w2 = layer["feed_forward.w2"]!
-    let w3 = layer["feed_forward.w3"]!
+            let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)
+            archive.add(attnFfnOut)
+            archive.addPrefix = "\(thisToken):\(layerNo):d:"
 
-    let fxn = mul(vec: h_norm2, by:wn)
-    assert_vec(layer: fxn, mul:100, val:[-0.04, -0.06, -0.14, -0.07, -0.09])
-    
-    let fx1 = mul_col(vec: fxn, by: w1)
-    let fx3 = mul_col(vec: fxn, by: w3)
-    
-    assert_vec(layer: fx1, mul:100, val:[-0.1, -0.05, -0.08, -0.13, 0.11])
-    
-    //    x = ((x1 / (1.0 + np.exp(-x1))) * x3
-    var x = [(Float16)]()
-    assert(fx3.shape[0] == 11008)
-    for i in 0..<fx3.shape[0] {
-        let val: Double = Double(fx1[i])/(1+exp(Double(-fx1[i]))) * Double(fx3[i])
-        x.append(Float16(val))
+            h.add(by: attnFfnOut)
+            archive.add(h)
+            archive.addPrefix = "\(thisToken):\(layerNo):e:"
+
+            let fxn = h.rmsNormed()
+            archive.add(fxn)
+            archive.addPrefix = "\(thisToken):\(layerNo):f:"
+
+            fxn.mul(byVec:layer.ffnNorm)
+            archive.add(fxn)
+            archive.addPrefix = "\(thisToken):\(layerNo):g:"
+
+            archive.addPrefix = "\(thisToken):\(layerNo):=====:"
+            archive.add(fxn, seriously: true)
+
+            if isTest {
+                x1_32.zero()
+                x3_32.zero()
+                ffn_out32.zero()
+                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)//quant:0.15)
+                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)//quant:0.05)
+                silu(x1_32, x3_32, out: x2_32)
+                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.15)// quant: 0.05)
+                ffn_out.copyFrom32(ffn_out32)
+                archive.add([x1_32.asFloat16Vector(), x2_32.asFloat16Vector(), x3_32.asFloat16Vector(), ffn_out], seriously: true)
+            } else {
+                mpsMul(v: fxn, by:layer.w1, out: x1)
+                mpsMul(v: fxn, by:layer.w3, out: x3)
+                silu(x1, x3, out: x2)
+                mpsMul(v: x2, by: layer.w2, out: ffn_out)
+                archive.add([x1, x2, x3, ffn_out])
+
+            }
+            archive.addPrefix = "\(thisToken):\(layerNo):-----:"
+            h.add(by: ffn_out)
+            archive.addPrefix = "\(thisToken):\(layerNo):h:"
+
+            //archive.add([h], seriously: true)
+        }
+
+        archive["token \(thisToken)"] = h.copy()
+        let outputVector = Vector(shape:[modelData.output.outSize])
+        mpsMul(v: h, by: modelData.output, out: outputVector)
+        archive["output \(thisToken)"] = outputVector
+        let topKVector = mpsTopK(v: outputVector)
+        archive["topK \(thisToken)"] = topKVector
+
+        
+        print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+        if (thisToken == 0) {
+            if goCapture {
+                gpu.startCapture()
+            }
+            gpu.eval()
+            startTime = Date()
+        }
+        
+        if tokens.count-1 == thisToken {
+            gpu.eval()
+            let topToken = Int(topKVector.getInt(index: 0))
+            let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+            tokens.append(tokEmbeddings[topToken])
+
+        }
     }
 
-    let fx = createLayer(from: x, using: device)
-    assert_vec(layer:fx, mul: 10000, val:[-0.0008, -0.0016, 0.0019, -0.0055, 0.0008])
-    let fx2 = mul_row(weights:w2, by:fx)
-    assert_vec(layer:fx2, mul:100, val:[-0.03, -0.09, 0.03, -0.05, 0.06])
+    let evalTime = Date()
+    gpu.eval()
     
-    add(dest: &h, by: fx2)
-    assert_vec(layer:h, mul:100, val:[-0.06,-0.12,-0.05,-0.09,0.01,-0.01,-0.07])
-    exit(0)
+    print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+    print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
+    print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
+
+    print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    /*
+    if ((numTokens == 8) ){
+            print(h.str())
+            if (!isTest) {
+                assert(h.test(mul: 10, val: [-6.6, 9.5, -6.4, -1.7, -4.7, -3.0, 2.5, 2.7, -3.8, -4.7]))
+            }
+            print("output OK")
+        } else if (!goCapture){
+            print("WARNING: Wrong token number, considering no gpucapture: \(numTokens)")
+        }
+     */
+    
+    return archive
+}
+
+
+var errors = [String: Int]()
+let i = 0
+print("##### iteration", i)
+let a1 = runNetwork(isTest: false, tokens: tokens)
+print(tokens.count)
+let a2 = runNetwork(isTest: true, tokens: tokens)
+
+for (key, _) in a1 {
+    print(key, a1[key].str())
+    print(key, a2[key].str())
+    print(key, a1[key].cosineSimilarityTo(a2[key])[0])
+}
+
+var s1 = t.decode(tokIds, delim: "")
+var s2 = t.decode(tokIds, delim: "")
+
+for i in 0..<50 {
+    let key = "topK \(i)"
+    print(key)
+    var s = ""
+    for j in 0..<a1[key].rows/2 {
+        s+="\(t.decode([Int(a1[key].getInt(index: j*2))])) "
+    }
+    if i >= tokIds.count {
+        s1+=t.decode([Int(a1[key].getInt(index: 0))], delim: "")
+    }
+    print(key, s)
+    
+    s = ""
+    for j in 0..<a1[key].rows/2 {
+        s+="\(t.decode([Int(a2[key].getInt(index: j*2))])) "
+    }
+    
+    if i >= tokIds.count {
+        s2+=t.decode([Int(a2[key].getInt(index: 0))], delim: "")
+    }
+
+    print(key, s)
 
 }
+
+print("original")
+print(s1.replacingOccurrences(of: "_", with: " "))
+
+print("approx")
+print(s2.replacingOccurrences(of: "_", with: " "))
 
 print("done")
-exit(0)
 
-let pipelineState = try device.makeComputePipelineState(function: computeFunction)
-
-let vector = Array(repeating: Float(0.0), count: 4096)
-let matrix = Array(repeating: Array(repeating: Float(0.0), count: 10096), count: 4096)
-
-
-let matrixBuffer = modelData.layers[0]!["feed_forward.w1"]!.buffer
-
-//device.makeBuffer(bytes: matrix, length: matrix.count * MemoryLayout<Float>.size, options: .storageModeShared)
-let vectorBuffer = device.makeBuffer(bytes: vector, length: vector.count * MemoryLayout<Float>.size, options: .storageModeShared)
-let resultBuffer = device.makeBuffer(length: 10096 * MemoryLayout<Float>.size, options: .storageModeShared)
-
-// dispatch
-
-let gridSize = MTLSize(width: 10096, height: 1, depth: 1)
-let threadGroupSize = MTLSize(width: min(pipelineState.threadExecutionWidth, 10096), height: 1, depth: 1)
-
-let commandBuffer = commandQueue.makeCommandBuffer()!
-let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-
-commandEncoder.setComputePipelineState(pipelineState)
-commandEncoder.setBuffer(matrixBuffer, offset: 0, index: 0)
-commandEncoder.setBuffer(vectorBuffer, offset: 0, index: 1)
-commandEncoder.setBuffer(resultBuffer, offset: 0, index: 2)
-
-// Dispatch the compute command
-commandEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
-
-commandEncoder.endEncoding()
-
-let startTime = Date()
-
-commandBuffer.commit()
-commandBuffer.waitUntilCompleted()
-
-let endTime = Date()
-let timeInterval = endTime.timeIntervalSince(startTime)
-
-print("Average execution time for 1 run: \(timeInterval) seconds")
-    
-let buffer = resultBuffer!
-
-let data = NSData(bytesNoCopy: buffer.contents(), length: 10096 * MemoryLayout<Float>.size, freeWhenDone: false)
-var resultArray = [Float](repeating: 0, count: 10096)
-data.getBytes(&resultArray, length: resultArray.count * MemoryLayout<Float>.size)
+//a1.serialize(fname: "a1")
+gpu.stopCapture()
