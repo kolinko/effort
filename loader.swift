@@ -39,7 +39,7 @@ class Weights {
 class Layer {
     var data = [String: Matrix]()
 
-    private func getWeights(for key: String) -> Weights {
+    private func getWeights(_ key: String) -> Weights {
         guard let core = data[key],
               let buckets = data["\(key).bins"],
               let stats = data["\(key).bins.stats"] else {
@@ -48,29 +48,34 @@ class Layer {
         return Weights(core: core, buckets: buckets, stats: stats)
     }
 
-    private func getVector(for key: String) -> Vector {
+    private func getVector(_ key: String) -> Vector {
         guard let matrix = data[key] else {
             fatalError("Matrix not found for key: \(key)")
         }
         return matrix.asVector()
     }
 
-    var attnNorm: Vector { getVector(for: "attention_norm") }
-    var ffnNorm: Vector { getVector(for: "ffn_norm") }
+    var attnNorm: Vector { getVector("attention_norm") }
+    var ffnNorm: Vector { getVector("ffn_norm") }
 
-    var wo: Weights { getWeights(for: "attention.wo") }
-    var wq: Weights { getWeights(for: "attention.wq") }
-    var wk: Weights { getWeights(for: "attention.wk") }
-    var wv: Weights { getWeights(for: "attention.wv") }
+    var wo: Weights { getWeights("attention.wo") }
+    var wq: Weights { getWeights("attention.wq") }
+    var wk: Weights { getWeights("attention.wk") }
+    var wv: Weights { getWeights("attention.wv") }
 
-    var w1: Weights { getWeights(for: "feed_forward.w1") }
-    var w2: Weights { getWeights(for: "feed_forward.w2") }
-    var w3: Weights { getWeights(for: "feed_forward.w3") }
+    var w1: Weights { getWeights("feed_forward.w1") }
+    var w2: Weights { getWeights("feed_forward.w2") }
+    var w3: Weights { getWeights("feed_forward.w3") }
 
     subscript(index: String) -> Matrix {
         get { data[index]! }
         set { data[index] = newValue }
     }
+    
+    func load(key: String, fname: String, shape: [Int]) {
+        self.data[key] = loadBinaryFile(named: fname, shape: shape)
+    }
+
 }
 
 class ModelData {
@@ -100,7 +105,6 @@ func readJson() -> [String: [Int]] {
 
 
 func loadModelData(from filePath: String) -> ModelData {
-    
     let startTime = Date()
     let shapeDict = readJson()
     
@@ -109,17 +113,17 @@ func loadModelData(from filePath: String) -> ModelData {
     for i in 0...numLayers {
         layers[i] = Layer()
         for key in ["ffn_norm", "attention_norm"] {
-            let keyName = "layers."+String(i)+"."+key
-            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
+            let elName = "layers.\(i).\(key)"
+            layers[i]!.load(key:key, fname: elName, shape: shapeDict[elName]!)
         }
         
         for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", 
                     "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
-            let keyName = "layers.\(i).\(key)"
-            let shape = shapeDict[keyName]!
-            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shape)
-            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
-            layers[i]![key+".bins.stats"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: [shape[1]*16, 4])
+            let elName = "layers.\(i).\(key)"
+            let shape = shapeDict[elName]!
+            layers[i]!.load(key: key, fname: elName, shape: shape)
+            layers[i]!.load(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
+            layers[i]!.load(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
         }
     }
     
