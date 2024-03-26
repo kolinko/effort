@@ -10,8 +10,6 @@ import Metal
 
 
 class Gpu {
-    
-    
     var commandBuffer : MTLCommandBuffer
     var encoder : MTLComputeCommandEncoder
     var captureON: Bool

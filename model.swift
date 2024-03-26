@@ -63,14 +63,6 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
             self[i] = with
         }
     }
-    /*
-     convenience init(from array: [Type]) {
-         assert(!array.isEmpty, "Array must not be empty")
-         let length = array.count * MemoryLayout<Type>.size
-         let buffer = gpu.device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
-         self.init(shape: [array.count], buffer: buffer)
-     }
-     */
     
     func zero() {
         gpu.deploy("zero\(bitSize)", buffers: [self], threadCount: self.count)
@@ -167,29 +159,15 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
     }
 }
 
-class BufferableFloat: Bufferable<Float> {
-}
-
-
-class BufferableFloat16 : Bufferable<Float16> {
-}
-
-class ScalarFloat: BufferableFloat {
-    
+class ScalarFloat: Bufferable<Float> {
     convenience init(value: Float) {
         self.init(shape: [1])
         self[0] = value;
     }
-    
-    
-    override func zero() {
-        gpu.deploy("zero32", buffers: [self], threadCount: 1)
-    }
-    
 }
 
 
-class Scalar: BufferableFloat16 {
+class Scalar: Bufferable<Float16> {
     convenience init(value: Float16) {
         self.init(shape: [1])
         self[0] = value;
@@ -198,12 +176,10 @@ class Scalar: BufferableFloat16 {
     convenience init(buffer: MTLBuffer, offset: Int = 0) {
         self.init(shape: [1], buffer: buffer, offset: offset)
     }
-    
 }
 
 
-
-class Matrix: BufferableFloat16 {
+class Matrix: Bufferable<Float16> {
     func asVector() -> Vector {
         return Vector(shape: [self.count], buffer: self.buffer)
     }
@@ -228,9 +204,10 @@ class DynaVectorFloat: VectorFloat {
 
 let _normABuffer = ScalarFloat(value: 0)
 let _normBBuffer = ScalarFloat(value: 0)
+let _rms = ScalarFloat(value: 0.0)
 
 
-class VectorFloat: BufferableFloat {
+class VectorFloat: Bufferable<Float> {
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
         let dotBuffer = ScalarFloat(value:0)
         _normABuffer.zero()
@@ -246,7 +223,6 @@ class VectorFloat: BufferableFloat {
         gpu.deploy("floatToHalf", buffers: [self, out], threadCount: self.rows)
         return out
     }
-    
     
     func reshaped(newCols: Int) -> [VectorFloat] {
         // Ensure that the original layer can be evenly divided by the new dimension size
@@ -267,21 +243,14 @@ class VectorFloat: BufferableFloat {
 }
 
 
-let _rms = ScalarFloat(value: 0.0)
-
-class Vector: BufferableFloat16 {
+class Vector: Bufferable<Float16> {
     func strictCompareTo(_ vec: Vector) -> Bool {
         _normABuffer.zero()
         gpu.deploy("strictDiff", buffers: [self, vec, _normABuffer], threadCount: self.rows)
         gpu.eval()
         return _normABuffer[0] == 0
     }
-    func strictCompareTo2(_ vec: Vector) -> Float {
-        _normABuffer.zero()
-        gpu.deploy("strictDiff", buffers: [self, vec, _normABuffer], threadCount: self.rows)
-        gpu.eval()
-        return _normABuffer[0]
-    }
+    
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
         let dotBuffer = ScalarFloat(value:0)
         _normABuffer.zero()
@@ -411,9 +380,6 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     return heads
 }
 
-
-//let sm = ScalarFloat(value: 0)
-
 func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
     let numTokens = xkTokenHeads.count
     let scores = Matrix(shape: [numHeads, numTokens])
@@ -474,21 +440,7 @@ func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.
 
 func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    BucketMul.shared.mul(by: by, out: out)/*
-    gpu.eval()
-    for i in 0..<out.rows {
-        if abs(out[i])>40 {
-            print("oh hello", out[i])
-            let n = mpsMul(v: v, by: by);
-            gpu.eval();
-            if out.cosineSimilarityTo(n)[0]<0.90 {
-                let disp = BucketMul.shared.dispatch
-                print("xx")
-            }
-            break
-
-        }
-    }*/
+    BucketMul.shared.mul(by: by, out: out)
 }
 
 class BucketMul {
@@ -542,7 +494,6 @@ class BucketMul {
         
         let bucketSize = 16
         let numBuckets = out.rows / bucketSize
-//        assert(weightBuckets.shape == [bucketSize*v.rows, numBuckets], "\(weightBuckets.shape) ≠ \([bucketSize*v.rows, numBuckets])")
         
         assert(numBuckets % 4 == 0)
 

@@ -46,7 +46,6 @@ class Archive : OrderedDict<Vector> {
     var addIdx = 0
 
     func add(prefix pref: String? = nil, _ value: Vector, seriously: Bool = false) {
-        return
         let valueCopy = value.copy()
         if let pref = pref {
             super.self["\(pref) \(addIdx)"] = valueCopy
