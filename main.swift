@@ -46,7 +46,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let goCapture = false
 var numLayers = 32
-var numTokens = 8
+var numTokens = 3
 
 if goCapture {
     numLayers = 4
@@ -193,8 +193,10 @@ for (key, _) in a1 {
 //    print(key, a1[key].str())
 //    print(key, a2[key].str())
     let sim = a1[key].cosineSimilarityTo(a2[key])[0]
-    print(key, sim, sumSim)
-    sumSim += sim
+    if key != "token 0" {
+        print(key, sim, sumSim)
+        sumSim += sim
+    }
 }
 print(sumSim/9)
 

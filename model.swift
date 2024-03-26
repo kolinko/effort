@@ -77,8 +77,6 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return outStr
     }
     
-    
-    
     func getInt(index: Int) -> Int16 {
         var floatStorage: Type = self[index * self.byteSize / 2]
         var intStorage: Int16 = 0

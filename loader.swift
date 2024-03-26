@@ -11,12 +11,8 @@ class Weights {
     let core: Matrix
     let buckets: Matrix
     let stats: Matrix
-    var outSize: Int {
-        return core.rows
-    }
-    var inSize: Int {
-        return core.cols!
-    }
+    var outSize: Int { return core.rows }
+    var inSize: Int { return core.cols! }
     
     init(core: Matrix, buckets:Matrix, stats:Matrix) {
         self.core = core
@@ -75,6 +71,23 @@ class Layer {
     func load(key: String, fname: String, shape: [Int]) {
         self.data[key] = loadBinaryFile(named: fname, shape: shape)
     }
+    
+    init(_ layerNo: Int, shapeDict: [String: [Int]]) {
+        let layerName = "layers.\(layerNo)."
+        for key in ["ffn_norm", "attention_norm"] {
+            let elName = layerName + key
+            self.load(key:key, fname: elName, shape: shapeDict[elName]!)
+        }
+        
+        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3",
+                    "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
+            let elName = layerName + key
+            let shape = shapeDict[elName]!
+            self.load(key: key, fname: elName, shape: shape)
+            self.load(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
+            self.load(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
+        }
+    }
 
 }
 
@@ -93,7 +106,6 @@ class ModelData {
 }
 
 let absolutePath = "/Users/kolinko/mul_col/model/"
-import Foundation
 
 func readJson() -> [String: [Int]] {
     let fileUrl = URL(fileURLWithPath: absolutePath + "shape.json")
@@ -111,20 +123,7 @@ func loadModelData(from filePath: String) -> ModelData {
     let numLayers = 31
     var layers = [Int: Layer]()
     for i in 0...numLayers {
-        layers[i] = Layer()
-        for key in ["ffn_norm", "attention_norm"] {
-            let elName = "layers.\(i).\(key)"
-            layers[i]!.load(key:key, fname: elName, shape: shapeDict[elName]!)
-        }
-        
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", 
-                    "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
-            let elName = "layers.\(i).\(key)"
-            let shape = shapeDict[elName]!
-            layers[i]!.load(key: key, fname: elName, shape: shape)
-            layers[i]!.load(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
-            layers[i]!.load(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
-        }
+        layers[i] = Layer(i, shapeDict: shapeDict)
     }
     
     let model = ModelData(
