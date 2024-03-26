@@ -14,103 +14,66 @@ extension String.StringInterpolation {
     }
 }
 
-class Bufferable {
+class MTLBufferable {
     let buffer: MTLBuffer
-    let offset: Int
+    let offsetBytes: Int
     
-    init(buffer: MTLBuffer, offset: Int = 0) {
+    init(buffer: MTLBuffer, offsetBytes: Int = 0) {
         self.buffer = buffer
-        self.offset = offset
+        self.offsetBytes = offsetBytes
     }
 }
 
-class BufferableFloat: Bufferable {
-    let bufferPointer: UnsafeMutablePointer<Float>
+class Bufferable<Type: FloatingPoint> : MTLBufferable {
+    let bufferPointer: UnsafeMutablePointer<Type>
     let shape: [Int]
     let rows: Int
     let cols: Int?
+    let byteSize: Int
+    let bitSize: Int
     
-    init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
-        self.rows = shape[0]
-        self.cols = shape.count >= 2 ? shape[1] : nil
-        self.shape = shape
-        self.bufferPointer = buffer.contents().bindMemory(to: Float.self, capacity: self.shape.reduce(1, *))
-        super.init(buffer: buffer, offset: offset*MemoryLayout<Float>.size)
+    var count : Int {
+        return self.shape.reduce(1, *)
     }
-    
-    convenience init(shape: [Int]) {
-        let bufferSize = shape.reduce(1, *) * MemoryLayout<Float>.size
-        let buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-        self.init(shape: shape, buffer: buffer)
-    }
-    
-    subscript(index: Int) -> Float {
-            get {
-                let bufferPointer = self.bufferPointer
-                return bufferPointer[index+Int(offset/4)]
-            }
-            set(newValue) {
-                let bufferPointer = self.bufferPointer
-                bufferPointer[index+Int(offset/4)] = newValue
-            }
-        }
-
-    func str(count: Int = 10) -> String {
-        let _count = count<=self.rows ? count : self.rows
-        var outStr = ""
-        for i in 0..<_count {
-            outStr += "\(self[i]); "
-        }
-        return outStr
-    }
-    
-    func zero() {
-        gpu.deploy("zero32", buffers: [self], threadCount: shape.reduce(1, *))
-    }
-
-}
-
-
-class BufferableFloat16 : Bufferable {
-    let bufferPointer: UnsafeMutablePointer<Float16>
-    let shape: [Int]
-    let rows: Int
-    let cols: Int?
 
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
+        self.byteSize = MemoryLayout<Type>.size
+        self.bitSize = byteSize * 8
+
+        assert((byteSize == 4) || (byteSize == 2), "untested for others")
         self.rows = shape[0]
         self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
-        self.bufferPointer = buffer.contents().bindMemory(to: Float16.self, capacity: self.shape.reduce(1, *))
-        super.init(buffer: buffer, offset: offset*MemoryLayout<Float16>.size)
+        self.bufferPointer = buffer.contents().bindMemory(to: Type.self, capacity: self.shape.reduce(1, *))
+        super.init(buffer: buffer, offsetBytes: offset*self.byteSize)
+
     }
     
-    
     convenience init(shape: [Int]) {
-        let numElements = shape.reduce(1, *)
-        let bufferSize = numElements * MemoryLayout<Float16>.size
+        let bufferSize = shape.reduce(1, *) * MemoryLayout<Type>.size
         let buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
         self.init(shape: shape, buffer: buffer)
     }
 
 
-    convenience init(shape: [Int], with: Float16) {
+    convenience init(shape: [Int], with: Type) {
         self.init(shape: shape)
-        for i in 0..<self.count() {
+        for i in 0..<self.count {
             self[i] = with
         }
     }
-    
-    convenience init(from array: [Float16]) {
-        assert(!array.isEmpty, "Array must not be empty")
-        let length = array.count * MemoryLayout<Float16>.size
-        let buffer = gpu.device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
-        self.init(shape: [array.count], buffer: buffer)
-    }
+    /*
+     convenience init(from array: [Type]) {
+         assert(!array.isEmpty, "Array must not be empty")
+         let length = array.count * MemoryLayout<Type>.size
+         let buffer = gpu.device.makeBuffer(bytes: array, length: length, options: .storageModeShared)!
+         self.init(shape: [array.count], buffer: buffer)
+     }
+     */
     
     func zero() {
-        gpu.deploy("zeroVec", buffers: [self], threadCount: self.count())
+        gpu.deploy("zero\(bitSize)", buffers: [self], threadCount: self.count)
     }
     
     func str(count: Int = 10) -> String {
@@ -122,13 +85,10 @@ class BufferableFloat16 : Bufferable {
         return outStr
     }
     
-    func count() -> Int {
-        return self.shape.reduce(1, *)
-    }
     
     
     func getInt(index: Int) -> Int16 {
-        var floatStorage: Float16 = self[index]
+        var floatStorage: Type = self[index * self.byteSize / 2]
         var intStorage: Int16 = 0
 
         withUnsafePointer(to: &floatStorage) { floatPointer in
@@ -140,19 +100,19 @@ class BufferableFloat16 : Bufferable {
     }
 
     
-    subscript(index: Int) -> Float16 {
+    subscript(index: Int) -> Type {
             get {
                 let bufferPointer = self.bufferPointer
-                return bufferPointer[index+Int(offset/2)]
+                return bufferPointer[index+Int(self.offsetBytes/self.byteSize)]
             }
             set(newValue) {
                 let bufferPointer = self.bufferPointer
-                bufferPointer[index+Int(offset/2)] = newValue
+                bufferPointer[index+Int(self.offsetBytes/self.byteSize)] = newValue
             }
         }
     
     
-    func test(_ name: String, cond: Bool = true, mul:Int, val:[Float16]) -> Bool {
+    func test(_ name: String, cond: Bool = true, mul:Int, val:[Type]) -> Bool {
         if (!cond) {
             return true
         }
@@ -165,11 +125,11 @@ class BufferableFloat16 : Bufferable {
         return result
     }
         
-    func test(mul:Int, val:[Float16]) -> Bool {
+    func test(mul:Int, val:[Type]) -> Bool {
         gpu.eval()
         for i in 0..<val.count {
             if val[i] != 666 {
-                if round(self[i]*Float16(mul)) != round(val[i]*Float16(mul)) {
+                if round(self[i]*Type(mul)) != round(val[i]*Type(mul)) {
                     print("assert failed for values")
                     for j in 0..<val.count {
                         print(self[j])
@@ -205,8 +165,13 @@ class BufferableFloat16 : Bufferable {
         }
         return true
     }
+}
 
-    
+class BufferableFloat: Bufferable<Float> {
+}
+
+
+class BufferableFloat16 : Bufferable<Float16> {
 }
 
 class ScalarFloat: BufferableFloat {
@@ -240,7 +205,7 @@ class Scalar: BufferableFloat16 {
 
 class Matrix: BufferableFloat16 {
     func asVector() -> Vector {
-        return Vector(shape: [self.count()], buffer: self.buffer)
+        return Vector(shape: [self.count], buffer: self.buffer)
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> Scalar {
@@ -353,7 +318,7 @@ class Vector: BufferableFloat16 {
         assert(layer.shape.count == 1, "Only for vectors")
         
         let output = Vector(shape: layer.shape)
-        gpu.deploy("rms_norm", buffers: [layer, output], ints: [self.count()], threadCount: layer.count())
+        gpu.deploy("rms_norm", buffers: [layer, output], ints: [self.count], threadCount: layer.count)
 
         return output
     }

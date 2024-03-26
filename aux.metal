@@ -8,6 +8,16 @@
 #include <metal_stdlib>
 using namespace metal;
 
+kernel void zero16(device half* v[[buffer(0)]],
+                    uint id [[thread_position_in_grid]]) {
+    v[id] = 0;
+}
+
+kernel void zero32(device float* v[[buffer(0)]],
+                   uint id [[thread_position_in_grid]]) {
+    v[id] = 0;
+}
+
 
 kernel void strictDiff(const device half* a [[buffer(0)]],
                        const device half* b [[buffer(1)]],

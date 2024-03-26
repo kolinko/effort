@@ -78,52 +78,5 @@ class Archive : OrderedDict<Vector> {
         return out
     }
 
-    // Serialization of the Archive
-    func serialize(fname: String) {
-        let metadataPath = "archive/\(fname).json"
-        let dataPath = "archive/\(fname).bin"
-
-        var metadata = [String: Any]()
-        var currentOffset = 0
-        
-        // Open or create the binary file for writing
-        let dataFileURL = URL(fileURLWithPath: dataPath)
-        guard let dataFileHandle = try? FileHandle(forWritingTo: dataFileURL) else {
-            print("Cannot open data file for writing.")
-            return
-        }
-        
-        for (key, vector) in self {
-            let dataSize = vector.shape.reduce(1, *) * MemoryLayout<Float16>.size
-            
-            // Prepare the entry for the metadata
-            metadata[key] = ["shape": vector.shape, "offset": currentOffset, "size": dataSize]
-            
-            // Assuming vector.buffer.contents() gives us the pointer to the data
-            let bufferPointer = vector.buffer.contents().assumingMemoryBound(to: UInt8.self)
-            
-            // Write the vector data to the file
-            let data = Data(bytes: bufferPointer + vector.offset, count: dataSize)
-            if dataFileHandle.seekToEndOfFile() == UInt64(currentOffset) {
-                dataFileHandle.write(data)
-            } else {
-                print("Error seeking to correct offset in data file.")
-                return
-            }
-            
-            // Update the offset for the next vector
-            currentOffset += dataSize
-        }
-        
-        // Close the data file
-        dataFileHandle.closeFile()
-        
-        // Convert metadata dictionary to Data and write to the metadata file
-        if let jsonData = try? JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted]) {
-            try? jsonData.write(to: URL(fileURLWithPath: metadataPath))
-        } else {
-            print("Error serializing metadata.")
-        }
-    }
     
 }

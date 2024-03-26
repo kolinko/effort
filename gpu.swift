@@ -38,7 +38,7 @@ class Gpu {
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zeroVec",
+                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zero16",
         "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32", "dotSetScore2"]
 
         for fname in functionNames {
@@ -69,7 +69,7 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
-    func deploy(_ fname: String, buffers: [Bufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1, threadGroupSize tgs: [Int] = [32,1,1]) {
+    func deploy(_ fname: String, buffers: [MTLBufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1, threadGroupSize tgs: [Int] = [32,1,1]) {
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
@@ -78,12 +78,12 @@ class Gpu {
         let internalState = self.globalStates[fname]!
             
         let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
-        var threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2]) //threadExecutionWidth
+        let threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2])
 
         encoder.setComputePipelineState(internalState)
 
         for i in 0..<buffers.count {
-            encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offset , index: i)
+            encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offsetBytes , index: i)
         }
 
         for i in 0..<ints.count {

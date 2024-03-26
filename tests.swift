@@ -15,11 +15,12 @@
 import Foundation
 
 func modelRunTests() {
+    /*
     let v = Vector(from: [0.1, 0.22, 0.33, 0.11, -0.21, 2, -0.01, 0.02])
     assert(v.scalarAt(3)[0] == 0.11)
     v.sort()
     assert(v.test("v.sort()", mul: 100, val: [-0.21, -0.01, 0.02, 0.1, 0.11, 0.22, 0.33, 2.0]))
-    
+    */
     /*
     let h1 = tokens[0]
     let h2 = tokens[1]

@@ -46,15 +46,6 @@ kernel void getVal(device const half* vector [[buffer(0)]],
 
  */
 
-kernel void zeroVec(device half* v[[buffer(0)]],
-                    uint id [[thread_position_in_grid]]) {
-    v[id] = 0;
-}
-
-kernel void zero32(device float* v[[buffer(0)]],
-                   uint id [[thread_position_in_grid]]) {
-    v[id] = 0;
-}
 
 kernel void prepareDispatch32(device const float* v[[buffer(0)]],
                             device const half4* binStats[[buffer(1)]],
