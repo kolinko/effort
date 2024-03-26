@@ -17,7 +17,6 @@ extension String.StringInterpolation {
 class Bufferable {
     let buffer: MTLBuffer
     let offset: Int
-//    let offset_bytes: Int
     
     init(buffer: MTLBuffer, offset: Int = 0) {
         self.buffer = buffer
@@ -71,32 +70,6 @@ class BufferableFloat: Bufferable {
 
 }
 
-class ScalarFloat: BufferableFloat {
-    
-    convenience init(value: Float) {
-        self.init(shape: [1])
-        self[0] = value;
-    }
-    
-    
-    override func zero() {
-        gpu.deploy("zero32", buffers: [self], threadCount: 1)
-    }
-    
-}
-
-
-class Scalar: BufferableFloat16 {
-    convenience init(value: Float16) {
-        self.init(shape: [1])
-        self[0] = value;
-    }
-    
-    convenience init(buffer: MTLBuffer, offset: Int = 0) {
-        self.init(shape: [1], buffer: buffer, offset: offset)
-    }
-    
-}
 
 class BufferableFloat16 : Bufferable {
     let bufferPointer: UnsafeMutablePointer<Float16>
@@ -155,7 +128,7 @@ class BufferableFloat16 : Bufferable {
     
     
     func getInt(index: Int) -> Int16 {
-        var floatStorage: Float16 = self[index]//1.0
+        var floatStorage: Float16 = self[index]
         var intStorage: Int16 = 0
 
         withUnsafePointer(to: &floatStorage) { floatPointer in
@@ -235,6 +208,34 @@ class BufferableFloat16 : Bufferable {
 
     
 }
+
+class ScalarFloat: BufferableFloat {
+    
+    convenience init(value: Float) {
+        self.init(shape: [1])
+        self[0] = value;
+    }
+    
+    
+    override func zero() {
+        gpu.deploy("zero32", buffers: [self], threadCount: 1)
+    }
+    
+}
+
+
+class Scalar: BufferableFloat16 {
+    convenience init(value: Float16) {
+        self.init(shape: [1])
+        self[0] = value;
+    }
+    
+    convenience init(buffer: MTLBuffer, offset: Int = 0) {
+        self.init(shape: [1], buffer: buffer, offset: offset)
+    }
+    
+}
+
 
 
 class Matrix: BufferableFloat16 {

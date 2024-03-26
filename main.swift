@@ -14,7 +14,6 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 print("loading")
 
-os_signpost(.begin, log: log, name: "Loading")
 let modelData = loadModelData(from: "shape.json")
 //var tokens = loadTokens()
 
@@ -61,11 +60,7 @@ let t = Tokeniser()
 func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     var tokens = _tokens
     var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
-    
     var xvLayerToken = Array(repeating: [Vector](), count: numLayers)
-    /*
-    gpu.eval()
-     */
     
     var h : Vector = tokens[0]
 
@@ -193,14 +188,23 @@ let a1 = runNetwork(isTest: false, tokens: tokens)
 print(tokens.count)
 let a2 = runNetwork(isTest: true, tokens: tokens)
 
+var sumSim : Float = 0.0
 for (key, _) in a1 {
-    print(key, a1[key].str())
-    print(key, a2[key].str())
-    print(key, a1[key].cosineSimilarityTo(a2[key])[0])
+//    print(key, a1[key].str())
+//    print(key, a2[key].str())
+    let sim = a1[key].cosineSimilarityTo(a2[key])[0]
+    print(key, sim, sumSim)
+    sumSim += sim
+}
+print(sumSim/9)
+
+if sumSim > 0.85 {
+    print("✅ works")
+} else {
+    fatalError("❌ bad quality")
 }
 
-exit(0)
-
+/*
 var s1 = t.decode(tokIds, delim: "")
 var s2 = t.decode(tokIds, delim: "")
 
@@ -239,3 +243,4 @@ print("done")
 
 //a1.serialize(fname: "a1")
 gpu.stopCapture()
+*/

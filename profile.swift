@@ -7,7 +7,7 @@
 
 import Foundation
 
-func modelProfile() {
+func modelProfile(captureGPU: Bool = false, mine: Bool = true) {
     let bucketMul = BucketMul.shared
 
     print("begin")
@@ -58,8 +58,6 @@ func modelProfile() {
 
     var numLayersProf = 32
     var repeats=30
-    let captureGPU = false
-    let mine = true
 
     if captureGPU {
         repeats = 5
@@ -79,9 +77,7 @@ func modelProfile() {
             if mine {
 //                bucketMul.calcDispatch(v: hx, weights: layer.w2, quant: 0.25)
 //                bucketMul.mul(v: hx, by:layer.w2, out: buffer32x)
-
 //                bucketMul.calcDispatch(v: h, weights: layer.w1, quant: 0.25)
-                
                 bucketMul.mul(by:layer.w1, out: buffer32)
             } else {
                 
@@ -98,7 +94,5 @@ func modelProfile() {
     print("\ncycle time \(Date().timeIntervalSince(startTime)*1000/Double(repeats), precision: 2) ms\n")
 
     gpu.stopCapture()
-    exit(0)
-    print(buffer16[0])
-    
+    print(buffer16.str())    
 }

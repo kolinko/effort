@@ -35,6 +35,7 @@ class Weights {
         self.init(core: core, buckets: buckets, stats: stats)
     }
 }
+
 class Layer {
     var data = [String: Matrix]()
 
@@ -96,54 +97,6 @@ func readJson() -> [String: [Int]] {
 
     return dictionary
 }
-
-func loadTokens() -> [Vector] {
-    let fileName = absolutePath + "/tokens.bin"
-    let fileURL = URL(fileURLWithPath: fileName)
-
-    let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
-    let data = fileHandle.readDataToEndOfFile()
-
-    let numTokens = 9
-    let layerSize = 4096
-    let expectedCount = numTokens * layerSize
-    let expectedSize = expectedCount * MemoryLayout<Float32>.size
-
-    // Assert that the data size matches the expected size
-    assert(data.count == expectedSize, "Data size does not match expected size for \(fileName). Expected: \(expectedSize), Actual: \(data.count)")
-
-    // Convert Float32 data to Float16
-    let float32Pointer = data.withUnsafeBytes { $0.bindMemory(to: Float32.self) }
-    var float16Data = [Float16]()
-    float16Data.reserveCapacity(expectedCount)
-
-    for i in 0..<expectedCount {
-        let float32Value = float32Pointer[i]
-        let float16Value = Float16(float32Value)
-        float16Data.append(float16Value)
-    }
-
-    // Create MTLBuffer from Float16 data
-    let buffer = gpu.device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
-
-    var tokens: [Vector] = []
-
-    for i in 0..<numTokens {
-        let offset = i * layerSize * MemoryLayout<Float16>.size
-        let layerBuffer = gpu.device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
-        tokens.append(Vector(shape: [layerSize], buffer: layerBuffer))
-    }
-
-    // Directly assert a specific value in the first layer (update the assertion for Float16)
-    let pointer = tokens[1].buffer.contents().assumingMemoryBound(to: Float16.self)
-    assert(pointer[13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
-
-    assert(tokens[1][13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
-    assert(tokens[0].test("token[0]", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
-
-    return tokens
-}
-
 
 
 func loadModelData(from filePath: String) -> ModelData {
