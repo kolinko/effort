@@ -518,18 +518,20 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 
 func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v32: v, weights: by, quant: quant)
+    out.zero()
     BucketMul.shared.mul(by: by, out: out)
 
 }
 
 func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
+    out.zero()
     BucketMul.shared.mul(by: by, out: out)
 }
 
 class BucketMul {
     let probesCount = 4096
-    let maxDispatchSize = 176128
+    let maxDispatchSize = 229376 * 2//176128
     let dispatch : DynaVectorFloat
     let probes : Vector
     let cutoff : Scalar

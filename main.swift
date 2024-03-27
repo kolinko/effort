@@ -64,13 +64,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     let x1 = Vector(shape:[hiddenSize])
     let x3 = Vector(shape:[hiddenSize])
     let x2 = Vector(shape:[hiddenSize])
-    let ffnOut = [Vector]([Vector(shape:[stateSize]), Vector(shape:[stateSize])])
-    /*
+    var ffnOut = [Vector]([Vector(shape:[stateSize]), Vector(shape:[stateSize])])
+    
     let x1_32 = VectorFloat(shape:[hiddenSize])
     let x3_32 = VectorFloat(shape:[hiddenSize])
     let x2_32 = VectorFloat(shape:[hiddenSize])
-    let ffn_out32 = VectorFloat(shape:[stateSize])
-    */
+    let ffn_out32 = [VectorFloat]([VectorFloat(shape:[stateSize]), VectorFloat(shape:[stateSize])])
+    
     let archive = Archive()
 
     print("Begin token calc")
@@ -125,16 +125,32 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
                                       ])
             gateVals.softmax()
-            for i in 0..<2 {
-                let expert = experts[i]
-                mpsMul(v: fxn, by:expert.w1, out: x1)
-                mpsMul(v: fxn, by:expert.w3, out: x3)
-                silu(x1, x3, out: x2)
-                mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
-                ffnOut[i].mul(by: gateVals.scalarAt(i))
+            if (!isTest) {
+                for i in 0..<2 {
+                    let expert = experts[i]
+                    mpsMul(v: fxn, by:expert.w1, out: x1)
+                    mpsMul(v: fxn, by:expert.w3, out: x3)
+                    silu(x1, x3, out: x2)
+                    mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
+                    ffnOut[i].mul(by: gateVals.scalarAt(i))
+                }
+
+
+            } else {
+                for i in 0..<2 {
+                    let expert = experts[i]
+                    bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 1)
+                    bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 1)
+                    silu(x1_32, x3_32, out: x2_32)
+                    bucketMul(v: x2_32, by: expert.w2, out: ffn_out32[i], quant: 1)
+                    ffnOut[i] = ffn_out32[i].asFloat16Vector()
+                }
             }
+
             ffnOut[0].add(by: ffnOut[1])
             h.add(by: ffnOut[0])
+
+
         }
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
@@ -183,7 +199,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
-let a1 = runNetwork(isTest: false, tokens: tokens)
+let a1 = runNetwork(isTest: true, tokens: tokens)
 
 exit(0)
 print(tokens.count)
