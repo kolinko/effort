@@ -22,13 +22,34 @@ class Weights {
         assert(core.cols!*16 == stats.rows)
     }
     
+    init(elName: String, shapeDict: [String: [Int]]) {
+        print(elName)
+        let shape = shapeDict[elName]!
+        self.core = Matrix(fname: elName+".core.bin", shape: shape)
+        self.buckets = Matrix(fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
+        self.stats = Matrix(fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
+
+    }
+    
     convenience init(fromFile: String, shape: [Int]) {
-        let core : Matrix = loadBinaryFile(named: fromFile, shape: shape)
+        let core : Matrix = loadBinaryFile(named: fromFile+".core.bin", shape: shape)
         let bShape = [shape[1]*16, shape[0]/16]
-        let buckets : Matrix = loadBinaryFile(named: fromFile+".bins.bin", shape: bShape)
+        let buckets : Matrix = loadBinaryFile(named: fromFile+".buckets.bin", shape: bShape)
         let sShape = [shape[1]*16, 4]
-        let stats : Matrix = loadBinaryFile(named: fromFile+".bins.stats.bin", shape: sShape)
+        let stats : Matrix = loadBinaryFile(named: fromFile+".bucket.stats.bin", shape: sShape)
         self.init(core: core, buckets: buckets, stats: stats)
+    }
+}
+
+class ExpertFfn {
+    let w1: Weights
+    let w2: Weights
+    let w3: Weights
+    
+    init(layerName: String, shapeDict: [String: [Int]]) {
+        w1 = Weights(elName: layerName+"w1", shapeDict: shapeDict)
+        w2 = Weights(elName: layerName+"w2", shapeDict: shapeDict)
+        w3 = Weights(elName: layerName+"w3", shapeDict: shapeDict)
     }
 }
 
@@ -51,107 +72,81 @@ class Layer {
         return matrix.asVector()
     }
 
-    var attnNorm: Vector { getVector("attention_norm") }
-    var ffnNorm: Vector { getVector("ffn_norm") }
+    let attnNorm: Vector
+    let ffnNorm: Vector
+    let ffnGate: Matrix
 
-    var wo: Weights { getWeights("attention.wo") }
-    var wq: Weights { getWeights("attention.wq") }
-    var wk: Weights { getWeights("attention.wk") }
-    var wv: Weights { getWeights("attention.wv") }
+    
+    let wo: Weights
+    let wq: Weights
+    let wk: Weights
+    let wv: Weights
 
-    var w1: Weights { getWeights("feed_forward.w1") }
-    var w2: Weights { getWeights("feed_forward.w2") }
-    var w3: Weights { getWeights("feed_forward.w3") }
+    let experts: [ExpertFfn]
 
     subscript(index: String) -> Matrix {
         get { data[index]! }
         set { data[index] = newValue }
     }
-    
-    func load(key: String, fname: String, shape: [Int]) {
-        self.data[key] = loadBinaryFile(named: fname, shape: shape)
-    }
-
-    func loadLazy(key: String, fname: String, shape: [Int]) {
-        self.data[key] = Matrix(shape: shape, fname: fname)
-    }
-
-    
+        
     init(_ layerNo: Int, shapeDict: [String: [Int]]) {
         let layerName = "layers.\(layerNo)."
-        for key in ["ffn_norm", "attention_norm"] {
-            let elName = layerName + key
-            self.load(key:key, fname: elName, shape: shapeDict[elName]!)
-        }
         
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3",
-                    "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
-            let elName = layerName + key
-            let shape = shapeDict[elName]!
-            self.loadLazy(key: key, fname: elName, shape: shape)
-            self.loadLazy(key: key+".bins", fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
-            self.loadLazy(key: key+".bins.stats", fname: elName+".bins.stats.bin", shape: [shape[1]*16, 4])
+        self.ffnNorm = Vector(fname: layerName+"ffn_norm.bin", shape: shapeDict[layerName+"ffn_norm"]!)
+        self.attnNorm = Vector(fname: layerName+"attention_norm.bin", shape: shapeDict[layerName+"attention_norm"]!)
+        self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: shapeDict[layerName+"feed_forward.gate"]!)
+        
+        self.wo = Weights(elName: layerName+"attention.wo", shapeDict: shapeDict)
+        self.wk = Weights(elName: layerName+"attention.wk", shapeDict: shapeDict)
+        self.wq = Weights(elName: layerName+"attention.wq", shapeDict: shapeDict)
+        self.wv = Weights(elName: layerName+"attention.wv", shapeDict: shapeDict)
+
+        self.experts = (0..<8).map { eNo in
+            ExpertFfn(layerName: "layers.\(layerNo).feed_forward.experts.\(eNo).", shapeDict: shapeDict)
         }
     }
 
 }
 
-class ModelData {
+let absolutePath = "/Users/kolinko/mul_col/model-mixtral/"
+
+class Model {
     let norm: Matrix
     let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    init(norm: Matrix, output: Weights, tokEmbeddings: Matrix, layers: [Int : Layer]) {
-        self.norm = norm
-        self.output = output
-        self.tokEmbeddings = tokEmbeddings
+    init(from filePath: String) {
+        let startTime = Date()
+        let shapeDict = readJson()
+        
+        let numLayers = 31
+        
+        self.norm = loadBinaryFile(named: "norm.bin", shape: shapeDict["norm"]!)
+        self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
+        self.tokEmbeddings = loadBinaryFile(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
+
+        var layers = [Int: Layer]()
+        for i in 0...numLayers {
+            layers[i] = Layer(i, shapeDict: shapeDict)
+        }
         self.layers = layers
+
+        print("data load time \(Date().timeIntervalSince(startTime)) seconds")
+
     }
 }
 
-let absolutePath = "/Users/kolinko/mul_col/model/"
 
 func readJson() -> [String: [Int]] {
-    let fileUrl = URL(fileURLWithPath: absolutePath + "shape.json")
+    let fileUrl = URL(fileURLWithPath: absolutePath + "index.json")
     let data = try! Data(contentsOf: fileUrl)
     let dictionary = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: [Int]]
 
     return dictionary
 }
 
-
-func loadModelData(from filePath: String) -> ModelData {
-    let startTime = Date()
-    let shapeDict = readJson()
-    
-    let numLayers = 31
-    var layers = [Int: Layer]()
-    for i in 0...numLayers {
-        layers[i] = Layer(i, shapeDict: shapeDict)
-    }
-    
-    let model = ModelData(
-        norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
-        output: Weights(fromFile: "output", shape: shapeDict["output"]!),
-        tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
-        layers: layers
-    )
-    
-    assert(model.norm[5]==1.544, "data seems loaded incorrectly?")
-    let testLayer = model.layers[0]!["feed_forward.w1"]
-    assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
-    assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
-
-    let endTime = Date()
-    print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
-
-    return model
-}
-
-
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
-    
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size

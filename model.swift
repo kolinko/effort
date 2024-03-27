@@ -28,10 +28,10 @@ class MTLBufferable {
         self._expectedShape = nil
     }
     
-    init(fname: String, expectedShape: [Int]) {
+    init(fname: String, shape: [Int]) {
         self.offsetBytes = 0
         self._fname = fname
-        self._expectedShape = expectedShape
+        self._expectedShape = shape
     }
     
     var buffer: MTLBuffer {
@@ -68,14 +68,14 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return self.shape.reduce(1, *)
     }
 
-    init(shape: [Int], fname: String) {
+    override init(fname: String, shape: [Int]) {
         self.byteSize = MemoryLayout<Type>.size
         self.bitSize = byteSize * 8
         assert((byteSize == 4) || (byteSize == 2), "untested for others")
         self.rows = shape[0]
         self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
-        super.init(fname: fname, expectedShape: shape)
+        super.init(fname: fname, shape: shape)
     }
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
@@ -106,6 +106,9 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
     
     func zero() {
         gpu.deploy("zero\(bitSize)", buffers: [self], threadCount: self.count)
+    }
+    func neg() {
+        gpu.deploy("neg\(bitSize)", buffers: [self], threadCount: self.count)
     }
     
     func str(count: Int = 10) -> String {
@@ -314,6 +317,15 @@ class Vector: Bufferable<Float16> {
         return out
     }
     
+    func repeated(_ count: Int) -> Vector {
+        let output = Vector(shape: [count*self.rows])
+        let vecs = output.reshaped(newCols: self.rows)
+        for i in 0..<count {
+            gpu.deploy("memcpy", buffers: [self, vecs[i]], threadCount: self.rows)
+        }
+        return output
+    }
+    
     func softmax() {
         _rms.zero()
         gpu.deploy("sum_of_exps", buffers: [self, _rms], threadCount: self.rows)
@@ -355,12 +367,16 @@ class Vector: Bufferable<Float16> {
         gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
     }
 
-    func mul(byVec wa: Vector) {
+    func mul(by wa: Vector) {
         assert(self.shape == wa.shape)
         
         gpu.deploy("mul_vec", buffers:[self, wa, self], threadCount:self.rows)
     }
-    
+
+    func mul(by s: Scalar) {
+        gpu.deploy("mulScalar", buffers:[self, s], threadCount:self.rows)
+    }
+
     
     func mul(complexArray: Vector) {
         // Ensure the layer has the correct number of elements

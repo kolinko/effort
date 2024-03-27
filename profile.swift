@@ -6,7 +6,7 @@
 //
 
 import Foundation
-
+/*
 func modelProfile(captureGPU: Bool = false, mine: Bool = true) {
     let bucketMul = BucketMul.shared
 
@@ -96,3 +96,4 @@ func modelProfile(captureGPU: Bool = false, mine: Bool = true) {
     gpu.stopCapture()
     print(buffer16.str())    
 }
+*/

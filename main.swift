@@ -14,7 +14,7 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 print("loading")
 
-let modelData = loadModelData(from: "shape.json")
+let modelData = Model(from: "shape.json")
 //var tokens = loadTokens()
 
 var tokens = [Vector]()
@@ -23,8 +23,10 @@ var tokens = [Vector]()
 //Benefits of a car made of jelly beans is better
 //let tokIds = [1, 319, 1559, 1754, 310, 12736, 368, 367, 550, 338, 2253]
 //Back to the future IV is about
-let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
-
+//let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
+let tokIds = [1602,
+              460]//733, 16289, 28793, 11447, 460, 368, 28804, 28792, 28748, 16289, 28793]
+let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
 for t in tokIds {
@@ -35,8 +37,11 @@ os_signpost(.end, log: log, name: "Loading")
 
 
 let headDim = 128  // Example head dimension
+let numHeadsKV = 8
 let numHeads = 32
-let maxSeqLen = 128  // Example maximum sequence length
+let kvRepeats : Int = numHeads/numHeadsKV
+//let maxSeqLen = 128  // Example maximum sequence length
+let maxSeqLen = 2048
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelRunTests()
@@ -46,7 +51,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let goCapture = false
 var numLayers = 32
-var numTokens = 3
+var numTokens = 11
 
 if goCapture {
     numLayers = 4
@@ -55,7 +60,7 @@ if goCapture {
 
 gpu.eval()
 
-let t = Tokeniser()
+//let t = Tokeniser()
 
 func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     var tokens = _tokens
@@ -64,19 +69,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     
     var h : Vector = tokens[0]
 
-    let hiddenSize = 11008
+    let hiddenSize = 14336//11008
     let stateSize = 4096
 
     let x1 = Vector(shape:[hiddenSize])
     let x3 = Vector(shape:[hiddenSize])
     let x2 = Vector(shape:[hiddenSize])
-    let ffn_out = Vector(shape:[stateSize])
-
+    let ffnOut = [Vector]([Vector(shape:[stateSize]), Vector(shape:[stateSize])])
+    /*
     let x1_32 = VectorFloat(shape:[hiddenSize])
     let x3_32 = VectorFloat(shape:[hiddenSize])
     let x2_32 = VectorFloat(shape:[hiddenSize])
     let ffn_out32 = VectorFloat(shape:[stateSize])
-
+    */
     let archive = Archive()
 
     print("Begin token calc")
@@ -87,15 +92,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
             let h_norm = h.rmsNormed()
-            h_norm.mul(byVec:layer.attnNorm)
+            h_norm.mul(by:layer.attnNorm)
 
             let xq = mpsMul(v: h_norm, by: layer.wq)
-            let xk = mpsMul(v: h_norm, by: layer.wk)
-            let xv = mpsMul(v: h_norm, by: layer.wv)
+            let xk = mpsMul(v: h_norm, by: layer.wk).repeated(kvRepeats)
+            let xv = mpsMul(v: h_norm, by: layer.wv).repeated(kvRepeats)
 
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
-
+            
             for i in 0..<numHeads {
                 xq_heads[i].mul(complexArray: freqsCis[thisToken])
                 xk_heads[i].mul(complexArray: freqsCis[thisToken])
@@ -120,33 +125,53 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 
             let fxn = h.rmsNormed()
 
-            fxn.mul(byVec:layer.ffnNorm)
+            fxn.mul(by:layer.ffnNorm)
 
-            if isTest {
-                x1_32.zero()
-                x3_32.zero()
-                ffn_out32.zero()
-                bucketMul(v: fxn, by:layer.w1, out: x1_32, quant:0.20)
-                bucketMul(v: fxn, by:layer.w3, out: x3_32, quant:0.20)
-                silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: layer.w2, out: ffn_out32, quant:0.15)
-                ffn_out.copyFrom32(ffn_out32)
-            } else {
+            let gateOut = Vector(shape: [8])
+            mpsMul(v:fxn, by:layer.ffnGate, out:gateOut)
+            gateOut.neg()
+            let gateIdxs = VectorFloat(shape:[4])
+            let gateVals = Vector(shape:[4])
+            mpsTopK(v: gateOut, topK: 4, outIndexVector: gateIdxs, outValueVector: gateVals)
+            gpu.eval()
+            let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))],
+                                       layer.experts[Int(gateIdxs.getInt(index: 1))]
+                                      ])
+            gateVals.softmax()
+            
+            for i in 0..<2 {
+                let expert = experts[i]
+                mpsMul(v: fxn, by:expert.w1, out: x1)
+                mpsMul(v: fxn, by:expert.w3, out: x3)
+                silu(x1, x3, out: x2)
+                mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
+                ffnOut[i].mul(by: gateVals.scalarAt(i))
+            }
+            ffnOut[0].add(by: ffnOut[1])
+            
+            
+            /*
                 mpsMul(v: fxn, by:layer.w1, out: x1)
                 mpsMul(v: fxn, by:layer.w3, out: x3)
                 silu(x1, x3, out: x2)
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
-            }
-            h.add(by: ffn_out)
+//            }*/
+            h.add(by: ffnOut[0])
 
         }
-
+        print("eval")
         archive["token \(thisToken)"] = h.copy()
         let outputVector = Vector(shape:[modelData.output.outSize])
         mpsMul(v: h, by: modelData.output, out: outputVector)
         //archive["output \(thisToken)"] = outputVector
         let topKVector = mpsTopK(v: outputVector)
         //archive["topK \(thisToken)"] = topKVector
+        gpu.eval()
+        let topToken = Int(topKVector.getInt(index: 0))
+///        let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+//        tokens.append()
+        print(topKVector.str)
+        print(t.decode([topToken]))
 
         
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
@@ -185,6 +210,8 @@ var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
 let a1 = runNetwork(isTest: false, tokens: tokens)
+
+exit(0)
 print(tokens.count)
 let a2 = runNetwork(isTest: true, tokens: tokens)
 
