@@ -31,6 +31,16 @@ kernel void probe(device const half *v [[buffer(0)]],
     out[id] = abs(v[id] * weights[id*wCols + id]);
 }
 
+kernel void probeShort(device const half *v [[buffer(0)]],
+                  device const half *probes [[buffer(1)]],
+                  device half *out[[buffer(2)]],
+                  constant int &wCols [[buffer(3)]],
+                  uint id [[thread_position_in_grid]]) {
+    out[id] = abs(v[id] * probes[id]);
+}
+
+
+
 kernel void getVal(device const half* vector [[buffer(0)]],
                    device half *val [[buffer(1)]],
                    const device uint &pos [[buffer(2)]],

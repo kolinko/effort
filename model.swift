@@ -548,7 +548,7 @@ class BucketMul {
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
         
-        gpu.deploy("probe", buffers:[v, w.core, probes], ints:[w.inSize], threadCount: probesCount)
+        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
         probes.sort()
 
         let q = Int(Double(probesCount)*(1-quant))

@@ -11,15 +11,16 @@ class Weights {
     let core: Matrix
     let buckets: Matrix
     let stats: Matrix
+    let probes: Vector
     var outSize: Int { return core.rows }
     var inSize: Int { return core.cols! }
     
-    init(core: Matrix, buckets:Matrix, stats:Matrix) {
+    init(core: Matrix, buckets:Matrix, stats:Matrix, probes: Vector) {
         self.core = core
         self.buckets = buckets
         self.stats = stats
-        assert(core.cols!*16 == buckets.rows)
-        assert(core.cols!*16 == stats.rows)
+        self.probes = probes
+        assertDims()
     }
     
     init(elName: String, shapeDict: [String: [Int]]) {
@@ -27,7 +28,22 @@ class Weights {
         self.core = Matrix(fname: elName+".core.bin", shape: shape)
         self.buckets = Matrix(fname: elName+".buckets.bin", shape: [shape[1]*16, shape[0]/16])
         self.stats = Matrix(fname: elName+".bucket.stats.bin", shape: [shape[1]*16, 4])
-
+        var probesSize = 4096
+        if self.core.rows < 4096 || self.core.cols! < 4096 {
+            probesSize = 1024
+        }
+        self.probes = Vector(fname: elName+".bucket.stats.bin", shape: [probesSize])
+        assertDims()
+    }
+    
+    func assertDims() {
+        assert(core.cols!*16 == buckets.rows)
+        assert(core.cols!*16 == stats.rows)
+        if self.inSize >= 4096 && self.outSize >= 4096 {
+            assert(self.probes.rows == 4096)
+        } else {
+            assert(self.probes.rows == 1024)
+        }
     }
     
     convenience init(fromFile: String, shape: [Int]) {
@@ -36,7 +52,10 @@ class Weights {
         let buckets : Matrix = loadBinaryFile(named: fromFile+".buckets.bin", shape: bShape)
         let sShape = [shape[1]*16, 4]
         let stats : Matrix = loadBinaryFile(named: fromFile+".bucket.stats.bin", shape: sShape)
-        self.init(core: core, buckets: buckets, stats: stats)
+        let pShape = [(shape[0]>=4096 && shape[1]>=4096) ? 4096 : 1024]
+        let probes : Vector = loadBinaryFile(named: fromFile+".probes.bin", shape: pShape).asVector()
+
+        self.init(core: core, buckets: buckets, stats: stats, probes: probes)
     }
 }
 
@@ -55,21 +74,6 @@ class ExpertFfn {
 class Layer {
     var data = [String: Matrix]()
 
-    private func getWeights(_ key: String) -> Weights {
-        guard let core = data[key],
-              let buckets = data["\(key).bins"],
-              let stats = data["\(key).bins.stats"] else {
-            fatalError("Invalid key or missing data for \(key)")
-        }
-        return Weights(core: core, buckets: buckets, stats: stats)
-    }
-
-    private func getVector(_ key: String) -> Vector {
-        guard let matrix = data[key] else {
-            fatalError("Matrix not found for key: \(key)")
-        }
-        return matrix.asVector()
-    }
 
     let attnNorm: Vector
     let ffnNorm: Vector

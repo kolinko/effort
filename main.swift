@@ -202,6 +202,7 @@ print("##### iteration", i)
 let a1 = runNetwork(isTest: true, tokens: tokens)
 
 exit(0)
+/*
 print(tokens.count)
 let a2 = runNetwork(isTest: true, tokens: tokens)
 
@@ -222,7 +223,7 @@ if sumSim > 0.85 {
 } else {
     fatalError("❌ bad quality")
 }
-
+*/
 /*
 var s1 = t.decode(tokIds, delim: "")
 var s2 = t.decode(tokIds, delim: "")
