@@ -44,6 +44,10 @@ class MTLBufferable {
         }
     }
     
+    func load() {
+        _ = self.buffer
+    }
+    
     func unloadBuffer() {
         self._buffer = nil // does this erase memory?
     }
@@ -111,11 +115,16 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         gpu.deploy("neg\(bitSize)", buffers: [self], threadCount: self.count)
     }
     
-    func str(count: Int = 10) -> String {
+    var str: String {
+        return _str()
+    }
+    
+    func _str(count: Int = 10, noEval: Bool = false) -> String {
+        if !noEval { gpu.eval() }
         let _count = count<self.rows ? count : self.rows
         var outStr = ""
         for i in 0..<_count {
-            outStr += "\(self[i]); "
+            outStr += "\(self[i]), "
         }
         return outStr
     }
@@ -319,11 +328,30 @@ class Vector: Bufferable<Float16> {
     
     func repeated(_ count: Int) -> Vector {
         let output = Vector(shape: [count*self.rows])
+/*        gpu.deploy("repeat", buffers: [self, output], threadCount: self.rows)
+        gpu.eval()
+        return output*/
+        
         let vecs = output.reshaped(newCols: self.rows)
         for i in 0..<count {
             gpu.deploy("memcpy", buffers: [self, vecs[i]], threadCount: self.rows)
         }
         return output
+    }
+    
+    
+    func repeated2(_ count: Int) -> Vector {
+        let output = Vector(shape: [count*self.rows])
+        gpu.deploy("repeat", buffers: [self, output], threadCount: 128, threadCountY: 8) // self.rows
+        gpu.eval()
+        return output
+        
+        /*
+        let vecs = output.reshaped(newCols: self.rows)
+        for i in 0..<count {
+            gpu.deploy("memcpy", buffers: [self, vecs[i]], threadCount: self.rows)
+        }
+        return output*/
     }
     
     func softmax() {

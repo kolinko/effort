@@ -83,6 +83,14 @@ kernel void softmax_add(device half* vec [[buffer(0)]],
     vec[id] = exp(float(vec[id]))/sum[0];
 }
 // simple ones
+kernel void repeat(const device half* v [[buffer(0)]],
+                   device half* out [[buffer(1)]],
+                   uint2 id [[thread_position_in_grid]]) {
+    for(int i = 0; i<4; i++) {
+        out[id.x+i*128+id.y*128*4] = v[id.x+(id.y*128)];
+    }
+}
+
 kernel void mul_vec(const device half* v [[buffer(0)]],
                 const device half* w [[buffer(1)]],
                 device half* out [[buffer(2)]],

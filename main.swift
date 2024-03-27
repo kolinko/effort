@@ -24,7 +24,7 @@ var tokens = [Vector]()
 //let tokIds = [1, 319, 1559, 1754, 310, 12736, 368, 367, 550, 338, 2253]
 //Back to the future IV is about
 //let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
-let tokIds = [1602,
+let tokIds = [1, 1602,
               460]//733, 16289, 28793, 11447, 460, 368, 28804, 28792, 28748, 16289, 28793]
 let t = Tokeniser()
 
@@ -32,7 +32,6 @@ let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
 for t in tokIds {
     tokens.append(tokEmbeddings[t])
 }
-
 os_signpost(.end, log: log, name: "Loading")
 
 
@@ -87,17 +86,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     print("Begin token calc")
     var startTime = Date()
     for thisToken in 0...numTokens { //numTokens
-        h = tokens[thisToken].copy()
+        print(thisToken)
+        print("tokensThistoken", tokens[thisToken].str)
 
+        h = tokens[thisToken].copy()
+        print("x", h.str)
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
 
             let xq = mpsMul(v: h_norm, by: layer.wq)
-            let xk = mpsMul(v: h_norm, by: layer.wk).repeated(kvRepeats)
-            let xv = mpsMul(v: h_norm, by: layer.wv).repeated(kvRepeats)
-
+            let xk = mpsMul(v: h_norm, by: layer.wk).repeated2(kvRepeats)
+            let xv = mpsMul(v: h_norm, by: layer.wv).repeated2(kvRepeats)
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
             
@@ -105,6 +106,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                 xq_heads[i].mul(complexArray: freqsCis[thisToken])
                 xk_heads[i].mul(complexArray: freqsCis[thisToken])
             }
+
             
             xkLayerTokenHead[layerNo].append(xk_heads)
             xvLayerToken[layerNo].append(xv)
@@ -114,13 +116,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 
             let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
 
+            
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
             let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
             let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)
-
+            
             h.add(by: attnFfnOut)
 
             let fxn = h.rmsNormed()
