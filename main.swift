@@ -15,17 +15,9 @@ let gpu = Gpu()
 print("loading")
 
 let modelData = Model(from: "shape.json")
-//var tokens = loadTokens()
 
 var tokens = [Vector]()
-//Albert Einstein was born in
-//let tokIds = [1, 10537, 2694, 5465, 471, 6345, 297, 29871]
-//Benefits of a car made of jelly beans is better
-//let tokIds = [1, 319, 1559, 1754, 310, 12736, 368, 367, 550, 338, 2253]
-//Back to the future IV is about
-//let tokIds = [1, 7437, 304, 278, 5434, 6599, 338, 1048]
-let tokIds = [1, 1602,
-              460]//733, 16289, 28793, 11447, 460, 368, 28804, 28792, 28748, 16289, 28793]
+let tokIds = [1, 1602, 460] // "How are"
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -33,7 +25,6 @@ for t in tokIds {
     tokens.append(tokEmbeddings[t])
 }
 os_signpost(.end, log: log, name: "Loading")
-
 
 let headDim = 128  // Example head dimension
 let numHeadsKV = 8
@@ -50,7 +41,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 let goCapture = false
 var numLayers = 32
-var numTokens = 11
+var numTokens = 25
 
 if goCapture {
     numLayers = 4
@@ -59,7 +50,6 @@ if goCapture {
 
 gpu.eval()
 
-//let t = Tokeniser()
 
 func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
     var tokens = _tokens
@@ -85,12 +75,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 
     print("Begin token calc")
     var startTime = Date()
-    for thisToken in 0...numTokens { //numTokens
-        print(thisToken)
-        print("tokensThistoken", tokens[thisToken].str)
-
+    for thisToken in 0...numTokens {
         h = tokens[thisToken].copy()
-        print("x", h.str)
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
             let h_norm = h.rmsNormed()
@@ -129,10 +115,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             let fxn = h.rmsNormed()
 
             fxn.mul(by:layer.ffnNorm)
-            // ok until here
             let gateOut = Vector(shape: [8])
             mpsMul(v:fxn, by:layer.ffnGate, out:gateOut)
-            gpu.eval()
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = Vector(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexVector: gateIdxs, outValueVector: gateVals)
@@ -141,8 +125,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
                                       ])
             gateVals.softmax()
-            gpu.eval()
-            
             for i in 0..<2 {
                 let expert = experts[i]
                 mpsMul(v: fxn, by:expert.w1, out: x1)
@@ -152,35 +134,21 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
             ffnOut[0].add(by: ffnOut[1])
-            
-            
-            /*
-                mpsMul(v: fxn, by:layer.w1, out: x1)
-                mpsMul(v: fxn, by:layer.w3, out: x3)
-                silu(x1, x3, out: x2)
-                mpsMul(v: x2, by: layer.w2, out: ffn_out)
-//            }*/
             h.add(by: ffnOut[0])
-            print(h.str)
         }
-        print("eval")
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
+
         let outputVector = Vector(shape:[modelData.output.outSize])
         mpsMul(v: outNormed, by: modelData.output, out: outputVector)
-        //archive["output \(thisToken)"] = outputVector
         let topKVector = mpsTopK(v: outputVector)
-        //archive["topK \(thisToken)"] = topKVector
         gpu.eval()
         let topToken = Int(topKVector.getInt(index: 0))
-///        let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-//        tokens.append()
-        print(topKVector.str)
-        print(t.decode([topToken]))
 
-        
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+        print("Token: ", t[topToken])
+
         if (thisToken == 0) {
             if goCapture {
                 gpu.startCapture()

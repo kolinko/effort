@@ -9,6 +9,14 @@ import Foundation
 
 class Tokeniser {
     let data : [String: String]
+
+    subscript(token: Int) -> String {
+        return data[String(token)]!
+    }
+
+    func decode(_ token: Int) -> String {
+        return data[String(token)]!
+    }
     
     func decode(_ tokens: [Int], delim: String = ";") -> String {
         var out = ""

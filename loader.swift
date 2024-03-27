@@ -23,7 +23,6 @@ class Weights {
     }
     
     init(elName: String, shapeDict: [String: [Int]]) {
-        print(elName)
         let shape = shapeDict[elName]!
         self.core = Matrix(fname: elName+".core.bin", shape: shape)
         self.buckets = Matrix(fname: elName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
