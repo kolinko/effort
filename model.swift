@@ -129,8 +129,13 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return outStr
     }
     
-    func getInt(index: Int) -> Int16 {
-        var floatStorage: Type = self[index * self.byteSize / 2]
+    func getInt(index: Int, byteSize: Int? = nil) -> Int16 {
+        var floatStorage: Type
+//        if byteSize == nil {
+            floatStorage = self[index]
+//        } else {
+//            floatStorage = self[index]
+//        }
         var intStorage: Int16 = 0
 
         withUnsafePointer(to: &floatStorage) { floatPointer in

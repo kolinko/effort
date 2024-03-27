@@ -129,18 +129,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             let fxn = h.rmsNormed()
 
             fxn.mul(by:layer.ffnNorm)
-
+            // ok until here
             let gateOut = Vector(shape: [8])
             mpsMul(v:fxn, by:layer.ffnGate, out:gateOut)
-            gateOut.neg()
-            let gateIdxs = VectorFloat(shape:[4])
-            let gateVals = Vector(shape:[4])
-            mpsTopK(v: gateOut, topK: 4, outIndexVector: gateIdxs, outValueVector: gateVals)
+            gpu.eval()
+            let gateIdxs = VectorFloat(shape:[2])
+            let gateVals = Vector(shape:[2])
+            mpsTopK(v: gateOut, topK: 2, outIndexVector: gateIdxs, outValueVector: gateVals)
             gpu.eval()
             let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))],
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
                                       ])
             gateVals.softmax()
+            gpu.eval()
             
             for i in 0..<2 {
                 let expert = experts[i]
@@ -160,12 +161,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                 mpsMul(v: x2, by: layer.w2, out: ffn_out)
 //            }*/
             h.add(by: ffnOut[0])
-
+            print(h.str)
         }
         print("eval")
         archive["token \(thisToken)"] = h.copy()
+        let outNormed = h.rmsNormed()
+        outNormed.mul(by: modelData.norm.asVector())
         let outputVector = Vector(shape:[modelData.output.outSize])
-        mpsMul(v: h, by: modelData.output, out: outputVector)
+        mpsMul(v: outNormed, by: modelData.output, out: outputVector)
         //archive["output \(thisToken)"] = outputVector
         let topKVector = mpsTopK(v: outputVector)
         //archive["topK \(thisToken)"] = topKVector
