@@ -548,6 +548,7 @@ class BucketMul {
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
         
+        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
         gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
         probes.sort()
 
@@ -563,8 +564,8 @@ class BucketMul {
         let v = v32.asFloat16Vector()
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
-        
-        gpu.deploy("probe", buffers:[v, w.core, probes], ints:[w.inSize], threadCount: probesCount)
+        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
         probes.sort()
 
         let q = Int(Double(probesCount)*(1-quant))
