@@ -333,9 +333,6 @@ class Vector: Bufferable<Float16> {
     
     func repeated(_ count: Int) -> Vector {
         let output = Vector(shape: [count*self.rows])
-/*        gpu.deploy("repeat", buffers: [self, output], threadCount: self.rows)
-        gpu.eval()
-        return output*/
         
         let vecs = output.reshaped(newCols: self.rows)
         for i in 0..<count {
