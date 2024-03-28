@@ -10,17 +10,17 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
-func mpsMul(v: Vector, by: Weights) -> Vector {
-    let out = Vector(shape:[by.outSize])
+func mpsMul(v: VectorFloat, by: Weights) -> VectorFloat {
+    let out = VectorFloat(shape:[by.outSize])
     mpsMul(v: v, by: by.core, out: out)
     return out
 }
 
-func mpsMul(v: Vector, by: Weights, out: Vector) {
-    mpsMul(v: v, by: by.core, out: out)
+func mpsMul(v vector: VectorFloat, by weights: Weights, out result: VectorFloat) {
+    mpsMul(v: vector, by: weights.core, out: result)
 }
 
-func mpsMul(v vector: Vector, by weights: Matrix, out result: Vector) {
+func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     result.zero()
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
@@ -52,53 +52,34 @@ func mpsMul(v vector: Vector, by weights: Matrix, out result: Vector) {
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
 }
 
-func mpsTopK(v: Vector, topK: Int = 16)  -> Vector {
+func mpsTopK(v: VectorFloat, topK: Int = 16)  -> VectorFloat {
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
-    let rowCount: Int = v.rows// Number of rows in your matrix
+    let topKIdxs = VectorFloat(shape:[topK])
+    let topKVals = VectorFloat(shape:[topK])
+
+    mpsTopK(v: v, outIndexes: topKIdxs, outValues: topKVals)
     
-    // Create MPSMatrixDescriptors for the matrix and the vector
-    let matrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: rowCount, rowBytes: rowCount * MemoryLayout<Float16>.stride, dataType: .float16)
-    let matrix = MPSMatrix(buffer: v.buffer, descriptor: matrixDescriptor)
-
-    let outMatrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: topK, rowBytes: topK * MemoryLayout<Float16>.stride, dataType: .float16)
-
-    let topKValueBuffer = gpu.device.makeBuffer(length: topK * MemoryLayout<Float16>.size, options: .storageModeShared)!
-    let topKVector = Vector(shape:[topK*2])
-    let valueMatrix = MPSMatrix(buffer: topKValueBuffer, descriptor: outMatrixDescriptor)
-    let indexMatrix = MPSMatrix(buffer: topKVector.buffer, descriptor: outMatrixDescriptor)
-
-    
-    // Create a MPSMatrixVectorMultiplication object to perform the multiplication
-    let findTopK = MPSMatrixFindTopK(device: gpu.device, numberOfTopKValues: topK)
-    
-    // Prepare a command buffer and encode the matrix-vector multiplication
-    gpu.encoder.endEncoding()
-
-    findTopK.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, resultIndexMatrix: indexMatrix, resultValueMatrix: valueMatrix)
-    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
-    return topKVector
+    return topKIdxs
 }
 
-
-func mpsTopK(v: Vector, topK: Int = 16, outIndexVector: VectorFloat, outValueVector: Vector) {
+func mpsTopK(v: VectorFloat, topK: Int = 16, outIndexes: VectorFloat, outValues: VectorFloat) {
     // Shapes of the matrix and vector
-    let rowCount: Int = v.rows// Number of rows in your matrix
+    assert(v.byteSize == 4)
+    assert(outIndexes.byteSize == 4)
+    assert(outValues.byteSize == 4)
+    assert(outIndexes.rows == topK)
+    assert(outValues.rows == topK)
     
-    let matrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: rowCount, rowBytes: rowCount * MemoryLayout<Float16>.stride, dataType: .float16)
+    let matrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: v.rows, rowBytes: v.rows * v.byteSize, dataType: .float32)
     let matrix = MPSMatrix(buffer: v.buffer, descriptor: matrixDescriptor)
 
-    assert(outIndexVector.rows == topK)
-    assert(outValueVector.rows == topK)
-    let outMatrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: topK, rowBytes: topK * MemoryLayout<Float16>.stride, dataType: .float16)
-    let valueMatrix = MPSMatrix(buffer: outValueVector.buffer, descriptor: outMatrixDescriptor)
-    let indexMatrix = MPSMatrix(buffer: outIndexVector.buffer, descriptor: outMatrixDescriptor)
+    let outMatrixDescriptor = MPSMatrixDescriptor(rows: 1, columns: topK, rowBytes: topK * outIndexes.byteSize, dataType: .float32)
+    let valueMatrix = MPSMatrix(buffer: outValues.buffer, descriptor: outMatrixDescriptor)
+    let indexMatrix = MPSMatrix(buffer: outIndexes.buffer, descriptor: outMatrixDescriptor)
 
-
-    // Create a MPSMatrixVectorMultiplication object to perform the multiplication
     let findTopK = MPSMatrixFindTopK(device: gpu.device, numberOfTopKValues: topK)
     
-    // Prepare a command buffer and encode the matrix-vector multiplication
     gpu.encoder.endEncoding()
     findTopK.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, resultIndexMatrix: indexMatrix, resultValueMatrix: valueMatrix)
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!

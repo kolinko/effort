@@ -17,13 +17,13 @@ print("loading")
 
 let modelData = Model(from: "shape.json")
 
-var tokens = [Vector]()
+var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
 for t in tokIds {
-    tokens.append(tokEmbeddings[t])
+    tokens.append(tokEmbeddings[t].asFloat32())
 }
 os_signpost(.end, log: log, name: "Loading")
 
@@ -52,25 +52,20 @@ if goCapture {
 gpu.eval()
 
 
-func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
+func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
     var tokens = _tokens
-    var xkLayerTokenHead = Array(repeating: [[Vector]](), count: numLayers + 1)
-    var xvLayerToken = Array(repeating: [Vector](), count: numLayers)
+    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
+    var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
     
-    var h : Vector = tokens[0]
+    var h : VectorFloat = tokens[0]
 
     let hiddenSize = 14336//11008
     let stateSize = 4096
-
-    let x1 = Vector(shape:[hiddenSize])
-    let x3 = Vector(shape:[hiddenSize])
-    let x2 = Vector(shape:[hiddenSize])
-    var ffnOut = [Vector]([Vector(shape:[stateSize]), Vector(shape:[stateSize])])
     
-    let x1_32 = VectorFloat(shape:[hiddenSize])
-    let x3_32 = VectorFloat(shape:[hiddenSize])
-    let x2_32 = VectorFloat(shape:[hiddenSize])
-    let ffn_out32 = [VectorFloat]([VectorFloat(shape:[stateSize]), VectorFloat(shape:[stateSize])])
+    let x1 = VectorFloat(shape:[hiddenSize])
+    let x3 = VectorFloat(shape:[hiddenSize])
+    let x2 = VectorFloat(shape:[hiddenSize])
+    let ffnOut = [VectorFloat]([VectorFloat(shape:[stateSize]), VectorFloat(shape:[stateSize])])
     
     let archive = Archive()
 
@@ -83,9 +78,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
 
-            let xq = mpsMul(v: h_norm, by: layer.wq)
-            let xk = mpsMul(v: h_norm, by: layer.wk).repeated2(kvRepeats)
-            let xv = mpsMul(v: h_norm, by: layer.wv).repeated2(kvRepeats)
+            let xq : VectorFloat = mpsMul(v: h_norm, by: layer.wq)
+            let xk : VectorFloat = mpsMul(v: h_norm, by: layer.wk).repeated(kvRepeats)
+            let xv : VectorFloat = mpsMul(v: h_norm, by: layer.wv).repeated(kvRepeats)
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
             
@@ -103,7 +98,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
 
             let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
 
-            
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
@@ -116,11 +110,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             let fxn = h.rmsNormed()
 
             fxn.mul(by:layer.ffnNorm)
-            let gateOut = Vector(shape: [8])
+            let gateOut = VectorFloat(shape: [8])
             mpsMul(v:fxn, by:layer.ffnGate, out:gateOut)
             let gateIdxs = VectorFloat(shape:[2])
-            let gateVals = Vector(shape:[2])
-            mpsTopK(v: gateOut, topK: 2, outIndexVector: gateIdxs, outValueVector: gateVals)
+            let gateVals = VectorFloat(shape:[2])
+            mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
+
             gpu.eval()
             let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))],
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
@@ -128,15 +123,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             gateVals.softmax()
             for i in 0..<2 {
                 let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 0.2)
-                bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 0.2)
-                silu(x1_32, x3_32, out: x2_32)
-                bucketMul(v: x2_32, by: expert.w2, out: ffn_out32[i], quant: 0.7)
-                ffn_out32[i].mul(by: gateVals.scalarAt(i))
+                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 1)
+                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 1)
+                silu(x1, x3, out: x2)
+                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 1)
+                ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
-            ffnOut[0].add(by: ffnOut[1])
             h.add(by: ffnOut[0])
+            h.add(by: ffnOut[1])
 
 
         }
@@ -144,7 +139,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
 
-        let outputVector = Vector(shape:[modelData.output.outSize])
+        let outputVector = VectorFloat(shape:[modelData.output.outSize])
         mpsMul(v: outNormed, by: modelData.output, out: outputVector)
         let topKVector = mpsTopK(v: outputVector)
         gpu.eval()
@@ -166,8 +161,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             gpu.eval()
             let topToken = Int(topKVector.getInt(index: 0))
             let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-            tokens.append(tokEmbeddings[topToken])
-
+            tokens.append(tokEmbeddings[topToken].asFloat32())
         }
     }
 

@@ -8,6 +8,10 @@
 #include <metal_stdlib>
 using namespace metal;
 
+#define numHeads 32
+#define headDim 128  // llama head dim
+#define numDims numHeads*headDim
+
 kernel void zero16(device half* v[[buffer(0)]],
                     uint id [[thread_position_in_grid]]) {
     v[id] = 0;
@@ -29,16 +33,42 @@ kernel void neg32(device float* v[[buffer(0)]],
     v[id] = -v[id];
 }
 
-kernel void mulScalar16(device half* v [[buffer(0)]],
+kernel void mulScalar16x16(device half* v [[buffer(0)]],
                 const device half* s [[buffer(1)]],
                 uint id [[thread_position_in_grid]]) {
     v[id] = v[id]*s[0];
 }
 
-kernel void mulScalar32(device float* v [[buffer(0)]],
+kernel void mulScalar32x16(device float* v [[buffer(0)]],
                 const device half* s [[buffer(1)]],
                 uint id [[thread_position_in_grid]]) {
     v[id] = v[id]*s[0];
+}
+
+kernel void mulScalar16x32(device half* v [[buffer(0)]],
+                            const device float* s [[buffer(1)]],
+                uint id [[thread_position_in_grid]]) {
+    v[id] = v[id]*s[0];
+}
+
+kernel void mulScalar32x32(device float* v [[buffer(0)]],
+                const device float* s [[buffer(1)]],
+                uint id [[thread_position_in_grid]]) {
+    v[id] = v[id]*s[0];
+}
+
+kernel void add16(const device half* v [[buffer(0)]],
+                const device half* w [[buffer(1)]],
+                device half* out [[buffer(2)]],
+                uint id [[thread_position_in_grid]]) {
+    out[id] = v[id]+w[id];
+}
+
+kernel void add32(const device float* v [[buffer(0)]],
+                const device float* w [[buffer(1)]],
+                device float* out [[buffer(2)]],
+                uint id [[thread_position_in_grid]]) {
+    out[id] = v[id]+w[id];
 }
 
 
@@ -53,19 +83,20 @@ kernel void strictDiff(const device half* a [[buffer(0)]],
 
 // rms norm
 
-kernel void rms_norm(device half* input [[buffer(0)]],
-                             device half* output [[buffer(1)]],
-                             const device int& count [[buffer(2)]],
+kernel void rmsNorm32(device float* input [[buffer(0)]],
+                             device float* output [[buffer(1)]],
+                             uint count [[threads_per_grid]],
                              uint id [[thread_position_in_grid]]) {
     float sum = 0;
-    for (int i=0; i<count; i++) {
+    for (uint i=0; i<count; i++) {
         sum += float(input[i]) * float(input[i]);
     }
+    
     output[id] = input[id] / sqrt(sum/count + 1e-6);
 }
 
 /* unused below ?*/
-
+/*
 kernel void sum_of_squares(const device half* input [[buffer(0)]],
                            device atomic_float* sum [[buffer(1)]],
                            uint id [[thread_position_in_grid]]) {
@@ -80,56 +111,60 @@ kernel void normalize_vector(device half* input [[buffer(0)]],
                              uint id [[thread_position_in_grid]]) {
     float mean = sum[0]/count;
     output[id] = input[id] / sqrt(mean + 1e-6);
-}
+}*/
 
 // softmax
-kernel void sum_of_exps(const device half* input [[buffer(0)]],
-                           device atomic_float* sum [[buffer(1)]],
-                           uint id [[thread_position_in_grid]]) {
+kernel void sum_of_exps32(const device float* input [[buffer(0)]],
+                          device atomic_float* sum [[buffer(1)]],
+                          uint id [[thread_position_in_grid]]) {
+    
     atomic_fetch_add_explicit(sum, exp(input[id]), memory_order_relaxed);
 }
 
-kernel void softmax_add(device half* vec [[buffer(0)]],
-                             device float* sum [[buffer(1)]],
-                        uint id [[thread_position_in_grid]]) {
-    vec[id] = exp(float(vec[id]))/sum[0];
-}
-// simple ones
-kernel void repeat(const device half* v [[buffer(0)]],
-                   device half* out [[buffer(1)]],
-                   uint2 id [[thread_position_in_grid]]) {
-    for(int i = 0; i<4; i++) {
-        out[id.x+i*128+id.y*128*4] = v[id.x+(id.y*128)];
-    }
+kernel void softmax_add32(device float* vec [[buffer(0)]],
+                          device float* sum [[buffer(1)]],
+                          uint id [[thread_position_in_grid]]) {
+    
+    vec[id] = exp(vec[id]) / sum[0];
 }
 
-kernel void mul_vec(const device half* v [[buffer(0)]],
-                const device half* w [[buffer(1)]],
-                device half* out [[buffer(2)]],
-                uint id [[thread_position_in_grid]]) {
+
+kernel void repeat4x32(const device float* v [[buffer(0)]],
+                   device float* out [[buffer(1)]],
+                   uint2 id [[thread_position_in_grid]],
+                   uint2 tpg [[threads_per_grid]]) {
+    
+    for(int i = 0; i<4; i++) {
+        out[id.x+i*tpg.x+id.y*tpg.x*4] = v[id.x+(id.y*tpg.x)];
+    }
+    
+}
+
+kernel void mulVec16by16(const device half* v [[buffer(0)]],
+                         const device half* w [[buffer(1)]],
+                         device half* out [[buffer(2)]],
+                         uint id [[thread_position_in_grid]]) {
     out[id] = v[id]*w[id];
 }
 
-kernel void add_vec(const device half* v [[buffer(0)]],
-                const device half* w [[buffer(1)]],
-                device half* out [[buffer(2)]],
-                uint id [[thread_position_in_grid]]) {
-    out[id] = v[id]+w[id];
+kernel void mulVec32by16(const device float* v [[buffer(0)]],
+                         const device half* w [[buffer(1)]],
+                         device float* out [[buffer(2)]],
+                         uint id [[thread_position_in_grid]]) {
+    out[id] = v[id]*w[id];
 }
 
-kernel void mul_complex(device half2* v [[buffer(0)]],
-                        const device half2* comp [[buffer(1)]],
+
+kernel void mulComplex32(device float2* v [[buffer(0)]],
+                        const device float2* comp [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {
     
-    half2 num1 = v[id];
-    half2 num2 = comp[id];
+    float a = v[id].x;
+    float b = v[id].y;
+    float c = comp[id].x;
+    float d = comp[id].y;
     
-    half a = num1.x;
-    half b = num1.y;
-    half c = num2.x;
-    half d = num2.y;
-    
-    half2 out;
+    float2 out;
     out.x = a * c - b * d;
     out.y = a * d + b * c;
     
@@ -143,29 +178,28 @@ kernel void floatToHalf(const device float *inVec,
     outVec[id] = inVec[id];
 }
 
-kernel void cosinePrecalc(const device float *A,
-                                   const device half *B,
-                                   device atomic_float *dotProduct,
-                                   device atomic_float *magnitudeA,
-                                   device atomic_float *magnitudeB,
-                                   uint id [[thread_position_in_grid]]) {
-    // Compute dot product and magnitudes for cosine similarity
-    atomic_fetch_add_explicit(dotProduct, A[id] * B[id], memory_order_relaxed);
-    atomic_fetch_add_explicit(magnitudeA, A[id] * A[id], memory_order_relaxed);
-    atomic_fetch_add_explicit(magnitudeB, B[id] * B[id], memory_order_relaxed);
+kernel void halfToFloat(const device half *inVec,
+                        device float *outVec,
+                        uint id [[thread_position_in_grid]]) {
+    outVec[id] = inVec[id];
 }
 
-kernel void cosinePrecalc16(const device half *A,
-                                   const device half *B,
-                                   device atomic_float *dotProduct,
-                                   device atomic_float *magnitudeA,
-                                   device atomic_float *magnitudeB,
-                                   uint id [[thread_position_in_grid]]) {
+
+
+kernel void cosinePrecalc32(const device float *A,
+                            const device float *B,
+                            device atomic_float *dotProduct,
+                            device atomic_float *magnitudeA,
+                            device atomic_float *magnitudeB,
+                            uint id [[thread_position_in_grid]]) {
+    
     // Compute dot product and magnitudes for cosine similarity
     atomic_fetch_add_explicit(dotProduct, A[id] * B[id], memory_order_relaxed);
     atomic_fetch_add_explicit(magnitudeA, A[id] * A[id], memory_order_relaxed);
     atomic_fetch_add_explicit(magnitudeB, B[id] * B[id], memory_order_relaxed);
+    
 }
+
 
 kernel void cosineCalc(device float *dotProduct,
                        device float *magnitudeA,
@@ -175,19 +209,22 @@ kernel void cosineCalc(device float *dotProduct,
 
 
 // dotproduct & scores
-kernel void memcpy(const device half* src [[buffer(0)]],
-                device half* dst [[buffer(1)]],
-                   uint id [[thread_position_in_grid]]) {
+kernel void memcpy16(const device half* src [[buffer(0)]],
+                     device half* dst [[buffer(1)]],
+                     uint id [[thread_position_in_grid]]) {
     dst[id] = src[id];
 }
 
-#define numHeads 32
-#define headDim 128  // llama head dim
-#define numDims numHeads*headDim
+kernel void memcpy32(const device float* src [[buffer(0)]],
+                     device float* dst [[buffer(1)]],
+                     uint id [[thread_position_in_grid]]) {
+    dst[id] = src[id];
+}
 
-kernel void sumScores(const device half* scores [[buffer(0)]],
-                      const device half* xvToken [[buffer(1)]],
-                      device half* out [[buffer(2)]],
+
+kernel void sumScores32(const device float* scores [[buffer(0)]],
+                      const device float* xvToken [[buffer(1)]],
+                      device float* out [[buffer(2)]],
                       const device int& numTokens [[buffer(3)]],
                       uint id [[thread_position_in_grid]]) {
     float suma = 0.0;
@@ -198,9 +235,11 @@ kernel void sumScores(const device half* scores [[buffer(0)]],
     out[id] = suma;
 }
 
+
+
 // setScore
 
-
+/*
 kernel void dotSetScore(const device half* v [[buffer(0)]],
                         const device half* w [[buffer(1)]],
                         device half* target [[buffer(2)]],
@@ -212,11 +251,11 @@ kernel void dotSetScore(const device half* v [[buffer(0)]],
     }
     
     target[0] = sum / sqrt(float(headDim));
-}
+}*/
 
-kernel void dotSetScore2(const device half* v [[buffer(0)]],
-                        const device half* w [[buffer(1)]],
-                        device half* target [[buffer(2)]],
+kernel void dotSetScore32(const device float* v [[buffer(0)]],
+                        const device float* w [[buffer(1)]],
+                        device float* target [[buffer(2)]],
                         const device int& chunkSize [[buffer(3)]],
                         ushort id [[thread_position_in_grid]],
                         ushort tiisg [[thread_index_in_simdgroup]],
@@ -245,7 +284,7 @@ kernel void dotSetScore2(const device half* v [[buffer(0)]],
         }
         assert(tiisg == 0);
         assert(sgiitg == 0);
-        target[0] = sum/sqrt(float(headDim));
+        target[0] = sum / sqrt(float(headDim));
     }
 }
 

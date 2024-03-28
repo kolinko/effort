@@ -20,6 +20,8 @@ class Gpu {
     let commandQueue : MTLCommandQueue
     let device : MTLDevice
     
+    var warnOfEvals = false
+    
     init() {
         let devices = MTLCopyAllDevices()
         assert(!devices.isEmpty, "No Metal devices available")
@@ -59,7 +61,10 @@ class Gpu {
     
     
     func eval() {
-//        print("EVAL")
+        if self.warnOfEvals {
+            print("warn: EVAL")
+        }
+        
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -67,7 +72,13 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
-    func deploy(_ fname: String, buffers: [MTLBufferable], ints: [Int] = [], float16s: [Float16] = [], threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1, threadGroupSize tgs: [Int] = [32,1,1]) {
+    func deploy(_ fname: String, 
+                buffers: [MTLBufferable],
+                ints: [Int] = [],
+                float16s: [Float16] = [],
+                threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1,
+                threadGroupSize tgs: [Int] = [32, 1, 1]) {
+        
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
@@ -80,18 +91,23 @@ class Gpu {
 
         encoder.setComputePipelineState(internalState)
 
-        for i in 0..<buffers.count {
-            encoder.setBuffer(buffers[i].buffer, offset: buffers[i].offsetBytes , index: i)
+        var idx = 0
+        
+        for b in buffers {
+            encoder.setBuffer(b.buffer, offset: b.offsetBytes , index: idx)
+            idx += 1
         }
 
-        for i in 0..<ints.count {
-            var x: Int = ints[i]
-            encoder.setBytes(&x, length: MemoryLayout<Int>.stride, index: i+buffers.count)
+        for i in ints {
+            var val = i
+            encoder.setBytes(&val, length: MemoryLayout<Int>.stride, index: idx)
+            idx += 1
         }
 
-        for i in 0..<float16s.count {
-            var x: Float16 = float16s[i]
-            encoder.setBytes(&x, length: MemoryLayout<Float16>.stride, index: i+buffers.count+ints.count)
+        for i in float16s {
+            var val = i
+            encoder.setBytes(&val, length: MemoryLayout<Float16>.stride, index: idx)
+            idx += 1
         }
         
         encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)

@@ -73,6 +73,8 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
     }
 
     override init(fname: String, shape: [Int]) {
+        assert(shape.count > 0)
+        assert(shape.reduce(1, *) > 0)
         self.byteSize = MemoryLayout<Type>.size
         self.bitSize = byteSize * 8
         assert((byteSize == 4) || (byteSize == 2), "untested for others")
@@ -83,6 +85,9 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
     }
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
+        assert(shape.count > 0)
+        assert(shape.reduce(1, *) > 0)
+
         self.byteSize = MemoryLayout<Type>.size
         self.bitSize = byteSize * 8
 
@@ -115,14 +120,29 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         gpu.deploy("neg\(bitSize)", buffers: [self], threadCount: self.count)
     }
     
+    func mul(by s: Scalar) {
+        gpu.deploy("mulScalar\(bitSize)by16", buffers:[self, s], threadCount:self.count)
+    }
+
+    func mul(by s: ScalarFloat) {
+        gpu.deploy("mulScalar\(bitSize)by32", buffers:[self, s], threadCount:self.count)
+    }
+
+    
+    func add(by buf: Bufferable<Type>) {
+        assert(self.shape == buf.shape, "Shapes of both buffers must match")
+
+        gpu.deploy("add\(bitSize)", buffers:[self, buf, self], threadCount: self.rows)
+    }
+
+    func copyFrom(_ src: Bufferable<Type>) {
+        assert(src.count == self.count)
+        gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.rows)
+    }
+    
     var str: String {
         return _str()
     }
-    
-    func mul(by s: Scalar) {
-        gpu.deploy("mulScalar\(bitSize)", buffers:[self, s], threadCount:self.count)
-    }
-
     
     func _str(count: Int = 10, noEval: Bool = false) -> String {
         if !noEval { gpu.eval() }
@@ -134,13 +154,10 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return outStr
     }
     
-    func getInt(index: Int, byteSize: Int? = nil) -> Int16 {
+    func getInt(index: Int) -> Int16 {
         var floatStorage: Type
-//        if byteSize == nil {
             floatStorage = self[index]
-//        } else {
-//            floatStorage = self[index]
-//        }
+
         var intStorage: Int16 = 0
 
         withUnsafePointer(to: &floatStorage) { floatPointer in
@@ -224,6 +241,10 @@ class ScalarFloat: Bufferable<Float> {
         self.init(shape: [1])
         self[0] = value;
     }
+    
+    convenience init(buffer: MTLBuffer, offset: Int = 0) {
+        self.init(shape: [1], buffer: buffer, offset: offset)
+    }
 }
 
 
@@ -258,6 +279,26 @@ class Matrix: Bufferable<Float16> {
     }
 }
 
+class MatrixFloat: Bufferable<Float> {
+    func asVector() -> VectorFloat {
+        return VectorFloat(shape: [self.count], buffer: self.buffer)
+    }
+        
+    func asVectorList() -> [VectorFloat] {
+        var out = [VectorFloat]()
+        out.reserveCapacity(self.rows)
+        for i in 0..<self.rows {
+            out.append(VectorFloat(shape:[self.cols!], buffer:self.buffer, offset: i*self.cols!))
+        }
+        return out
+    }
+    
+    func scalarAt(_ row: Int, _ col: Int) -> ScalarFloat {
+        return ScalarFloat(buffer: self.buffer, offset: row*self.cols! + col)
+    }
+
+}
+
 class DynaVectorFloat: VectorFloat {
     let size: ScalarFloat = ScalarFloat(value:0)
 }
@@ -265,22 +306,37 @@ class DynaVectorFloat: VectorFloat {
 let _normABuffer = ScalarFloat(value: 0)
 let _normBBuffer = ScalarFloat(value: 0)
 let _rms = ScalarFloat(value: 0.0)
+let _dotBuffer = ScalarFloat(value:0)
 
 
 class VectorFloat: Bufferable<Float> {
-    func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
-        let dotBuffer = ScalarFloat(value:0)
+    
+    func cosineSimilarityTo(_ vec: VectorFloat) -> Float {
         _normABuffer.zero()
         _normBBuffer.zero()
-        gpu.deploy("cosinePrecalc", buffers: [self, vec, dotBuffer, _normABuffer, _normBBuffer], threadCount: self.rows)
-        gpu.deploy("cosineCalc", buffers: [dotBuffer, _normABuffer, _normBBuffer], threadCount: 1)
+        _dotBuffer.zero()
+        gpu.deploy("cosinePrecalc32", buffers: [self, vec, _dotBuffer, _normABuffer, _normBBuffer], threadCount: self.rows)
+        gpu.deploy("cosineCalc32", buffers: [_dotBuffer, _normABuffer, _normBBuffer], threadCount: 1)
         gpu.eval()
-        return dotBuffer
+        return _dotBuffer[0]
     }
 
-    func asFloat16Vector() -> Vector {
+    func strictCompareTo(_ vec: VectorFloat) -> Bool {
+        _normABuffer.zero()
+        gpu.deploy("strictDiff32", buffers: [self, vec, _normABuffer], threadCount: self.rows)
+        gpu.eval()
+        return _normABuffer[0] == 0
+    }
+    
+    func asFloat16() -> Vector {
         let out = Vector(shape:[self.rows])
         gpu.deploy("floatToHalf", buffers: [self, out], threadCount: self.rows)
+        return out
+    }
+    
+    func copy() -> VectorFloat {
+        let out = VectorFloat(shape:self.shape)
+        gpu.deploy("memcpy\(self.bitSize)", buffers: [self, out], threadCount: self.rows)
         return out
     }
     
@@ -300,17 +356,58 @@ class VectorFloat: Bufferable<Float> {
         assert(out[1][0] == self[1*newCols])
         return out
     }
+    
+    func scalarAt(_ row: Int) -> ScalarFloat {
+        return ScalarFloat(buffer: self.buffer, offset: row)
+    }
+    
+    func rmsNormed() -> VectorFloat {
+        let output = VectorFloat(shape: self.shape)
+        gpu.deploy("rmsNorm32", buffers: [self, output], threadCount: self.count)
+
+        return output
+    }
+    
+    func softmax() {
+        _rms.zero()
+        gpu.deploy("sum_of_exps32", buffers: [self, _rms], threadCount: self.rows)
+        gpu.deploy("softmax_add32", buffers: [self, _rms], threadCount: self.rows)
+    }
+    
+    func mul(by wa: Vector) {
+        assert(self.shape == wa.shape)
+        gpu.deploy("mulVec32by16", buffers:[self, wa, self], threadCount:self.rows)
+    }
+    
+    func mul(complexArray: VectorFloat) {
+        assert(self.rows == complexArray.rows, "Layer size must be twice the size of the complex array")
+        gpu.deploy("mulComplex32", buffers: [self, complexArray], threadCount: self.rows / 2)
+    }
+    
+    func repeated(_ count: Int) -> VectorFloat {
+        assert(self.rows == 128*8)
+        let output = VectorFloat(shape: [count*self.rows])
+        gpu.deploy("repeat4x32", buffers: [self, output], threadCount: 128, threadCountY: 8)
+        return output
+    }
+    
 }
 
 
 class Vector: Bufferable<Float16> {
-    func strictCompareTo(_ vec: Vector) -> Bool {
-        _normABuffer.zero()
-        gpu.deploy("strictDiff", buffers: [self, vec, _normABuffer], threadCount: self.rows)
-        gpu.eval()
-        return _normABuffer[0] == 0
+    func copy() -> Vector {
+        let out = Vector(shape:self.shape)
+        gpu.deploy("memcpy\(self.bitSize)", buffers: [self, out], threadCount: self.rows)
+        return out
+    }
+
+    func asFloat32() -> VectorFloat {
+        let out = VectorFloat(shape:[self.rows])
+        gpu.deploy("halfToFloat", buffers: [self, out], threadCount: self.rows)
+        return out
     }
     
+    /*
     func cosineSimilarityTo(_ vec: Vector) -> ScalarFloat {
         let dotBuffer = ScalarFloat(value:0)
         _normABuffer.zero()
@@ -319,7 +416,7 @@ class Vector: Bufferable<Float16> {
         gpu.deploy("cosineCalc", buffers: [dotBuffer, _normABuffer, _normBBuffer], threadCount: 1)
         gpu.eval()
         return dotBuffer
-    }
+    }*/
     
     func scalarAt(_ row: Int) -> Scalar {
         return Scalar(buffer: self.buffer, offset: row)
@@ -329,55 +426,7 @@ class Vector: Bufferable<Float16> {
         assert(self.rows == vec.rows)
         gpu.deploy("floatToHalf", buffers: [vec, self], threadCount: self.rows)
     }
-    
-    func copy() -> Vector {
-        let out = Vector(shape:self.shape)
-        gpu.deploy("memcpy", buffers: [self, out], threadCount: self.rows)
-        return out
-    }
-    
-    func repeated(_ count: Int) -> Vector {
-        let output = Vector(shape: [count*self.rows])
-        
-        let vecs = output.reshaped(newCols: self.rows)
-        for i in 0..<count {
-            gpu.deploy("memcpy", buffers: [self, vecs[i]], threadCount: self.rows)
-        }
-        return output
-    }
-    
-    
-    func repeated2(_ count: Int) -> Vector {
-        let output = Vector(shape: [count*self.rows])
-        gpu.deploy("repeat", buffers: [self, output], threadCount: 128, threadCountY: 8) // self.rows
-        gpu.eval()
-        return output
-        
-        /*
-        let vecs = output.reshaped(newCols: self.rows)
-        for i in 0..<count {
-            gpu.deploy("memcpy", buffers: [self, vecs[i]], threadCount: self.rows)
-        }
-        return output*/
-    }
-    
-    func softmax() {
-        _rms.zero()
-        gpu.deploy("sum_of_exps", buffers: [self, _rms], threadCount: self.rows)
-        gpu.deploy("softmax_add", buffers: [self, _rms], threadCount: self.rows)
-    }
-    
-    func rmsNormed() -> Vector {
-        let layer = self
-        assert(layer.shape.count == 1, "Only for vectors")
-        
-        let output = Vector(shape: layer.shape)
-        gpu.deploy("rms_norm", buffers: [layer, output], ints: [self.count], threadCount: layer.count)
-
-        return output
-    }
-    
-    
+            
     func reshaped(newCols: Int) -> [Vector] {
         // Ensure that the original layer can be evenly divided by the new dimension size
         assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
@@ -395,27 +444,12 @@ class Vector: Bufferable<Float16> {
         return out
     }
     
-    
-    func add(by vector: Vector) {
-        assert(self.shape == vector.shape, "Shapes of both layers must match")
-
-        gpu.deploy("add_vec", buffers:[self, vector, self], threadCount: self.rows)
-    }
 
     func mul(by wa: Vector) {
         assert(self.shape == wa.shape)
         
-        gpu.deploy("mul_vec", buffers:[self, wa, self], threadCount:self.rows)
+        gpu.deploy("mulVec16by16", buffers:[self, wa, self], threadCount:self.rows)
     }
-    
-    func mul(complexArray: Vector) {
-        // Ensure the layer has the correct number of elements
-        let count: Int = self.shape[0] / 2
-        assert(self.shape[0] == complexArray.rows, "Layer size must be twice the size of the complex array")
-
-        gpu.deploy("mul_complex", buffers: [self, complexArray], threadCount: count)
-    }
-    
     
     func sort() {
         guard let logn = Int(exactly: log2(Double(self.rows))) else {
@@ -438,7 +472,7 @@ class Vector: Bufferable<Float16> {
  */
 
 
-func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
+func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
         assert(num>1)
         let step = (end - start) / Double(num)
@@ -448,13 +482,13 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
     assert(freqs[2] == 0.7498942093324559)
-    let heads = Matrix(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
+    let heads = MatrixFloat(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
             let freq = freqs[j]
             let angle = Float(i) * Float(freq)
-            let realPart = Float16(cos(angle))
-            let imagPart = Float16(sin(angle))
+            let realPart = cos(angle)
+            let imagPart = sin(angle)
             heads[i][j*2] = realPart
             heads[i][j*2+1] = imagPart
         }
@@ -464,45 +498,42 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [Vector] {
     return heads
 }
 
-func calcScores(xq_heads: [Vector], xkTokenHeads: [[Vector]]) -> [Vector] {
+func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [VectorFloat] {
     let numTokens = xkTokenHeads.count
-    let scores = Matrix(shape: [numHeads, numTokens])
+    let scores = MatrixFloat(shape: [numHeads, numTokens])
 
     for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
-            assert(xq_heads[headNo].rows == xkTokenHeads[t2][headNo].rows)
-//            gpu.deploy("dotSetScore", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
-//                       ints: [xq_heads[headNo].rows], threadCount:1)
-
             assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
             gpu.deploy("dotSetScore2", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
                        ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
- 
         }
     }
     
     return scores.asVectorList()
 }
 
-func gpuConsolidate(vecList:[Vector]) -> Matrix {
-    assert(vecList.count > 0)
-    let out = Matrix(shape:[vecList.count, vecList[0].rows])
+func gpuConsolidate(vecList src:[VectorFloat]) -> MatrixFloat {
+    assert(src.count > 0)
 
-    for i in 0..<vecList.count {
-        gpu.deploy("memcpy", buffers: [vecList[i], out.asVectorList()[i]], threadCount: vecList[i].rows)
+    let out = MatrixFloat(shape:[src.count, src[0].rows])
+    let outVecs = out.asVectorList()
+    
+    for i in 0..<src.count {
+        outVecs[i].copyFrom(src[i])
     }
 
     return out
 }
 
-func sumScores(numHeads: Int, headDim:Int, scores: [Vector], xvToken: [Vector]) -> Vector {
-    let outMatrix = Matrix(shape: [numHeads, headDim])
+func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [VectorFloat]) -> VectorFloat {
+    let outMatrix = MatrixFloat(shape: [numHeads, headDim])
     let scoresMatrix = gpuConsolidate(vecList: scores)
     let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
-    gpu.deploy("sumScores", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
+    gpu.deploy("sumScores32", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
     
     return outMatrix.asVector()
 }
@@ -561,7 +592,7 @@ class BucketMul {
     }
 
     func calcDispatch(v32: VectorFloat, weights w: Weights, quant: Double) {
-        let v = v32.asFloat16Vector()
+        let v = v32.asFloat16()
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
         assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")

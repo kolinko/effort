@@ -37,7 +37,7 @@ class OrderedDict<Value>: Sequence {
     }
 }
 
-class Archive : OrderedDict<Vector> {
+class Archive : OrderedDict<VectorFloat> {
     var addPrefix : String {
         get {return _addPrefix}
         set (pref){_addPrefix = pref;addIdx=0}
@@ -45,7 +45,7 @@ class Archive : OrderedDict<Vector> {
     private var _addPrefix = "idx"
     var addIdx = 0
 
-    func add(prefix pref: String? = nil, _ value: Vector, seriously: Bool = false) {
+    func add(prefix pref: String? = nil, _ value: VectorFloat) {
         let valueCopy = value.copy()
         if let pref = pref {
             super.self["\(pref) \(addIdx)"] = valueCopy
@@ -54,17 +54,16 @@ class Archive : OrderedDict<Vector> {
         }
         self.addIdx += 1
     }
-    func add(prefix pref: String = "idx", _ value: [Vector], seriously: Bool = false) {
+    func add(prefix pref: String = "idx", _ value: [VectorFloat]) {
         for item in value {
-            self.add(item, seriously: seriously)
+            self.add(item)
         }
     }
 
-    
     func cosineSimsTo(_ a2: Archive) -> OrderedDict<Float>{
         let out = OrderedDict<Float>()
         for (key, vec) in self {
-            out[key] = vec.cosineSimilarityTo(a2[key])[0]
+            out[key] = vec.cosineSimilarityTo(a2[key])
         }
         return out
     }
@@ -76,6 +75,5 @@ class Archive : OrderedDict<Vector> {
         }
         return out
     }
-
     
 }
