@@ -51,6 +51,20 @@ if goCapture {
 
 gpu.eval()
 
+var startTime = Date()
+
+var countToc = 0
+func tic() {
+    startTime = Date()
+    countToc = 0
+}
+
+func toc() {
+    print("toc \(countToc): \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+    countToc += 1
+}
+
+
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
     var tokens = _tokens
@@ -70,14 +84,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
     let archive = Archive()
 
     print("Begin token calc")
-    var startTime = Date()
+    tic()
     for thisToken in 0...numTokens {
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
-
+            toc()
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
             let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
@@ -123,10 +137,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             gateVals.softmax()
             for i in 0..<2 {
                 let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.3)
-                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.3)
+                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.5)
+                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.5)
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.3)
+                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 1)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
@@ -142,7 +156,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
         let topKVector = mpsTopK(v: outputVector)
         gpu.eval()
         let topToken = Int(topKVector.getInt(index: 0))
-
+        toc()
+//        exit(0)
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
         print("Token: ", t[topToken])
 
