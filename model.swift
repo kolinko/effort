@@ -119,6 +119,11 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return _str()
     }
     
+    func mul(by s: Scalar) {
+        gpu.deploy("mulScalar\(bitSize)", buffers:[self, s], threadCount:self.count)
+    }
+
+    
     func _str(count: Int = 10, noEval: Bool = false) -> String {
         if !noEval { gpu.eval() }
         let _count = count<self.rows ? count : self.rows
@@ -402,11 +407,6 @@ class Vector: Bufferable<Float16> {
         
         gpu.deploy("mul_vec", buffers:[self, wa, self], threadCount:self.rows)
     }
-
-    func mul(by s: Scalar) {
-        gpu.deploy("mulScalar", buffers:[self, s], threadCount:self.rows)
-    }
-
     
     func mul(complexArray: Vector) {
         // Ensure the layer has the correct number of elements

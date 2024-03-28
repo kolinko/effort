@@ -29,6 +29,18 @@ kernel void neg32(device float* v[[buffer(0)]],
     v[id] = -v[id];
 }
 
+kernel void mulScalar16(device half* v [[buffer(0)]],
+                const device half* s [[buffer(1)]],
+                uint id [[thread_position_in_grid]]) {
+    v[id] = v[id]*s[0];
+}
+
+kernel void mulScalar32(device float* v [[buffer(0)]],
+                const device half* s [[buffer(1)]],
+                uint id [[thread_position_in_grid]]) {
+    v[id] = v[id]*s[0];
+}
+
 
 kernel void strictDiff(const device half* a [[buffer(0)]],
                        const device half* b [[buffer(1)]],
@@ -96,11 +108,6 @@ kernel void mul_vec(const device half* v [[buffer(0)]],
                 device half* out [[buffer(2)]],
                 uint id [[thread_position_in_grid]]) {
     out[id] = v[id]*w[id];
-}
-kernel void mulScalar(device half* v [[buffer(0)]],
-                const device half* s [[buffer(1)]],
-                uint id [[thread_position_in_grid]]) {
-    v[id] = v[id]*s[0];
 }
 
 kernel void add_vec(const device half* v [[buffer(0)]],

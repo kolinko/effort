@@ -10,7 +10,6 @@ import Metal
 import simd
 
 
-
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
@@ -141,12 +140,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
             } else {
                 for i in 0..<2 {
                     let expert = experts[i]
-                    bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 0.7)
-                    bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 0.7)
+                    bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 0.2)
+                    bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 0.2)
                     silu(x1_32, x3_32, out: x2_32)
                     bucketMul(v: x2_32, by: expert.w2, out: ffn_out32[i], quant: 0.7)
+                    ffn_out32[i].mul(by: gateVals.scalarAt(i))
                     ffnOut[i] = ffn_out32[i].asFloat16Vector()
-                    ffnOut[i].mul(by: gateVals.scalarAt(i))
+//                    ffnOut[i].mul(by: gateVals.scalarAt(i))
                 }
             }
 
