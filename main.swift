@@ -126,28 +126,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [Vector]) -> Archive{
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
                                       ])
             gateVals.softmax()
-            if (!isTest) {
-                for i in 0..<2 {
-                    let expert = experts[i]
-                    mpsMul(v: fxn, by:expert.w1, out: x1)
-                    mpsMul(v: fxn, by:expert.w3, out: x3)
-                    silu(x1, x3, out: x2)
-                    mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
-                    ffnOut[i].mul(by: gateVals.scalarAt(i))
-                }
-
-
-            } else {
-                for i in 0..<2 {
-                    let expert = experts[i]
-                    bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 0.2)
-                    bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 0.2)
-                    silu(x1_32, x3_32, out: x2_32)
-                    bucketMul(v: x2_32, by: expert.w2, out: ffn_out32[i], quant: 0.7)
-                    ffn_out32[i].mul(by: gateVals.scalarAt(i))
-                    ffnOut[i] = ffn_out32[i].asFloat16Vector()
-//                    ffnOut[i].mul(by: gateVals.scalarAt(i))
-                }
+            for i in 0..<2 {
+                let expert = experts[i]
+                bucketMul(v: fxn, by: expert.w1, out: x1_32, quant: 0.2)
+                bucketMul(v: fxn, by: expert.w3, out: x3_32, quant: 0.2)
+                silu(x1_32, x3_32, out: x2_32)
+                bucketMul(v: x2_32, by: expert.w2, out: ffn_out32[i], quant: 0.7)
+                ffn_out32[i].mul(by: gateVals.scalarAt(i))
             }
 
             ffnOut[0].add(by: ffnOut[1])
@@ -226,44 +211,17 @@ if sumSim > 0.85 {
 } else {
     fatalError("❌ bad quality")
 }
-*/
-/*
-var s1 = t.decode(tokIds, delim: "")
-var s2 = t.decode(tokIds, delim: "")
-
-for i in 0..<numTokens {
-    let key = "topK \(i)"
-    print(key)
-    var s = ""
-    for j in 0..<a1[key].rows/2 {
-        s+="\(t.decode([Int(a1[key].getInt(index: j*2))])) "
-    }
-    if i >= tokIds.count {
-        s1+=t.decode([Int(a1[key].getInt(index: 0))], delim: "")
-    }
-    print(key, s)
-    
-    s = ""
-    for j in 0..<a1[key].rows/2 {
-        s+="\(t.decode([Int(a2[key].getInt(index: j*2))])) "
-    }
-    
-    if i >= tokIds.count {
-        s2+=t.decode([Int(a2[key].getInt(index: 0))], delim: "")
-    }
-
-    print(key, s)
-
-}
-
-print("original")
-print(s1.replacingOccurrences(of: "_", with: " "))
-
-print("approx")
-print(s2.replacingOccurrences(of: "_", with: " "))
-
-print("done")
-
-//a1.serialize(fname: "a1")
-gpu.stopCapture()
+ 
+ 
+ /*
+ if (!isTest) {
+     for i in 0..<2 {
+         let expert = experts[i]
+         mpsMul(v: fxn, by:expert.w1, out: x1)
+         mpsMul(v: fxn, by:expert.w3, out: x3)
+         silu(x1, x3, out: x2)
+         mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
+         ffnOut[i].mul(by: gateVals.scalarAt(i))
+     }
+ } else {*/
 */
