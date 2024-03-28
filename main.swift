@@ -51,17 +51,22 @@ if goCapture {
 
 gpu.eval()
 
-var startTime = Date()
-
+var ticStartTime = Date()
 var countToc = 0
+var silent = true
+
 func tic() {
-    startTime = Date()
+    ticStartTime = Date()
     countToc = 0
 }
 
-func toc() {
-    print("toc \(countToc): \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+func toc(_ _msg: String = "") {
+    let msg = _msg=="" ? "" : "-- \(_msg)"
+    if !silent {
+      // print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
+    }
     countToc += 1
+    ticStartTime = Date()
 }
 
 
@@ -83,8 +88,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
     
     let archive = Archive()
 
-    print("Begin token calc")
+    var startTime = Date()
     tic()
+//    gpu.warnOfEvals = !silent
     for thisToken in 0...numTokens {
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -129,24 +135,40 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
+            toc("attn")
 
             gpu.eval()
+            toc("eval attn")
+            if !silent {
+//                gpu.startCapture()
+//                gpu.eval()
+            }
+
             let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))],
                                        layer.experts[Int(gateIdxs.getInt(index: 1))]
                                       ])
             gateVals.softmax()
             for i in 0..<2 {
                 let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.5)
-                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.5)
+                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.05)
+                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.05)
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 1)
+                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.05)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
+            toc("ffn")
+//            gpu.eval()
+            toc("final eval")
+            gpu.stopCapture()
+
         }
+        if silent {
+            return archive
+        }
+
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
@@ -154,25 +176,17 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         let topKVector = mpsTopK(v: outputVector)
-        gpu.eval()
-        let topToken = Int(topKVector.getInt(index: 0))
-        toc()
-//        exit(0)
         print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        print("Token: ", t[topToken])
+        startTime = Date()
+        gpu.eval()
+        print("Token \(thisToken), eval time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
 
-        if (thisToken == 0) {
-            if goCapture {
-                gpu.startCapture()
-            }
-            print("evaling first token...")
-            gpu.eval()
-            startTime = Date()
-        }
-        
+        let topToken = Int(topKVector.getInt(index: 0))
+        print("Token : ", t[topToken])
+
         if tokens.count-1 == thisToken {
-            gpu.eval()
-            let topToken = Int(topKVector.getInt(index: 0))
+          //  gpu.eval()
+          //  let topToken = Int(topKVector.getInt(index: 0))
             let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
             tokens.append(tokEmbeddings[topToken].asFloat32())
         }
@@ -195,6 +209,12 @@ var errors = [String: Int]()
 let i = 0
 print("##### iteration", i)
 let a1 = runNetwork(isTest: true, tokens: tokens)
+print("##### iteration", 2)
+silent = false
+
+let evalTime = Date()
+let a2 = runNetwork(isTest: true, tokens: tokens)
+print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
 
 exit(0)
 /*

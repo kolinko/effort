@@ -32,7 +32,7 @@ class Weights {
         if self.core.rows < 4096 || self.core.cols! < 4096 {
             probesSize = 1024
         }
-        self.probes = Vector(fname: elName+".bucket.stats.bin", shape: [probesSize])
+        self.probes = Vector(fname: elName+".probes.bin", shape: [probesSize])
         assertDims()
     }
     
@@ -150,6 +150,7 @@ func readJson() -> [String: [Int]] {
 }
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
+    print("loading \(fileName)")
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size

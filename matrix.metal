@@ -23,21 +23,42 @@ kernel void silu32(device const float *x1 [[buffer(0)]],
 }
 
 
-kernel void probe(device const half *v [[buffer(0)]],
-                  device const half *weights [[buffer(1)]],
-                  device half *out[[buffer(2)]],
-                  constant int &wCols [[buffer(3)]],
-                  uint id [[thread_position_in_grid]]) {
-    out[id] = abs(v[id] * weights[id*wCols + id]);
-}
-
-kernel void probeShort(device const half *v [[buffer(0)]],
+kernel void probeShort(device const float *v [[buffer(0)]],
                   device const half *probes [[buffer(1)]],
                   device half *out[[buffer(2)]],
                   constant int &wCols [[buffer(3)]],
                   uint id [[thread_position_in_grid]]) {
     out[id] = abs(v[id] * probes[id]);
 }
+
+/*
+kernel void findCutoff(device const half *v [[buffer(0)]],
+                  device const half *probes [[buffer(1)]],
+                  device half *out[[buffer(2)]],
+                  constant float &quant [[buffer(3)]],
+
+                  uint id [[thread_position_in_grid]]) {
+
+    threadgroup float buf[4096];
+    threadgroup float minVal = buf[0];
+    threadgroup float maxVal = buf[0];
+    
+    buf[id] = abs(v[id] * probes[id]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (id == 0) {
+        for (int i = 0; i < 4096; i++) {
+            if (buf[i] < minVal) { minVal = buf[i]; }
+            if (buf[i] < maxVal) { maxVal = buf[i]; }
+        }
+    }
+    threadgroup float cutoff = minVal+maxVal / 2;
+    atomic_float counter[1];
+    threadgroup float val[1] = {0};
+    atomic_store_explicit(counter, 0, memory_order_relaxed);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    out[id] = abs(v[id] * probes[id]);
+}*/
 
 
 
@@ -109,6 +130,8 @@ kernel void prepareDispatch32(device const float* v[[buffer(0)]],
     
 }
 
+/*
+
 kernel void prepareDispatch(device const half* v[[buffer(0)]],
                             device const half4* binStats[[buffer(1)]],
                             device const half* cutoff[[buffer(2)]],
@@ -135,7 +158,7 @@ kernel void prepareDispatch(device const half* v[[buffer(0)]],
         }
     }
     
-}
+}*/
 
 kernel void bucketMul(
                    device const half *weights [[buffer(0)]],

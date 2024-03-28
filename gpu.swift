@@ -84,39 +84,41 @@ class Gpu {
                 ints: [Int] = [],
                 float16s: [Float16] = [],
                 threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1,
-                threadGroupSize tgs: [Int] = [32, 1, 1]) {
+                threadGroupSize tgs: [Int] = [32, 1, 1],
+                justDispatch: Bool = false) {
         
+        let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
+        let threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2])
+
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
             print("warn:Compute pipeline state for \(fname) not found.")
         }
         
         let internalState = self.globalStates[fname]!
-            
-        let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
-        let threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2])
-
+        
+        
         encoder.setComputePipelineState(internalState)
-
+        
         var idx = 0
         
         for b in buffers {
             encoder.setBuffer(b.buffer, offset: b.offsetBytes , index: idx)
             idx += 1
         }
-
+    
         for i in ints {
             var val = i
             encoder.setBytes(&val, length: MemoryLayout<Int>.stride, index: idx)
             idx += 1
         }
-
+        
         for i in float16s {
             var val = i
             encoder.setBytes(&val, length: MemoryLayout<Float16>.stride, index: idx)
             idx += 1
         }
-        
+            
         encoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
     }
     

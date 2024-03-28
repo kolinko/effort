@@ -456,9 +456,11 @@ class Vector: Bufferable<Float16> {
             fatalError("data.count is not a power of 2")
         }
 
+        var justDispatch = false
         for p in 0..<logn {
             for q in 0..<p+1 {
-                gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows)
+                gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows, justDispatch: justDispatch)
+                justDispatch = false
             }
         }
     }
@@ -553,12 +555,12 @@ func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.
     BucketMul.shared.mul(by: by, out: out)
 
 }
-
+/*
 func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
     out.zero()
     BucketMul.shared.mul(by: by, out: out)
-}
+}*/
 
 class BucketMul {
     let probesCount = 4096
@@ -574,7 +576,7 @@ class BucketMul {
         self.probes = Vector(shape: [probesCount])
         self.cutoff = Scalar(value: 0)
     }
- 
+ /*
     func calcDispatch(v: Vector, weights w: Weights, quant: Double) {
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
@@ -585,21 +587,21 @@ class BucketMul {
 
         let q = Int(Double(probesCount)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        //print(cutoff[0])
+        gpu.eval()
+        print(cutoff[0])
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
-    }
+    }*/
 
     func calcDispatch(v32: VectorFloat, weights w: Weights, quant: Double) {
-        let v = v32.asFloat16()
         assert(dispatch.rows >= w.buckets.rows*2)
         dispatch.size.zero()
         assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
+        gpu.deploy("probeShort", buffers:[v32, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
         probes.sort()
 
-        let q = Int(Double(probesCount)*(1-quant))
+        let q = Int(Double(probesCount-1)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareDispatch32", buffers:[v32, w.stats, cutoff, dispatch, dispatch.size],
