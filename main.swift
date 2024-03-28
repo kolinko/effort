@@ -78,9 +78,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
 
-            let xq : VectorFloat = mpsMul(v: h_norm, by: layer.wq)
-            let xk : VectorFloat = mpsMul(v: h_norm, by: layer.wk).repeated(kvRepeats)
-            let xv : VectorFloat = mpsMul(v: h_norm, by: layer.wv).repeated(kvRepeats)
+            let xq = basicMul(v: h_norm, by: layer.wq.core)
+            let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
+            let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
             let xq_heads = xq.reshaped(newCols: headDim)
             let xk_heads = xk.reshaped(newCols: headDim)
             
@@ -103,7 +103,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             }
             let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
 
-            let attnFfnOut = mpsMul(v: attnOutput, by: layer.wo)
+            let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
             h.add(by: attnFfnOut)
 
@@ -111,7 +111,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
 
             fxn.mul(by:layer.ffnNorm)
             let gateOut = VectorFloat(shape: [8])
-            mpsMul(v:fxn, by:layer.ffnGate, out:gateOut)
+            basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
@@ -123,24 +123,22 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             gateVals.softmax()
             for i in 0..<2 {
                 let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 1)
-                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 1)
+                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.3)
+                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.3)
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 1)
+                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.3)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
-
-
         }
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
 
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
-        mpsMul(v: outNormed, by: modelData.output, out: outputVector)
+        basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         let topKVector = mpsTopK(v: outputVector)
         gpu.eval()
         let topToken = Int(topKVector.getInt(index: 0))

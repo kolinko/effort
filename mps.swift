@@ -10,6 +10,19 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
+func basicMul(v: VectorFloat, by weights: Matrix) -> VectorFloat {
+    let out = VectorFloat(shape: [weights.rows])
+    basicMul(v: v, by: weights, out: out)
+    return out
+}
+
+func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
+    assert(weights.rows == result.rows)
+    assert(weights.cols! == v.rows)
+    
+    gpu.deploy("basicMul", buffers: [v, weights, result], ints: [weights.cols!] ,threadCount: result.rows)
+}
+
 func mpsMul(v: VectorFloat, by: Weights) -> VectorFloat {
     let out = VectorFloat(shape:[by.outSize])
     mpsMul(v: v, by: by.core, out: out)
@@ -19,6 +32,7 @@ func mpsMul(v: VectorFloat, by: Weights) -> VectorFloat {
 func mpsMul(v vector: VectorFloat, by weights: Weights, out result: VectorFloat) {
     mpsMul(v: vector, by: weights.core, out: result)
 }
+
 
 func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     result.zero()
@@ -30,25 +44,20 @@ func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) 
     // Create MPSMatrixDescriptors for the matrix and the vector
     let matrixDescriptor = MPSMatrixDescriptor(rows: matrixRows, columns: matrixColumns, rowBytes: matrixColumns * MemoryLayout<Float16>.stride, dataType: .float16)
     
-    let vectorDescriptor = MPSVectorDescriptor(length: matrixColumns, dataType: .float16)
+    let vectorDescriptor = MPSVectorDescriptor(length: matrixColumns, dataType: .float32)
     
-    // Initialize MPSMatrix and MPSVector objects
     let matrix = MPSMatrix(buffer: weights.buffer, descriptor: matrixDescriptor)
     let vector = MPSVector(buffer: vector.buffer, descriptor: vectorDescriptor)
     
     // Result vector descriptor and buffer
-    let resultVectorDescriptor = MPSVectorDescriptor(length: matrixRows, dataType: .float16)
-    let resultBuffer = result.buffer
-    
-    let resultVector = MPSVector(buffer: resultBuffer, descriptor: resultVectorDescriptor)
+    let resultVectorDescriptor = MPSVectorDescriptor(length: matrixRows, dataType: .float32)
+    let resultVector = MPSVector(buffer: result.buffer, descriptor: resultVectorDescriptor)
     
     // Create a MPSMatrixVectorMultiplication object to perform the multiplication
-    let matrixVectorMultiplication = MPSMatrixVectorMultiplication(device: gpu.device, transpose: false, rows: matrixRows, columns: matrixColumns, alpha: 1.0, beta: 1.0)
+    let mvmul = MPSMatrixVectorMultiplication(device: gpu.device, transpose: false, rows: matrixRows, columns: matrixColumns, alpha: 1.0, beta: 1.0)
     
-    // Prepare a command buffer and encode the matrix-vector multiplication
     gpu.encoder.endEncoding()
-
-    matrixVectorMultiplication.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)
+    mvmul.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)
     gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
 }
 

@@ -34,12 +34,19 @@ class Gpu {
         
         self.library = device.makeDefaultLibrary()!
         self.globalStates = [:]
-        let functionNames = ["sum_of_squares", "normalize_vector",
+        let functionNames = ["memcpy32", "rmsNorm32","halfToFloat", "mulVec32by16", "basicMul",
+                             "repeat4x32", "mulComplex32", "dotSetScore32", "zero32", "sum_of_exps32",
+                             "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeShort",
+                             "basicBitonicSort", "getVal", "prepareDispatch32", "bucketMul",
+                             "silu32", "mulScalar32x32"]
+        
+        
+        /*["sum_of_squares32",
                              "sum_of_exps","softmax_add", "memcpy", "sumScores",
                              "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
                              "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
                              "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zero16",
-        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32", "dotSetScore2"]
+        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32", "dotSetScore2"]*/
 
         for fname in functionNames {
             makeFunction(fname)

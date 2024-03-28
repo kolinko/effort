@@ -50,12 +50,36 @@ kernel void getVal(device const half* vector [[buffer(0)]],
     }
 }
 
+
+kernel void basicMul(device const float* v[[buffer(0)]],
+                     device const half* m[[buffer(1)]],
+                     device float* out[[buffer(2)]],
+                     const device uint &numCols[[buffer(3)]],
+                     uint rowId [[thread_position_in_grid]]) {
+    
+    float sum = 0;
+    uint offset = rowId*numCols;
+    for (uint i=0; i<numCols; i++) {
+        sum += v[i]*m[i+offset];
+    }
+    out[rowId] = sum;
+}
+
+
+/*
+func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
+    assert(weights.cols! == result.rows)
+    assert(weights.rows == v.cols)
+    
+    gpu.deploy("basicMul", buffers: [v, weights, result], threadCount: result.rows)
+}*/
+
+
 /*
  
  bucketMul
 
  */
-
 
 kernel void prepareDispatch32(device const float* v[[buffer(0)]],
                             device const half4* binStats[[buffer(1)]],

@@ -121,11 +121,11 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
     }
     
     func mul(by s: Scalar) {
-        gpu.deploy("mulScalar\(bitSize)by16", buffers:[self, s], threadCount:self.count)
+        gpu.deploy("mulScalar\(bitSize)x16", buffers:[self, s], threadCount:self.count)
     }
 
     func mul(by s: ScalarFloat) {
-        gpu.deploy("mulScalar\(bitSize)by32", buffers:[self, s], threadCount:self.count)
+        gpu.deploy("mulScalar\(bitSize)x32", buffers:[self, s], threadCount:self.count)
     }
 
     
@@ -505,7 +505,7 @@ func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [Vect
     for t2 in 0..<numTokens {
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
-            gpu.deploy("dotSetScore2", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+            gpu.deploy("dotSetScore32", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
                        ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
         }
     }
