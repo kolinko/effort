@@ -261,6 +261,10 @@ class Scalar: Bufferable<Float16> {
 
 
 class Matrix: Bufferable<Float16> {
+    override func load() {
+        _ = basicMul(v: VectorFloat(shape: [self.cols!]), by: self)
+    }
+    
     func asVector() -> Vector {
         return Vector(shape: [self.count], buffer: self.buffer)
     }
@@ -301,6 +305,19 @@ class MatrixFloat: Bufferable<Float> {
 
 class DynaVectorFloat: VectorFloat {
     let size: ScalarFloat = ScalarFloat(value:0)
+    
+    func bins(binSize: Int) -> [Int] {
+        gpu.eval()
+        var bins = [Int](repeating: 0, count: 16)
+        for i in 0..<Int(self.size[0]) {
+            bins[Int(self[i*2+1])/binSize] += 1
+        }
+        for i in 0..<16 {
+            bins[i] = (bins[i]*100)/Int(self.size[0])
+        }
+
+        return bins
+    }
 }
 
 let _normABuffer = ScalarFloat(value: 0)
@@ -606,6 +623,7 @@ class BucketMul {
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareDispatch32", buffers:[v32, w.stats, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
+        print(dispatch.bins(binSize: w.stats.rows/16))
     }
 
     

@@ -13,6 +13,7 @@ import simd
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
+let gpu2 = Gpu()
 print("loading")
 
 let modelData = Model(from: "shape.json")
@@ -41,7 +42,10 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 
 let goCapture = false
-var numLayers = 32
+var numLayers = 5
+var numExperts = 2
+modelData.preload(numLayers: numLayers, numExperts: numExperts)
+
 var numTokens = 100
 
 if goCapture {
@@ -144,16 +148,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
 //                gpu.eval()
             }
 
-            let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))],
-                                       layer.experts[Int(gateIdxs.getInt(index: 1))]
+            let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))%numExperts],
+                                       layer.experts[Int(gateIdxs.getInt(index: 1))%numExperts]
                                       ])
             gateVals.softmax()
             for i in 0..<2 {
                 let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.05)
-                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.05)
+                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.5)
+                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.5)
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.05)
+                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.5)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 

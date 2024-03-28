@@ -57,6 +57,16 @@ class Weights {
 
         self.init(core: core, buckets: buckets, stats: stats, probes: probes)
     }
+    
+    func loadBuckets() {
+        buckets.load()
+        stats.load()
+        probes.load()
+    }
+    
+    func loadCore() {
+        core.load()
+    }
 }
 
 class ExpertFfn {
@@ -68,6 +78,12 @@ class ExpertFfn {
         w1 = Weights(elName: layerName+"w1", shapeDict: shapeDict)
         w2 = Weights(elName: layerName+"w2", shapeDict: shapeDict)
         w3 = Weights(elName: layerName+"w3", shapeDict: shapeDict)
+    }
+    
+    func loadBuckets() {
+        w1.loadBuckets()
+        w2.loadBuckets()
+        w3.loadBuckets()
     }
 }
 
@@ -87,6 +103,17 @@ class Layer {
 
     let experts: [ExpertFfn]
 
+    func loadBuckets(numExperts: Int) {
+        ffnGate.load()
+        wo.loadCore()
+        wq.loadCore()
+        wk.loadCore()
+        wv.loadCore()
+        for i in 0..<numExperts {
+            experts[i].loadBuckets()
+        }
+    }
+    
     subscript(index: String) -> Matrix {
         get { data[index]! }
         set { data[index] = newValue }
@@ -112,7 +139,7 @@ class Layer {
 }
 
 let absolutePath = "/Users/kolinko/mul_col/model-mixtral/"
-
+var preloadGoingOn = false
 class Model {
     let norm: Matrix
     let output: Weights
@@ -136,6 +163,17 @@ class Model {
         self.layers = layers
 
         print("data load time \(Date().timeIntervalSince(startTime)) seconds")
+    }
+    
+    func preload(numLayers: Int, numExperts: Int) {
+        preloadGoingOn = true
+//        self.norm.load()
+        self.tokEmbeddings.load()
+        self.output.loadBuckets()
+        for i in 0..<numLayers {
+            layers[i]!.loadBuckets(numExperts:numExperts)
+        }
+        preloadGoingOn = false
 
     }
 }
@@ -150,7 +188,9 @@ func readJson() -> [String: [Int]] {
 }
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
-    print("loading \(fileName)")
+    if (!preloadGoingOn) {
+        print("loading \(fileName)")
+    }
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
