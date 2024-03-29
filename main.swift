@@ -34,7 +34,7 @@ if goCapture {
     numTokens = 3
 }
 
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x8)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0B)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -101,7 +101,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
 
     var startTime = Date()
     tic()
-//    gpu.warnOfEvals = !silent
+    gpu.warnOfEvals = true
     for thisToken in 0...numTokens {
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -148,7 +148,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
             toc("attn")
 
-            gpu.eval()
             toc("eval attn")
             if !silent {
 //                gpu.startCapture()
@@ -174,7 +173,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             gpu.stopCapture()
 
         }
-        gpu.eval()
 
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()

@@ -134,10 +134,16 @@ class Bufferable<Type> : MTLBufferable {
         assert(src.count == self.count)
         if self.count<=32768 {
             gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.count)
-        } else {
+        } else if self.count % 32768 == 0 {
             gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/32768], threadCount: 32768)
             assert(self.count % 32768 == 0)
+        } else if self.count % 16384 == 0 {
+            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/16384], threadCount: 16384)
+        } else {
+            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/1024], threadCount: 1024)
+            assert(self.count % 1024 == 0)
         }
+
     }
     
     var str: String {
