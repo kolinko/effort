@@ -54,7 +54,7 @@ class MTLBufferable {
 
 }
 
-class Bufferable<Type: FloatingPoint> : MTLBufferable {
+class Bufferable<Type> : MTLBufferable {
     var bufferPointer: UnsafeMutablePointer<Type> {
         if self._bufferPointer == nil {
             self._bufferPointer = buffer.contents().bindMemory(to: Type.self, capacity: self.shape.reduce(1, *))
@@ -62,8 +62,7 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         return self._bufferPointer!
     }
     let shape: [Int]
-    let rows: Int
-    let cols: Int?
+    var rows: Int {self.shape[0]}
     let byteSize: Int
     let bitSize: Int
     var _bufferPointer : UnsafeMutablePointer<Type>? = nil
@@ -78,8 +77,6 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         self.byteSize = MemoryLayout<Type>.size
         self.bitSize = byteSize * 8
         assert((byteSize == 4) || (byteSize == 2), "untested for others")
-        self.rows = shape[0]
-        self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
         super.init(fname: fname, shape: shape)
     }
@@ -92,8 +89,6 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         self.bitSize = byteSize * 8
 
         assert((byteSize == 4) || (byteSize == 2), "untested for others")
-        self.rows = shape[0]
-        self.cols = shape.count >= 2 ? shape[1] : nil
         self.shape = shape
         super.init(buffer: buffer, offsetBytes: offset*self.byteSize)
 
@@ -180,7 +175,7 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
             }
         }
     
-    
+    /*
     func test(_ name: String, cond: Bool = true, mul:Int, val:[Type]) -> Bool {
         if (!cond) {
             return true
@@ -193,7 +188,7 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
         }
         return result
     }
-        
+    
     func test(mul:Int, val:[Type]) -> Bool {
         gpu.eval()
         for i in 0..<val.count {
@@ -233,7 +228,7 @@ class Bufferable<Type: FloatingPoint> : MTLBufferable {
             }
         }
         return true
-    }
+    }*/
 }
 
 class ScalarFloat: Bufferable<Float> {
@@ -261,29 +256,46 @@ class Scalar: Bufferable<Float16> {
 
 
 class Matrix: Bufferable<Float16> {
-    override func load() {
-        _ = basicMul(v: VectorFloat(shape: [self.cols!]), by: self)
-    }
+    var cols: Int { self.shape[1] }
     
     func asVector() -> Vector {
         return Vector(shape: [self.count], buffer: self.buffer)
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> Scalar {
-        return Scalar(buffer: self.buffer, offset: row*self.cols! + col)
+        return Scalar(buffer: self.buffer, offset: row*self.cols + col)
     }
     
     func asVectorList() -> [Vector] {
         var out = [Vector]()
         out.reserveCapacity(self.rows)
         for i in 0..<self.rows {
-            out.append(Vector(shape:[self.cols!], buffer:self.buffer, offset: i*self.cols!))
+            out.append(Vector(shape:[self.cols], buffer:self.buffer, offset: i*self.cols))
+        }
+        return out
+    }
+}
+
+class Matrix3D: Bufferable<Float16> {    
+    override var rows: Int { self.shape[1] }
+    var cols: Int { self.shape[2] }
+    var slices: Int { self.shape[1] }
+    var sliceSize: Int {self.rows * self.count}
+
+    func asMatrixList() -> [Matrix] {
+        assert(self.shape.count == 3)
+        var out = [Matrix]()
+        out.reserveCapacity(self.rows)
+        for i in 0..<self.rows {
+            out.append(Matrix(shape:[shape[1], shape[2]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]))
         }
         return out
     }
 }
 
 class MatrixFloat: Bufferable<Float> {
+    var cols: Int { self.shape[1] }
+
     func asVector() -> VectorFloat {
         return VectorFloat(shape: [self.count], buffer: self.buffer)
     }
@@ -292,13 +304,13 @@ class MatrixFloat: Bufferable<Float> {
         var out = [VectorFloat]()
         out.reserveCapacity(self.rows)
         for i in 0..<self.rows {
-            out.append(VectorFloat(shape:[self.cols!], buffer:self.buffer, offset: i*self.cols!))
+            out.append(VectorFloat(shape:[self.cols], buffer:self.buffer, offset: i*self.cols))
         }
         return out
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> ScalarFloat {
-        return ScalarFloat(buffer: self.buffer, offset: row*self.cols! + col)
+        return ScalarFloat(buffer: self.buffer, offset: row*self.cols + col)
     }
 
 }
@@ -565,19 +577,19 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
     gpu.deploy("silu32", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
-
-func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
-    BucketMul.shared.calcDispatch(v32: v, weights: by, quant: quant)
-    out.zero()
-    BucketMul.shared.mul(by: by, out: out)
-
-}
 /*
-func bucketMul(v: Vector, by: Weights, out: VectorFloat, quant: Double = 0.25) {
+func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
     BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
     out.zero()
     BucketMul.shared.mul(by: by, out: out)
+
 }*/
+
+func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+    out.zero()
+    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.mul(by: by, out: out)
+}
 
 class BucketMul {
     let probesCount = 4096
@@ -593,40 +605,52 @@ class BucketMul {
         self.probes = Vector(shape: [probesCount])
         self.cutoff = Scalar(value: 0)
     }
- /*
-    func calcDispatch(v: Vector, weights w: Weights, quant: Double) {
-        assert(dispatch.rows >= w.buckets.rows*2)
-        dispatch.size.zero()
-        
-        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
-        probes.sort()
 
-        let q = Int(Double(probesCount)*(1-quant))
-        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        gpu.eval()
-        print(cutoff[0])
-        let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareDispatch", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
-    }*/
-
-    func calcDispatch(v32: VectorFloat, weights w: Weights, quant: Double) {
-        assert(dispatch.rows >= w.buckets.rows*2)
+    func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+        assert(dispatch.rows >= ew.buckets.rows*2)
         dispatch.size.zero()
-        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-        gpu.deploy("probeShort", buffers:[v32, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
+        assert(ew.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+        gpu.deploy("probeExpert", buffers:[v, ew.probes, probes, expNo], ints:[ew.inSize], threadCount: probesCount)
         probes.sort()
 
         let q = Int(Double(probesCount-1)*(1-quant))
         gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
         let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareDispatch32", buffers:[v32, w.stats, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
-        print(dispatch.bins(binSize: w.stats.rows/16))
+        gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
-
     
+    func mul(by: ExpertWeights, out: VectorFloat) {
+        let weightBuckets = by.buckets
+        
+        let bucketSize = 16
+        let numBuckets = out.rows / bucketSize
+        
+        assert(numBuckets % 4 == 0)
+
+        let groups = 32
+        gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                                ints: [weightBuckets.cols, groups],
+                                threadCount: weightBuckets.cols,
+                                threadCountY:groups)
+    }
+    
+    /*
+    func calcDispatch(v: VectorFloat, weights w: Weights, quant: Double) {
+        assert(dispatch.rows >= w.buckets.rows*2)
+        dispatch.size.zero()
+        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
+        probes.sort()
+
+        let q = Int(Double(probesCount-1)*(1-quant))
+        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
+        let chunkSize = 16//w.stats.rows//16
+        gpu.deploy("prepareDispatch32", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
+    }*/
+
+    /*
     func mul(by: Weights, out: VectorFloat) {
         let weightBuckets = by.buckets
         
@@ -640,7 +664,7 @@ class BucketMul {
                                 ints: [weightBuckets.cols!, groups],
                                 threadCount: weightBuckets.cols!,
                                 threadCountY:groups)
-    }
+    }*/
 }
 
 

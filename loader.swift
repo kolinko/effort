@@ -6,6 +6,7 @@
 
 import Metal
 import Foundation
+let shapeDict = readJson()
 
 class Weights {
     let core: Matrix
@@ -13,7 +14,7 @@ class Weights {
     let stats: Matrix
     let probes: Vector
     var outSize: Int { return core.rows }
-    var inSize: Int { return core.cols! }
+    var inSize: Int { return core.cols }
     
     init(core: Matrix, buckets:Matrix, stats:Matrix, probes: Vector) {
         self.core = core
@@ -23,13 +24,13 @@ class Weights {
         assertDims()
     }
     
-    init(elName: String, shapeDict: [String: [Int]]) {
+    init(elName: String) {
         let shape = shapeDict[elName]!
         self.core = Matrix(fname: elName+".core.bin", shape: shape)
         self.buckets = Matrix(fname: elName+".buckets.bin", shape: [shape[1]*16, shape[0]/16])
         self.stats = Matrix(fname: elName+".bucket.stats.bin", shape: [shape[1]*16, 4])
         var probesSize = 4096
-        if self.core.rows < 4096 || self.core.cols! < 4096 {
+        if self.core.rows < 4096 || self.core.cols < 4096 {
             probesSize = 1024
         }
         self.probes = Vector(fname: elName+".probes.bin", shape: [probesSize])
@@ -37,8 +38,8 @@ class Weights {
     }
     
     func assertDims() {
-        assert(core.cols!*16 == buckets.rows)
-        assert(core.cols!*16 == stats.rows)
+        assert(core.cols*16 == buckets.rows)
+        assert(core.cols*16 == stats.rows)
         if self.inSize >= 4096 && self.outSize >= 4096 {
             assert(self.probes.rows == 4096)
         } else {
@@ -47,49 +48,66 @@ class Weights {
     }
     
     convenience init(fromFile: String, shape: [Int]) {
-        let core : Matrix = loadBinaryFile(named: fromFile+".core.bin", shape: shape)
+        let core : Matrix = loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
         let bShape = [shape[1]*16, shape[0]/16]
-        let buckets : Matrix = loadBinaryFile(named: fromFile+".buckets.bin", shape: bShape)
+        let buckets : Matrix = loadBinaryMatrix(named: fromFile+".buckets.bin", shape: bShape)
+        
         let sShape = [shape[1]*16, 4]
-        let stats : Matrix = loadBinaryFile(named: fromFile+".bucket.stats.bin", shape: sShape)
+        let stats : Matrix = loadBinaryMatrix(named: fromFile+".bucket.stats.bin", shape: sShape)
+        
         let pShape = [(shape[0]>=4096 && shape[1]>=4096) ? 4096 : 1024]
-        let probes : Vector = loadBinaryFile(named: fromFile+".probes.bin", shape: pShape).asVector()
+        let probes : Vector = loadBinaryMatrix(named: fromFile+".probes.bin", shape: pShape).asVector()
 
         self.init(core: core, buckets: buckets, stats: stats, probes: probes)
     }
     
-    func loadBuckets() {
-        buckets.load()
-        stats.load()
-        probes.load()
-    }
+}
+
+let stateDim = 4096
+let hiddenDim = 14336
+
+class ExpertWeights {
+    let inSize: Int
+    let outSize: Int
+    let percentLoad: Int
+    var expertSize: Int {percentLoad*inSize}
     
-    func loadCore() {
-        core.load()
+    let buckets: Matrix3D
+    let stats: Matrix3D
+    let probes: Vector
+    
+    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {
+        self.inSize = inDim
+        self.outSize = outDim
+        self.percentLoad = percentLoad
+        
+        let probesCount = 4096
+
+        self.probes = Vector(shape: [probesCount*numExperts])
+        let probesList: [Vector] = probes.reshaped(newCols: probesCount)
+        
+        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
+        let bucketList: [Matrix] = self.buckets.asMatrixList()
+        
+        self.stats = Matrix3D(shape: [numExperts, inDim*percentLoad, 4])
+        let statList: [Matrix] = self.stats.asMatrixList()
+        
+        for eNo in 0..<numExperts {
+            let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
+            probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
+            statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
+            bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
+        }
     }
 }
 
-class ExpertFfn {
-    let w1: Weights
-    let w2: Weights
-    let w3: Weights
-    
-    init(layerName: String, shapeDict: [String: [Int]]) {
-        w1 = Weights(elName: layerName+"w1", shapeDict: shapeDict)
-        w2 = Weights(elName: layerName+"w2", shapeDict: shapeDict)
-        w3 = Weights(elName: layerName+"w3", shapeDict: shapeDict)
-    }
-    
-    func loadBuckets() {
-        w1.loadBuckets()
-        w2.loadBuckets()
-        w3.loadBuckets()
-    }
-}
+
+
 
 class Layer {
     var data = [String: Matrix]()
-
+    let numExperts: Int
+    let percentLoad: Int
 
     let attnNorm: Vector
     let ffnNorm: Vector
@@ -101,81 +119,63 @@ class Layer {
     let wk: Weights
     let wv: Weights
 
-    let experts: [ExpertFfn]
+    let w1: ExpertWeights
+    let w2: ExpertWeights
+    let w3: ExpertWeights
 
-    func loadBuckets(numExperts: Int) {
-        ffnGate.load()
-        wo.loadCore()
-        wq.loadCore()
-        wk.loadCore()
-        wv.loadCore()
-        for i in 0..<numExperts {
-            experts[i].loadBuckets()
-        }
-    }
     
     subscript(index: String) -> Matrix {
         get { data[index]! }
         set { data[index] = newValue }
     }
         
-    init(_ layerNo: Int, shapeDict: [String: [Int]]) {
+    init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
         let layerName = "layers.\(layerNo)."
         
         self.ffnNorm = Vector(fname: layerName+"ffn_norm.bin", shape: shapeDict[layerName+"ffn_norm"]!)
         self.attnNorm = Vector(fname: layerName+"attention_norm.bin", shape: shapeDict[layerName+"attention_norm"]!)
         self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: shapeDict[layerName+"feed_forward.gate"]!)
         
-        self.wo = Weights(elName: layerName+"attention.wo", shapeDict: shapeDict)
-        self.wk = Weights(elName: layerName+"attention.wk", shapeDict: shapeDict)
-        self.wq = Weights(elName: layerName+"attention.wq", shapeDict: shapeDict)
-        self.wv = Weights(elName: layerName+"attention.wv", shapeDict: shapeDict)
+        self.wo = Weights(elName: layerName+"attention.wo")
+        self.wk = Weights(elName: layerName+"attention.wk")
+        self.wq = Weights(elName: layerName+"attention.wq")
+        self.wv = Weights(elName: layerName+"attention.wv")
 
-        self.experts = (0..<8).map { eNo in
-            ExpertFfn(layerName: "layers.\(layerNo).feed_forward.experts.\(eNo).", shapeDict: shapeDict)
-        }
+        self.numExperts = numExperts
+        self.percentLoad = percentLoad
+        
+        self.w1 = ExpertWeights("w1", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
+        self.w3 = ExpertWeights("w3", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
+
+        self.w2 = ExpertWeights("w2", inDim: hiddenDim, outDim: stateDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
     }
 
 }
 
 let absolutePath = "/Users/kolinko/mul_col/model-mixtral/"
-var preloadGoingOn = false
 class Model {
     let norm: Matrix
     let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    init(from filePath: String) {
+    //numLayers: 32, numExperts: 8, percentLoad: 0xA
+    init(from filePath: String, numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
-        let shapeDict = readJson()
-        
-        let numLayers = 31
-        
-        self.norm = loadBinaryFile(named: "norm.bin", shape: shapeDict["norm"]!)
+
+        self.norm = loadBinaryMatrix(named: "norm.bin", shape: shapeDict["norm"]!)
         self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
-        self.tokEmbeddings = loadBinaryFile(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
+        self.tokEmbeddings = loadBinaryMatrix(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
 
         var layers = [Int: Layer]()
-        for i in 0...numLayers {
-            layers[i] = Layer(i, shapeDict: shapeDict)
+        for i in 0..<numLayers {
+            layers[i] = Layer(i, numExperts:numExperts, percentLoad: percentLoad)
         }
         self.layers = layers
 
         print("data load time \(Date().timeIntervalSince(startTime)) seconds")
     }
     
-    func preload(numLayers: Int, numExperts: Int) {
-        preloadGoingOn = true
-//        self.norm.load()
-        self.tokEmbeddings.load()
-        self.output.loadBuckets()
-        for i in 0..<numLayers {
-            layers[i]!.loadBuckets(numExperts:numExperts)
-        }
-        preloadGoingOn = false
-
-    }
 }
 
 
@@ -188,9 +188,6 @@ func readJson() -> [String: [Int]] {
 }
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
-    if (!preloadGoingOn) {
-        print("loading \(fileName)")
-    }
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
@@ -209,7 +206,10 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
     return buffer
 }
 
-func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
+func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
     return Matrix(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
 
+func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
+    return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+}

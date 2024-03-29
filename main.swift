@@ -16,7 +16,25 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-let modelData = Model(from: "shape.json")
+print(gpu.device.maxBufferLength )
+let mBuffer = gpu.device.makeBuffer(length: 10*1000*1000*1000, options: .storageModeShared)!
+let mBuffer2 = gpu.device.makeBuffer(length: 10*1000*1000*1000, options: .storageModeShared)!
+
+
+
+let goCapture = false
+var numLayers = 32
+var numExperts = 8
+//modelData.preload(numLayers: numLayers, numExperts: numExperts)
+
+var numTokens = 100
+
+if goCapture {
+    numLayers = 4
+    numTokens = 3
+}
+
+let modelData = Model(from: "shape.json", numLayers: 32, numExperts: 8, percentLoad: 0x10)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -41,18 +59,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 //modelProfile()
 
 
-let goCapture = false
-var numLayers = 5
-var numExperts = 2
-modelData.preload(numLayers: numLayers, numExperts: numExperts)
-
-var numTokens = 100
-
-if goCapture {
-    numLayers = 4
-    numTokens = 3
-}
-
+print()
 gpu.eval()
 
 var ticStartTime = Date()
@@ -67,7 +74,7 @@ func tic() {
 func toc(_ _msg: String = "") {
     let msg = _msg=="" ? "" : "-- \(_msg)"
     if !silent {
-      // print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
+       print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
     }
     countToc += 1
     ticStartTime = Date()
@@ -148,16 +155,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
 //                gpu.eval()
             }
 
-            let experts = [ExpertFfn]([layer.experts[Int(gateIdxs.getInt(index: 0))%numExperts],
-                                       layer.experts[Int(gateIdxs.getInt(index: 1))%numExperts]
-                                      ])
             gateVals.softmax()
             for i in 0..<2 {
-                let expert = experts[i]
-                bucketMul(v: fxn, by: expert.w1, out: x1, quant: 0.5)
-                bucketMul(v: fxn, by: expert.w3, out: x3, quant: 0.5)
+                let expIdx = gateIdxs.scalarAt(i)
+                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: 1)
+                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: 1)
+
                 silu(x1, x3, out: x2)
-                bucketMul(v: x2, by: expert.w2, out: ffnOut[i], quant: 0.5)
+                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: 1)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
@@ -211,11 +216,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
 
 var errors = [String: Int]()
 let i = 0
+silent = false
 print("##### iteration", i)
 let a1 = runNetwork(isTest: true, tokens: tokens)
-print("##### iteration", 2)
-silent = false
 
+print("##### iteration", 2)
 let evalTime = Date()
 let a2 = runNetwork(isTest: true, tokens: tokens)
 print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")

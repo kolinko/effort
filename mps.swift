@@ -18,9 +18,9 @@ func basicMul(v: VectorFloat, by weights: Matrix) -> VectorFloat {
 
 func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     assert(weights.rows == result.rows)
-    assert(weights.cols! == v.rows)
+    assert(weights.cols == v.rows)
     
-    gpu.deploy("basicMul", buffers: [v, weights, result], ints: [weights.cols!] ,threadCount: result.rows)
+    gpu.deploy("basicMul", buffers: [v, weights, result], ints: [weights.cols] ,threadCount: result.rows)
 }
 
 func mpsMul(v: VectorFloat, by: Weights) -> VectorFloat {
@@ -39,7 +39,7 @@ func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) 
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
     let matrixRows: Int = weights.rows// Number of rows in your matrix
-    let matrixColumns: Int = weights.cols!// Number of columns in your matrix (also the size of your vector)
+    let matrixColumns: Int = weights.cols// Number of columns in your matrix (also the size of your vector)
     
     // Create MPSMatrixDescriptors for the matrix and the vector
     let matrixDescriptor = MPSMatrixDescriptor(rows: matrixRows, columns: matrixColumns, rowBytes: matrixColumns * MemoryLayout<Float16>.stride, dataType: .float16)

@@ -22,14 +22,24 @@ kernel void silu32(device const float *x1 [[buffer(0)]],
     out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));
 }
 
+kernel void probeExpert(device const float *v [[buffer(0)]],
+                        device const half *probes [[buffer(1)]],
+                        device const uint *expNo [[buffer(2)]],
+                        device half *out[[buffer(3)]],
+                        constant int &wCols [[buffer(4)]],
+                        uint id [[thread_position_in_grid]]) {
+    out[id] = abs(v[id] * probes[id+expNo[0]*4096]);
+}
 
+
+/*
 kernel void probeShort(device const float *v [[buffer(0)]],
                   device const half *probes [[buffer(1)]],
                   device half *out[[buffer(2)]],
                   constant int &wCols [[buffer(3)]],
                   uint id [[thread_position_in_grid]]) {
     out[id] = abs(v[id] * probes[id]);
-}
+}*/
 
 /*
 kernel void findCutoff(device const half *v [[buffer(0)]],
@@ -102,6 +112,41 @@ func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
 
  */
 
+
+kernel void prepareExpertDispatch(device const float* v[[buffer(0)]],
+                                  device const half4* binStats[[buffer(1)]],
+                                  device const int* expertNo[[buffer(2)]],
+                                  device const half* cutoff[[buffer(3)]],
+                                  device float2* dispatch[[buffer(4)]],
+                                  device atomic_float* dispatchCount[[buffer(5)]],
+                                  device const int& chunkSize [[buffer(6)]],
+                                  device const uint& rowsCount [[buffer(7)]],
+                                  device const int& expertSize[[buffer(8)]],
+                                  uint id [[thread_position_in_grid]]) {
+    uint dispatchOffset = expertSize * expertNo[0];
+    uint begin = chunkSize * id + dispatchOffset;
+    uint end = begin + chunkSize;
+    
+    int idx;
+    const uint idxIncr = 1;
+    ushort counter = idxIncr;
+    
+    for (uint i = begin; i<end; i++) {
+        half4 s = binStats[i]; // row, min, max, mean
+        float val = v[i % rowsCount]; // int(s[0])
+        if (cutoff[0] < float(s[3]) * abs(val)) {
+            if (counter == idxIncr) {
+                idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
+                counter = 0;
+            }
+            dispatch[idx+counter] = {val, float(i)};
+            counter += 1;
+        }
+    }
+    
+}
+
+/*
 kernel void prepareDispatch32(device const float* v[[buffer(0)]],
                             device const half4* binStats[[buffer(1)]],
                             device const half* cutoff[[buffer(2)]],
@@ -128,7 +173,7 @@ kernel void prepareDispatch32(device const float* v[[buffer(0)]],
         }
     }
     
-}
+} */
 
 /*
 

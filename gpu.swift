@@ -36,9 +36,9 @@ class Gpu {
         self.globalStates = [:]
         let functionNames = ["memcpy32", "rmsNorm32","halfToFloat", "mulVec32by16", "basicMul",
                              "repeat4x32", "mulComplex32", "dotSetScore32", "zero32", "sum_of_exps32",
-                             "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeShort",
-                             "basicBitonicSort", "getVal", "prepareDispatch32", "bucketMul",
-                             "silu32", "mulScalar32x32"]
+                             "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeExpert",
+                             "basicBitonicSort", "getVal", "prepareExpertDispatch", "bucketMul",
+                             "silu32", "mulScalar32x32", "memcpy16"]
         
         
         /*["sum_of_squares32",
