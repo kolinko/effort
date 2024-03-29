@@ -12,6 +12,17 @@ using namespace metal;
 #define headDim 128  // llama head dim
 #define numDims numHeads*headDim
 
+kernel void touch(device half* v[[buffer(0)]],
+                  device int* bsScalar[[buffer(1)]],
+                  const device int& vSize[[buffer(2)]],
+                    uint id [[thread_position_in_grid]]) {
+    bsScalar[0] += 123*v[uint(id*bsScalar[0]) % vSize];
+    bsScalar[0] += 123*v[uint(id*bsScalar[0]) % vSize];
+    v[uint(id*bsScalar[0]) % vSize] += 1e-10;
+
+}
+
+
 kernel void zero16(device half* v[[buffer(0)]],
                     uint id [[thread_position_in_grid]]) {
     v[id] = 0;

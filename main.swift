@@ -25,6 +25,8 @@ let mBuffer2 = gpu.device.makeBuffer(length: 10*1000*1000*1000, options: .storag
 let goCapture = false
 var numLayers = 32
 var numExperts = 8
+
+// 
 //modelData.preload(numLayers: numLayers, numExperts: numExperts)
 
 var numTokens = 100
@@ -33,8 +35,9 @@ if goCapture {
     numLayers = 4
     numTokens = 3
 }
-
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0B)
+let bam = BufferActivityManager()
+bam.startPeriodicDispatch()
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"

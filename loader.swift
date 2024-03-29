@@ -89,10 +89,12 @@ class ExpertWeights {
         
         self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
+        bam.addBuffer(self.buckets)
         
         self.stats = Matrix3D(shape: [numExperts, inDim*percentLoad, 4])
         let statList: [Matrix] = self.stats.asMatrixList()
-        
+        bam.addBuffer(self.stats)
+
         for eNo in 0..<numExperts {
             let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
             probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))

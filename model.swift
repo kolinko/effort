@@ -94,10 +94,16 @@ class Bufferable<Type> : MTLBufferable {
 
     }
     
-    convenience init(shape: [Int]) {
+    convenience init(shape: [Int], private _private: Bool = false) {
         let bufferSize = shape.reduce(1, *) * MemoryLayout<Type>.size
-        let buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-        self.init(shape: shape, buffer: buffer)
+        var _buffer: MTLBuffer
+        if _private {
+            _buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModePrivate)!
+        } else {
+            _buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
+        }
+//        self.buffer = _buffer
+        self.init(shape: shape, buffer: _buffer)
     }
 
 
