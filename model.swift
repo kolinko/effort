@@ -127,12 +127,17 @@ class Bufferable<Type> : MTLBufferable {
     func add(by buf: Bufferable<Type>) {
         assert(self.shape == buf.shape, "Shapes of both buffers must match")
 
-        gpu.deploy("add\(bitSize)", buffers:[self, buf, self], threadCount: self.rows)
+        gpu.deploy("add\(bitSize)", buffers:[self, buf, self], threadCount: self.count)
     }
 
     func copyFrom(_ src: Bufferable<Type>) {
         assert(src.count == self.count)
-        gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.rows)
+        if self.count<=32768 {
+            gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.count)
+        } else {
+            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/32768], threadCount: 32768)
+            assert(self.count % 32768 == 0)
+        }
     }
     
     var str: String {
@@ -141,7 +146,7 @@ class Bufferable<Type> : MTLBufferable {
     
     func _str(count: Int = 10, noEval: Bool = false) -> String {
         if !noEval { gpu.eval() }
-        let _count = count<self.rows ? count : self.rows
+        let _count = count<self.count ? count : self.count
         var outStr = ""
         for i in 0..<_count {
             outStr += "\(self[i]), "
@@ -240,6 +245,9 @@ class ScalarFloat: Bufferable<Float> {
     convenience init(buffer: MTLBuffer, offset: Int = 0) {
         self.init(shape: [1], buffer: buffer, offset: offset)
     }
+    
+    var val : Float {self[0]}
+    var intVal: Int16 {self.getInt(index: 0)}
 }
 
 
@@ -252,6 +260,10 @@ class Scalar: Bufferable<Float16> {
     convenience init(buffer: MTLBuffer, offset: Int = 0) {
         self.init(shape: [1], buffer: buffer, offset: offset)
     }
+
+    var val : Float16 {self[0]}
+    var intVal: Int16 {self.getInt(index: 0)}
+
 }
 
 
@@ -279,14 +291,14 @@ class Matrix: Bufferable<Float16> {
 class Matrix3D: Bufferable<Float16> {    
     override var rows: Int { self.shape[1] }
     var cols: Int { self.shape[2] }
-    var slices: Int { self.shape[1] }
+    var slices: Int { self.shape[0] }
     var sliceSize: Int {self.rows * self.count}
 
     func asMatrixList() -> [Matrix] {
         assert(self.shape.count == 3)
         var out = [Matrix]()
-        out.reserveCapacity(self.rows)
-        for i in 0..<self.rows {
+        out.reserveCapacity(self.slices)
+        for i in 0..<self.slices {
             out.append(Matrix(shape:[shape[1], shape[2]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]))
         }
         return out
@@ -321,11 +333,11 @@ class DynaVectorFloat: VectorFloat {
     func bins(binSize: Int) -> [Int] {
         gpu.eval()
         var bins = [Int](repeating: 0, count: 16)
-        for i in 0..<Int(self.size[0]) {
-            bins[Int(self[i*2+1])/binSize] += 1
+        for i in 0..<Int(self.size.val) {
+            bins[(Int(self[i*2+1]) % binSize * 16)/binSize] += 1
         }
         for i in 0..<16 {
-            bins[i] = (bins[i]*100)/Int(self.size[0])
+            bins[i] = (bins[i]*100)/Int(self.size.val)
         }
 
         return bins
@@ -609,8 +621,8 @@ class BucketMul {
     func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         dispatch.size.zero()
-        assert(ew.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-        gpu.deploy("probeExpert", buffers:[v, ew.probes, probes, expNo], ints:[ew.inSize], threadCount: probesCount)
+        assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+        gpu.deploy("probeExpert", buffers:[v, ew.probes, expNo, probes], ints:[ew.inSize], threadCount: probesCount)
         probes.sort()
 
         let q = Int(Double(probesCount-1)*(1-quant))
@@ -618,6 +630,7 @@ class BucketMul {
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+        //print(dispatch.bins(binSize: ew.stats.rows/16))
     }
     
     func mul(by: ExpertWeights, out: VectorFloat) {
@@ -633,6 +646,7 @@ class BucketMul {
                                 ints: [weightBuckets.cols, groups],
                                 threadCount: weightBuckets.cols,
                                 threadCountY:groups)
+       // print(out.str)
     }
     
     /*

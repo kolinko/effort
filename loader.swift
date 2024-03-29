@@ -59,6 +59,7 @@ class Weights {
         let probes : Vector = loadBinaryMatrix(named: fromFile+".probes.bin", shape: pShape).asVector()
 
         self.init(core: core, buckets: buckets, stats: stats, probes: probes)
+        
     }
     
 }
@@ -74,7 +75,7 @@ class ExpertWeights {
     
     let buckets: Matrix3D
     let stats: Matrix3D
-    let probes: Vector
+    let probes: Matrix
     
     init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {
         self.inSize = inDim
@@ -83,8 +84,8 @@ class ExpertWeights {
         
         let probesCount = 4096
 
-        self.probes = Vector(shape: [probesCount*numExperts])
-        let probesList: [Vector] = probes.reshaped(newCols: probesCount)
+        self.probes = Matrix(shape: [numExperts, probesCount])
+        let probesList: [Vector] = probes.asVectorList()
         
         self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
@@ -134,7 +135,7 @@ class Layer {
         
         self.ffnNorm = Vector(fname: layerName+"ffn_norm.bin", shape: shapeDict[layerName+"ffn_norm"]!)
         self.attnNorm = Vector(fname: layerName+"attention_norm.bin", shape: shapeDict[layerName+"attention_norm"]!)
-        self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: shapeDict[layerName+"feed_forward.gate"]!)
+        self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: [numExperts, stateDim])//shapeDict[layerName+"feed_forward.gate"]!)
         
         self.wo = Weights(elName: layerName+"attention.wo")
         self.wk = Weights(elName: layerName+"attention.wk")
@@ -167,13 +168,16 @@ class Model {
         self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
         self.tokEmbeddings = loadBinaryMatrix(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
 
+        print("loading weights")
         var layers = [Int: Layer]()
         for i in 0..<numLayers {
             layers[i] = Layer(i, numExperts:numExperts, percentLoad: percentLoad)
+            print("preparing layer \(i)")
+            gpu.eval()
         }
         self.layers = layers
 
-        print("data load time \(Date().timeIntervalSince(startTime)) seconds")
+        print("data init time \(Date().timeIntervalSince(startTime)) seconds")
     }
     
 }

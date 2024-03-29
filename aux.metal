@@ -117,7 +117,7 @@ kernel void normalize_vector(device half* input [[buffer(0)]],
 kernel void sum_of_exps32(const device float* input [[buffer(0)]],
                           device atomic_float* sum [[buffer(1)]],
                           uint id [[thread_position_in_grid]]) {
-    
+//    atomic_max_explicit(sum, input[id], memory_order_relaxed);
     atomic_fetch_add_explicit(sum, exp(input[id]), memory_order_relaxed);
 }
 
@@ -219,6 +219,30 @@ kernel void memcpy32(const device float* src [[buffer(0)]],
                      device float* dst [[buffer(1)]],
                      uint id [[thread_position_in_grid]]) {
     dst[id] = src[id];
+}
+
+kernel void memcpyBig16(const device half* src [[buffer(0)]],
+                     device half* dst [[buffer(1)]],
+                     device const uint& batchSize [[buffer(2)]],
+                     uint id [[thread_position_in_grid]]) {
+    uint begin = id*batchSize;
+    uint end = begin + batchSize;
+    for (uint i = begin; i<end; i++) {
+        dst[i] = src[i];
+    }
+}
+
+kernel void memcpyBig32(const device float* src [[buffer(0)]],
+                     device float* dst [[buffer(1)]],
+                        device const uint& batchSize [[buffer(2)]],
+
+                     uint id [[thread_position_in_grid]]) {
+    uint begin = id*batchSize;
+    uint end = begin + batchSize;
+    for (uint i = begin; i<end; i++) {
+        dst[i] = src[i];
+    }
+
 }
 
 

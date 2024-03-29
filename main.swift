@@ -34,7 +34,7 @@ if goCapture {
     numTokens = 3
 }
 
-let modelData = Model(from: "shape.json", numLayers: 32, numExperts: 8, percentLoad: 0x10)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x8)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -74,7 +74,7 @@ func tic() {
 func toc(_ _msg: String = "") {
     let msg = _msg=="" ? "" : "-- \(_msg)"
     if !silent {
-       print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
+      // print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
     }
     countToc += 1
     ticStartTime = Date()
@@ -141,7 +141,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             let fxn = h.rmsNormed()
 
             fxn.mul(by:layer.ffnNorm)
-            let gateOut = VectorFloat(shape: [8])
+            let gateOut = VectorFloat(shape: [numExperts])
             basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
@@ -169,14 +169,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
             toc("ffn")
-//            gpu.eval()
+
             toc("final eval")
             gpu.stopCapture()
 
         }
-        if silent {
-            return archive
-        }
+        gpu.eval()
 
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()

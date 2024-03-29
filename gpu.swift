@@ -38,7 +38,7 @@ class Gpu {
                              "repeat4x32", "mulComplex32", "dotSetScore32", "zero32", "sum_of_exps32",
                              "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeExpert",
                              "basicBitonicSort", "getVal", "prepareExpertDispatch", "bucketMul",
-                             "silu32", "mulScalar32x32", "memcpy16"]
+                             "silu32", "mulScalar32x32", "memcpy16", "memcpyBig16"]
         
         
         /*["sum_of_squares32",
