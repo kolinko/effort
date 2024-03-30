@@ -66,6 +66,7 @@ class Bufferable<Type> : MTLBufferable {
     let byteSize: Int
     let bitSize: Int
     var countBytes: Int {self.count * self.byteSize}
+    var offsetEls: Int {assert(self.offsetBytes % self.byteSize == 0); return self.offsetBytes/self.byteSize}
 
     var _bufferPointer : UnsafeMutablePointer<Type>? = nil
     
@@ -286,18 +287,18 @@ class Matrix: Bufferable<Float16> {
     var cols: Int { self.shape[1] }
     
     func asVector() -> Vector {
-        return Vector(shape: [self.count], buffer: self.buffer)
+        return Vector(shape: [self.count], buffer: self.buffer, offset: self.offsetEls)
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> Scalar {
-        return Scalar(buffer: self.buffer, offset: row*self.cols + col)
+        return Scalar(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)
     }
     
     func asVectorList() -> [Vector] {
         var out = [Vector]()
         out.reserveCapacity(self.rows)
         for i in 0..<self.rows {
-            out.append(Vector(shape:[self.cols], buffer:self.buffer, offset: i*self.cols))
+            out.append(Vector(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls+i*self.cols))
         }
         return out
     }
@@ -314,14 +315,14 @@ class Matrix3DFloat: Bufferable<Float> {
         var out = [MatrixFloat]()
         out.reserveCapacity(self.slices)
         for i in 0..<self.slices {
-            out.append(MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]))
+            out.append(MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: self.offsetEls + i*self.shape[1]*self.shape[2]))
         }
         return out
     }
     
     subscript(index: Int) -> MatrixFloat {
             get {
-                return MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: index*self.shape[1]*self.shape[2])
+                return MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: self.offsetEls + index*self.shape[1]*self.shape[2])
                 //self.asMatrixList()[index]
 /*                let bufferPointer = self.bufferPointer
                 return bufferPointer[index+Int(self.offsetBytes/self.byteSize)]*/
@@ -340,7 +341,7 @@ class Matrix4DFloat: Bufferable<Float> {
         var out = [Matrix3DFloat]()
         out.reserveCapacity(self.sliceGroups)
         for i in 0..<self.sliceGroups {
-            out.append(Matrix3DFloat(shape:[shape[1], shape[2], shape[3]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]*self.shape[3]))
+            out.append(Matrix3DFloat(shape:[shape[1], shape[2], shape[3]], buffer:self.buffer, offset: self.offsetEls + i*self.shape[1]*self.shape[2]*self.shape[3]))
         }
         return out
     }
@@ -357,7 +358,7 @@ class Matrix3D: Bufferable<Float16> {
         var out = [Matrix]()
         out.reserveCapacity(self.slices)
         for i in 0..<self.slices {
-            out.append(Matrix(shape:[shape[1], shape[2]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]))
+            out.append(Matrix(shape:[shape[1], shape[2]], buffer:self.buffer, offset: self.offsetEls + i*self.shape[1]*self.shape[2]))
         }
         return out
     }
@@ -367,20 +368,20 @@ class MatrixFloat: Bufferable<Float> {
     var cols: Int { self.shape[1] }
 
     func asVector() -> VectorFloat {
-        return VectorFloat(shape: [self.count], buffer: self.buffer)
+        return VectorFloat(shape: [self.count], buffer: self.buffer, offset: self.offsetEls)
     }
         
     func asVectorList() -> [VectorFloat] {
         var out = [VectorFloat]()
         out.reserveCapacity(self.rows)
         for i in 0..<self.rows {
-            out.append(VectorFloat(shape:[self.cols], buffer:self.buffer, offset: i*self.cols))
+            out.append(VectorFloat(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls + i*self.cols))
         }
         return out
     }
     
     func scalarAt(_ row: Int, _ col: Int) -> ScalarFloat {
-        return ScalarFloat(buffer: self.buffer, offset: row*self.cols + col)
+        return ScalarFloat(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)
     }
 
 }

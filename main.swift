@@ -148,6 +148,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 gpu.stopCapture()
                 assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
             }
+            if thisToken == 1 && layerNo == 1 {
+                print("hello")
+            }
             
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()
