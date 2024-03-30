@@ -17,11 +17,11 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
 
-var numTokens = 10
+var numTokens = 100
 
 if goCapture {
     numLayers = 4
@@ -88,7 +88,6 @@ var silent = true
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
 
-
     var tokens = _tokens
 //    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
@@ -134,14 +133,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             let xkTokenHeads = xkLayerTokenHead.as3DMatrixList()[layerNo]
             let xvToken = xvLayerToken[layerNo]
-            if thisToken == 1 && layerNo == 0 {
-                gpu.eval()
-              //  gpu.startCapture()
-                gpu.eval()
-            }
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
+            /*
             gpu.eval()
+            
             if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
             if thisToken == 1 && layerNo == 0 {
                 gpu.eval()
@@ -150,7 +146,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
             if thisToken == 1 && layerNo == 1 {
                 print("hello")
-            }
+            }*/
             
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()
@@ -203,11 +199,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
         gpu.eval()
-        print(thisToken, topKVector.strInt)
-        
+       // print(thisToken, topKVector.strInt)
+        /*
         if thisToken < 2 {
             assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
-        }
+        }*/
             
         if !silent {
             sumEvalTime += Date().timeIntervalSince(evalTime)
@@ -251,8 +247,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     return archive
 }
 
-silent = true
-
+silent = false
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
 
 /*
