@@ -17,11 +17,11 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 32
-var numExperts = 8
+var numLayers = 2
+var numExperts = 2
 
 
-var numTokens = 100
+var numTokens = 10
 
 if goCapture {
     numLayers = 4
@@ -33,7 +33,8 @@ bam.startPeriodicDispatch()
 let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
 
 var tokens = [VectorFloat]()
-//let tokIds = [1, 1602, 460] // "How are"
+let tokIds = [1, 1602, 460] // "How are"
+/*
 let tokIds = [1,
               523,
               28713,
@@ -54,7 +55,7 @@ let tokIds = [1,
               28748,
               16289,
               28793
-]
+]*/
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -79,23 +80,7 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 print()
 gpu.eval()
 
-var ticStartTime = Date()
-var countToc = 0
 var silent = true
-
-func tic() {
-    ticStartTime = Date()
-    countToc = 0
-}
-
-func toc(_ _msg: String = "") {
-//    let  = _msg=="" ? "" : "-- \(_msg)"
-    if !silent {
-      // print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
-    }
-    countToc += 1
-    ticStartTime = Date()
-}
 
 
 
@@ -119,7 +104,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var output = ""
     
     gpu.warnOfEvals = false
-    var finalEvalTime = Date()
+    let finalEvalTime = Date()
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
@@ -202,9 +187,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         evalTime = Date()
         gpu.eval()
         
-        sumEvalTime += Date().timeIntervalSince(evalTime)
-        print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-        evalTime = Date()
+        if !silent {
+            sumEvalTime += Date().timeIntervalSince(evalTime)
+            print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+            evalTime = Date()
+        }
 
         let topToken = Int(topKVector.getInt(index: 0))
 
@@ -226,23 +213,27 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         output += " ›››"
     }
     
-    print("\(Int(quant*100))% \t \(output)\n")
-
-    print("final eval time \(Date().timeIntervalSince(finalEvalTime)*1000, precision: 2) ms")
-    
-    print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
-    print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
-    print("avg eval time \(sumEvalTime*1000/Double(numTokens), precision: 2) ms")
-    print("avg prep time \(sumPrepTime*1000/Double(numTokens), precision: 2) ms")
-    
-    print("total \(1000/((sumEvalTime+sumEvalTime)*1000/Double(numTokens)), precision: 2) tps")
+    if !silent {
+        print("\(Int(quant*100))% \t \(output)\n")
+        
+        print("final eval time \(Date().timeIntervalSince(finalEvalTime)*1000, precision: 2) ms")
+        
+        print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
+        print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
+        print("avg eval time \(sumEvalTime*1000/Double(numTokens), precision: 2) ms")
+        print("avg prep time \(sumPrepTime*1000/Double(numTokens), precision: 2) ms")
+        
+        print("total \(1000/((sumEvalTime+sumEvalTime)*1000/Double(numTokens)), precision: 2) tps")
+    }
 
     return archive
 }
 
+silent = true
 
-var errors = [String: Int]()
-silent = false
+_ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
+
+/*
 for i in 2...25 {
     let _ = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
-}
+}*/
