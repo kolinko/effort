@@ -303,7 +303,24 @@ class Matrix: Bufferable<Float16> {
     }
 }
 
-class Matrix3D: Bufferable<Float16> {    
+class Matrix3DFloat: Bufferable<Float> {
+    override var rows: Int { self.shape[1] }
+    var cols: Int { self.shape[2] }
+    var slices: Int { self.shape[0] }
+    var sliceSize: Int {self.rows * self.count}
+
+    func asMatrixList() -> [MatrixFloat] {
+        assert(self.shape.count == 3)
+        var out = [MatrixFloat]()
+        out.reserveCapacity(self.slices)
+        for i in 0..<self.slices {
+            out.append(MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]))
+        }
+        return out
+    }
+}
+
+class Matrix3D: Bufferable<Float16> {
     override var rows: Int { self.shape[1] }
     var cols: Int { self.shape[2] }
     var slices: Int { self.shape[0] }
@@ -443,7 +460,7 @@ class VectorFloat: Bufferable<Float> {
     func repeated(_ count: Int) -> VectorFloat {
         assert(self.rows == 128*8)
         let output = VectorFloat(shape: [count*self.rows])
-        gpu.deploy("repeat4x32", buffers: [self, output], threadCount: 128, threadCountY: 8)
+        gpu.deploy("repeat4x32", buffers: [self, output], threadCount: [128, 8])
         return output
     }
     
@@ -512,11 +529,9 @@ class Vector: Bufferable<Float16> {
             fatalError("data.count is not a power of 2")
         }
 
-        var justDispatch = false
         for p in 0..<logn {
             for q in 0..<p+1 {
-                gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows, justDispatch: justDispatch)
-                justDispatch = false
+                gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows)
             }
         }
     }
@@ -556,6 +571,22 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     return heads
 }
 
+
+func calcScores2(xq_heads: [VectorFloat], xkTokenHeads: Matrix3DFloat) -> [VectorFloat] {
+    let numTokens = xkTokenHeads.slices
+    let scores = MatrixFloat(shape: [numHeads, numTokens])
+
+    for t2 in 0..<numTokens {
+        for headNo in 0..<numHeads {
+            assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
+            gpu.deploy("dotSetScore32", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+                       ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
+        }
+    }
+    
+    return scores.asVectorList()
+}
+
 func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [VectorFloat] {
     let numTokens = xkTokenHeads.count
     let scores = MatrixFloat(shape: [numHeads, numTokens])
@@ -564,7 +595,7 @@ func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [Vect
         for headNo in 0..<numHeads {
             assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
             gpu.deploy("dotSetScore32", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
-                       ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
+                       ints: [1], threadCount:[128], threadGroupSize: [128, 1, 1])
         }
     }
     
@@ -591,7 +622,7 @@ func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [Vect
 
     let numTokens = scores[0].rows
     let numDims = numHeads*headDim
-    gpu.deploy("sumScores32", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: numDims)
+    gpu.deploy("sumScores32", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: [numDims])
     
     return outMatrix.asVector()
 }
@@ -604,13 +635,6 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
     gpu.deploy("silu32", buffers: [x1, x3, out], threadCount: x1.rows)
 }
 
-/*
-func bucketMul(v: VectorFloat, by: Weights, out: VectorFloat, quant: Double = 0.25) {
-    BucketMul.shared.calcDispatch(v: v, weights: by, quant: quant)
-    out.zero()
-    BucketMul.shared.mul(by: by, out: out)
-
-}*/
 
 func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     out.zero()
@@ -659,41 +683,9 @@ class BucketMul {
         let groups = 32
         gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
                                 ints: [weightBuckets.cols, groups],
-                                threadCount: weightBuckets.cols,
-                                threadCountY:groups)
-       // print(out.str)
+                                threadCount: [weightBuckets.cols,groups])
     }
     
-    /*
-    func calcDispatch(v: VectorFloat, weights w: Weights, quant: Double) {
-        assert(dispatch.rows >= w.buckets.rows*2)
-        dispatch.size.zero()
-        assert(w.probes.rows == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-        gpu.deploy("probeShort", buffers:[v, w.probes, probes], ints:[w.inSize], threadCount: probesCount)
-        probes.sort()
-
-        let q = Int(Double(probesCount-1)*(1-quant))
-        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareDispatch32", buffers:[v, w.stats, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, w.inSize], threadCount: w.stats.rows/chunkSize)
-    }*/
-
-    /*
-    func mul(by: Weights, out: VectorFloat) {
-        let weightBuckets = by.buckets
-        
-        let bucketSize = 16
-        let numBuckets = out.rows / bucketSize
-        
-        assert(numBuckets % 4 == 0)
-
-        let groups = 32
-        gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
-                                ints: [weightBuckets.cols!, groups],
-                                threadCount: weightBuckets.cols!,
-                                threadCountY:groups)
-    }*/
 }
 
 

@@ -93,15 +93,25 @@ class Gpu {
 
     }
     
-    func deploy(_ fname: String, 
+    func deploy(_ fname: String,
                 buffers: [MTLBufferable],
                 ints: [Int] = [],
                 float16s: [Float16] = [],
-                threadCount: Int, threadCountY: Int = 1, threadCountZ: Int = 1,
-                threadGroupSize tgs: [Int] = [32, 1, 1],
-                justDispatch: Bool = false) {
+                threadCount: Int,
+                threadGroupSize tgs: [Int] = [32, 1, 1]) {
+        deploy(fname, buffers: buffers, ints: ints, float16s: float16s, threadCount: [threadCount], threadGroupSize: tgs)
+    }
+    
+    func deploy(_ fname: String,
+                buffers: [MTLBufferable],
+                ints: [Int] = [],
+                float16s: [Float16] = [],
+                threadCount: [Int],
+                threadGroupSize tgs: [Int] = [32, 1, 1]) {
         
-        let gridSize = MTLSize(width: threadCount, height: threadCountY, depth: threadCountZ)
+        let gridSize = MTLSize(width: threadCount[0],
+                               height: threadCount.count > 1 ? threadCount[1] : 1,
+                               depth: threadCount.count > 2 ? threadCount[2] : 1)
         let threadGroupSize = MTLSize(width: tgs[0], height: tgs[1], depth: tgs[2])
 
         if (!globalStates.keys.contains(fname)) {

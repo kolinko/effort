@@ -82,7 +82,7 @@ gpu.eval()
 
 var silent = true
 
-
+let maxTokens = 2000
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
     var tokens = _tokens
@@ -125,7 +125,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 xq_heads[i].mul(complexArray: freqsCis[thisToken])
                 xk_heads[i].mul(complexArray: freqsCis[thisToken])
             }
-
             
             xkLayerTokenHead[layerNo].append(xk_heads)
             xvLayerToken[layerNo].append(xv)
@@ -138,9 +137,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores[0][0]*10000) == 1021)}
             if thisToken == 1 && layerNo == 0 {
                 gpu.eval()
-                print((scores[17][1]*10000) == -24692)
-//                assert (Int(scores[0][0]*10000) == 315))
+                assert(Int(scores[17][1]*10000) == -24692)
             }
+            
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
