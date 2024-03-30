@@ -274,18 +274,74 @@ kernel void sumScores32(const device float* scores [[buffer(0)]],
 
 // setScore
 
-/*
-kernel void dotSetScore(const device half* v [[buffer(0)]],
-                        const device half* w [[buffer(1)]],
-                        device half* target [[buffer(2)]],
-                        const device int& count [[buffer(3)]]
+kernel void dotSetScore2(const device float* xqHeads [[buffer(0)]],
+                        const device float* xkTokenHeads [[buffer(1)]],
+                        device float* scores [[buffer(2)]],
+                        ushort3 id [[thread_position_in_grid]],
+                        ushort tiisg [[thread_index_in_simdgroup]],
+                        ushort sgiitg [[simdgroup_index_in_threadgroup]],
+                        ushort sgptg [[simdgroups_per_threadgroup]],
+                        ushort3 tpg [[threads_per_grid]]
+                                //threadgroup size == thread count!
                         ) {
+    
+    short dimSize = tpg.x;
+    assert(dimSize == 127);
+
+    short headNo = id.z;
+    short headsCount = tpg.z;
+    assert(headsCount == numHeads);
+    
+    short t2 = id.y;
+    short numTokens = tpg.y;
+    
+    device float* scoresOut = &scores[headNo * numTokens + t2];
+    const device float* v = &xqHeads[headNo * dimSize];
+    const device float* w = &xkTokenHeads[t2*numHeads*dimSize + headNo*dimSize];
+    
+    threadgroup half temp[32] = {0};
     float sum = 0;
-    for (int i = 0; i<count; i++) {
+    
+    // reduce over threads in the group
+    uint begin = id.x;
+    uint end = (id.x+1);
+    for (uint i = begin; i<end; i++) {
         sum += float(v[i])*float(w[i]);
     }
+    sum = simd_sum(sum);
     
-    target[0] = sum / sqrt(float(headDim));
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (tiisg == 0) {
+        temp[sgiitg] = sum;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (id.x==0) {
+        sum = 0;
+        for (int i=0; i<sgptg; i++) {
+            sum += temp[i];
+        }
+        assert(tiisg == 0);
+        assert(sgiitg == 0);
+        *scoresOut = sum / sqrt(float(headDim));
+    }
+}
+
+/*
+func calcScores2(xq_heads: [VectorFloat], xkTokenHeads: Matrix3DFloat) -> [VectorFloat] {
+    let numTokens = xkTokenHeads.slices
+    let scores = MatrixFloat(shape: [numHeads, numTokens])
+
+    for t2 in 0..<numTokens {
+        for headNo in 0..<numHeads {
+            assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
+            gpu.deploy("dotSetScore2",
+                       buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
+                       threadCount:[128, numHeads, numTokens],
+                       threadGroupSize: [128, 1, 1])
+        }
+    }
+    
+    return scores.asVectorList()
 }*/
 
 kernel void dotSetScore32(const device float* v [[buffer(0)]],

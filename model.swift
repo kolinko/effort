@@ -307,7 +307,7 @@ class Matrix3DFloat: Bufferable<Float> {
     override var rows: Int { self.shape[1] }
     var cols: Int { self.shape[2] }
     var slices: Int { self.shape[0] }
-    var sliceSize: Int {self.rows * self.count}
+//    var sliceSize: Int {self.rows * self.count}
 
     func asMatrixList() -> [MatrixFloat] {
         assert(self.shape.count == 3)
@@ -318,13 +318,39 @@ class Matrix3DFloat: Bufferable<Float> {
         }
         return out
     }
+    
+    subscript(index: Int) -> MatrixFloat {
+            get {
+                return MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: index*self.shape[1]*self.shape[2])
+                //self.asMatrixList()[index]
+/*                let bufferPointer = self.bufferPointer
+                return bufferPointer[index+Int(self.offsetBytes/self.byteSize)]*/
+            }
+        }
+}
+
+class Matrix4DFloat: Bufferable<Float> {
+    var cols: Int { self.shape[3] }
+    override var rows: Int { self.shape[2] }
+    var slices: Int { self.shape[1] }
+    var sliceGroups: Int {self.shape[0]}
+
+    func as3DMatrixList() -> [Matrix3DFloat] {
+        assert(self.shape.count == 4)
+        var out = [Matrix3DFloat]()
+        out.reserveCapacity(self.sliceGroups)
+        for i in 0..<self.sliceGroups {
+            out.append(Matrix3DFloat(shape:[shape[1], shape[2], shape[3]], buffer:self.buffer, offset: i*self.shape[1]*self.shape[2]*self.shape[3]))
+        }
+        return out
+    }
 }
 
 class Matrix3D: Bufferable<Float16> {
     override var rows: Int { self.shape[1] }
     var cols: Int { self.shape[2] }
     var slices: Int { self.shape[0] }
-    var sliceSize: Int {self.rows * self.count}
+//    var sliceSize: Int {self.rows * self.count}
 
     func asMatrixList() -> [Matrix] {
         assert(self.shape.count == 3)
@@ -411,6 +437,13 @@ class VectorFloat: Bufferable<Float> {
         let out = VectorFloat(shape:self.shape)
         gpu.deploy("memcpy\(self.bitSize)", buffers: [self, out], threadCount: self.rows)
         return out
+    }
+    
+    func asMatrix(newCols: Int) -> MatrixFloat {
+        assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
+        let newRows = self.rows / newCols
+
+        return MatrixFloat(shape:[newRows, newCols], buffer: self.buffer)
     }
     
     func reshaped(newCols: Int) -> [VectorFloat] {
@@ -572,19 +605,15 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
 }
 
 
-func calcScores2(xq_heads: [VectorFloat], xkTokenHeads: Matrix3DFloat) -> [VectorFloat] {
-    let numTokens = xkTokenHeads.slices
+func calcScores2(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int) -> MatrixFloat {
     let scores = MatrixFloat(shape: [numHeads, numTokens])
 
-    for t2 in 0..<numTokens {
-        for headNo in 0..<numHeads {
-            assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
-            gpu.deploy("dotSetScore32", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
-                       ints: [1], threadCount:128, threadGroupSize: [128, 1, 1])
-        }
-    }
+    gpu.deploy("dotSetScore2",
+               buffers: [xq_heads, xkTokenHeads, scores],
+               threadCount: [128, numTokens, numHeads],
+               threadGroupSize: [128, 1, 1])
     
-    return scores.asVectorList()
+    return scores
 }
 
 func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [VectorFloat] {
@@ -613,6 +642,17 @@ func gpuConsolidate(vecList src:[VectorFloat]) -> MatrixFloat {
     }
 
     return out
+}
+
+func sumScores2(numHeads: Int, headDim:Int, scores: MatrixFloat, xvToken: MatrixFloat, numTokens: Int) -> VectorFloat {
+    let outMatrix = MatrixFloat(shape: [numHeads, headDim])
+    let numDims = numHeads*headDim
+    
+    assert(scores.cols == numTokens)
+    
+    gpu.deploy("sumScores32", buffers:[scores, xvToken, outMatrix], ints: [numTokens], threadCount: [numDims])
+    
+    return outMatrix.asVector()
 }
 
 func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [VectorFloat]) -> VectorFloat {

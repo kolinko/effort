@@ -70,6 +70,9 @@ let numHeads = 32
 let kvRepeats : Int = numHeads/numHeadsKV
 //let maxSeqLen = 128  // Example maximum sequence length
 let maxSeqLen = 2048
+let maxTokens = 2048
+let hiddenSize = 14336//11008
+let stateSize = 4096
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelRunTests()
@@ -82,18 +85,18 @@ gpu.eval()
 
 var silent = true
 
-let maxTokens = 2000
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
+
+
     var tokens = _tokens
-    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
-    var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
+//    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
+    let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
+    let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateSize])
+//    var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
     
     var h : VectorFloat = tokens[0]
 
-    let hiddenSize = 14336//11008
-    let stateSize = 4096
-    
     let x1 = VectorFloat(shape:[hiddenSize])
     let x3 = VectorFloat(shape:[hiddenSize])
     let x2 = VectorFloat(shape:[hiddenSize])
@@ -118,32 +121,38 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
             let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
-            let xq_heads = xq.reshaped(newCols: headDim)
-            let xk_heads = xk.reshaped(newCols: headDim)
+            let xqHeads = xq.asMatrix(newCols: headDim)
+            let xkHeads = xk.asMatrix(newCols: headDim)
             
             for i in 0..<numHeads {
-                xq_heads[i].mul(complexArray: freqsCis[thisToken])
-                xk_heads[i].mul(complexArray: freqsCis[thisToken])
+                xqHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
+                xkHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            xkLayerTokenHead[layerNo].append(xk_heads)
-            xvLayerToken[layerNo].append(xv)
+            xkLayerTokenHead.as3DMatrixList()[layerNo].asMatrixList()[thisToken].copyFrom(xkHeads)
+            xvLayerToken.asMatrixList()[layerNo].asVectorList()[thisToken].copyFrom(xv)
 
-            let xkTokenHeads = xkLayerTokenHead[layerNo]
+            let xkTokenHeads = xkLayerTokenHead.as3DMatrixList()[layerNo]
             let xvToken = xvLayerToken[layerNo]
-
-            let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-            gpu.eval()
-            if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores[0][0]*10000) == 1021)}
             if thisToken == 1 && layerNo == 0 {
                 gpu.eval()
-                assert(Int(scores[17][1]*10000) == -24692)
+              //  gpu.startCapture()
+                gpu.eval()
+            }
+            
+            let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
+            gpu.eval()
+            if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
+            if thisToken == 1 && layerNo == 0 {
+                gpu.eval()
+                gpu.stopCapture()
+                assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
             }
             
             for headNo in 0..<numHeads {
-                scores[headNo].softmax()
+                scores.asVectorList()[headNo].softmax()
             }
-            let attnOutput = sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken)
+            let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
 
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
