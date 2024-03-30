@@ -134,7 +134,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
 
             let scores = calcScores(xq_heads: xq_heads, xkTokenHeads: xkTokenHeads)
-
+            gpu.eval()
+            if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores[0][0]*10000) == 1021)}
+            if thisToken == 1 && layerNo == 0 {
+                gpu.eval()
+                print((scores[17][1]*10000) == -24692)
+//                assert (Int(scores[0][0]*10000) == 315))
+            }
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
@@ -186,7 +192,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
         gpu.eval()
+        print(thisToken, topKVector.strInt)
         
+        if thisToken < 2 {
+            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
+        }
+            
         if !silent {
             sumEvalTime += Date().timeIntervalSince(evalTime)
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")

@@ -141,24 +141,23 @@ class Bufferable<Type> : MTLBufferable {
     func copyFrom(_ src: Bufferable<Type>) {
         assert(src.count == self.count)
         gpu.copyBuffer(src: src, dst: self, size: src.countBytes)
-        /*
-        if self.count<=32768 {
-            gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.count)
-        } else if self.count % 32768 == 0 {
-            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/32768], threadCount: 32768)
-            assert(self.count % 32768 == 0)
-        } else if self.count % 16384 == 0 {
-            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/16384], threadCount: 16384)
-        } else {
-            gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/1024], threadCount: 1024)
-            assert(self.count % 1024 == 0)
-        }*/
-
     }
     
     var str: String {
         return _str()
     }
+    
+    
+    var strInt: String {
+        gpu.eval()
+        let _count = count<self.count ? count : self.count
+        var outStr = ""
+        for i in 0..<_count {
+            outStr += "\(self.getInt(index: i)), "
+        }
+        return outStr
+    }
+    
     
     func _str(count: Int = 10, noEval: Bool = false) -> String {
         if !noEval { gpu.eval() }
