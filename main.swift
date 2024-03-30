@@ -16,18 +16,10 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-print(gpu.device.maxBufferLength )
-let mBuffer = gpu.device.makeBuffer(length: 10*1000*1000*1000, options: .storageModeShared)!
-let mBuffer2 = gpu.device.makeBuffer(length: 10*1000*1000*1000, options: .storageModeShared)!
-
-
-
 let goCapture = false
 var numLayers = 32
 var numExperts = 8
 
-// 
-//modelData.preload(numLayers: numLayers, numExperts: numExperts)
 
 var numTokens = 100
 
@@ -40,7 +32,28 @@ bam.startPeriodicDispatch()
 let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
 
 var tokens = [VectorFloat]()
-let tokIds = [1, 1602, 460] // "How are"
+//let tokIds = [1, 1602, 460] // "How are"
+let tokIds = [1,
+              523,
+              28713,
+              28767,
+              28792,
+              16289,
+              28793,
+              26703,
+              349,
+              6084,
+              387,
+              14469,
+              442,
+              6444,
+              300,
+              28804,
+              28792,
+              28748,
+              16289,
+              28793
+]
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -85,7 +98,8 @@ func toc(_ _msg: String = "") {
 
 
 
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
+func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
+    let origCount = _tokens.count
     var tokens = _tokens
     var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
     var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
@@ -102,9 +116,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
     
     let archive = Archive()
 
-    var startTime = Date()
+    var output = ""
+    
     tic()
-    gpu.warnOfEvals = true
+    gpu.warnOfEvals = false
+    var evalTime = Date()
+    var finalEvalTime = Date()
+
+    var sumPrepTime = Date().timeIntervalSince(evalTime)
+    var sumEvalTime = Date().timeIntervalSince(evalTime)
+    
     for thisToken in 0...numTokens {
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -160,18 +181,20 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
             gateVals.softmax()
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
-                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: 1)
-                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: 1)
+                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
 
                 silu(x1, x3, out: x2)
-                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: 1)
+                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                 ffnOut[i].mul(by: gateVals.scalarAt(i))
             }
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
             toc("ffn")
-
+            //if thisToken % 20 == 0 {
+            //    gpu.eval()
+            //}
             toc("final eval")
             gpu.stopCapture()
 
@@ -184,40 +207,71 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat]) -> Archive{
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         let topKVector = mpsTopK(v: outputVector)
-        print("Token \(thisToken), prep time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-        startTime = Date()
+
+        sumPrepTime += Date().timeIntervalSince(evalTime)
+        let ptime = Date().timeIntervalSince(evalTime)*1000
+        evalTime = Date()
         gpu.eval()
-        print("Token \(thisToken), eval time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+        
+        sumEvalTime += Date().timeIntervalSince(evalTime)
+        print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+        evalTime = Date()
+
 
         let topToken = Int(topKVector.getInt(index: 0))
-        print("Token : ", t[topToken])
+        
 
         if tokens.count-1 == thisToken {
-          //  gpu.eval()
-          //  let topToken = Int(topKVector.getInt(index: 0))
             let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
             tokens.append(tokEmbeddings[topToken].asFloat32())
+            output += t[topToken].replacingOccurrences(of: "▁", with: " ")
+
         }
     }
 
-    let evalTime = Date()
+
+    evalTime = Date()
     gpu.eval()
     
+    if let range = output.range(of: "</s>") {
+        output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
+    } else {
+        output += " ›››"
+    }
+    
+    print("\(Int(quant*100))% \t \(output)\n")
+
+    print("final eval time \(Date().timeIntervalSince(finalEvalTime)*1000, precision: 2) ms")
+    
+    print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
+    print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
+    print("avg eval time \(sumEvalTime*1000/Double(numTokens), precision: 2) ms")
+    print("avg prep time \(sumPrepTime*1000/Double(numTokens), precision: 2) ms")
+    
+    print("tps eval \(1000/(sumEvalTime*1000/Double(numTokens)), precision: 2) tps")
+    print("tps prep \(1000/(sumPrepTime*1000/Double(numTokens)), precision: 2) tps")
+
+
+    /*
     print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
+
     print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
     print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
+     */
+    
 
-    print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
+//    print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
     
     return archive
 }
 
 
 var errors = [String: Int]()
-let i = 0
 silent = false
-print("##### iteration", i)
-let a1 = runNetwork(isTest: true, tokens: tokens)
+for i in 2...25 {
+ //   print("##### iteration", i)
+    let a1 = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
+}
 
 print("##### iteration", 2)
 let evalTime = Date()

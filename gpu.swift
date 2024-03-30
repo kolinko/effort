@@ -79,6 +79,20 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder()!
     }
     
+    func copyBuffer(src: MTLBufferable, dst:MTLBufferable, size: Int) {
+        encoder.endEncoding()
+
+        let blitCommandEncoder = commandBuffer.makeBlitCommandEncoder()
+        blitCommandEncoder?.copy(from: src.buffer,
+                                 sourceOffset: src.offsetBytes,
+                                 to: dst.buffer,
+                                 destinationOffset: dst.offsetBytes,
+                                     size: size)
+        blitCommandEncoder?.endEncoding()
+        self.encoder = commandBuffer.makeComputeCommandEncoder()!
+
+    }
+    
     func deploy(_ fname: String, 
                 buffers: [MTLBufferable],
                 ints: [Int] = [],

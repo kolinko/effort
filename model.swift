@@ -65,6 +65,8 @@ class Bufferable<Type> : MTLBufferable {
     var rows: Int {self.shape[0]}
     let byteSize: Int
     let bitSize: Int
+    var countBytes: Int {self.count * self.byteSize}
+
     var _bufferPointer : UnsafeMutablePointer<Type>? = nil
     
     var count : Int {
@@ -138,6 +140,8 @@ class Bufferable<Type> : MTLBufferable {
 
     func copyFrom(_ src: Bufferable<Type>) {
         assert(src.count == self.count)
+        gpu.copyBuffer(src: src, dst: self, size: src.countBytes)
+        /*
         if self.count<=32768 {
             gpu.deploy("memcpy\(self.bitSize)", buffers: [src, self], threadCount: self.count)
         } else if self.count % 32768 == 0 {
@@ -148,7 +152,7 @@ class Bufferable<Type> : MTLBufferable {
         } else {
             gpu.deploy("memcpyBig\(self.bitSize)", buffers: [src, self], ints: [self.count/1024], threadCount: 1024)
             assert(self.count % 1024 == 0)
-        }
+        }*/
 
     }
     
