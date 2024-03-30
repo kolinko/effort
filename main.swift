@@ -27,6 +27,7 @@ if goCapture {
     numLayers = 4
     numTokens = 3
 }
+
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
 let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
@@ -248,20 +249,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     print("avg eval time \(sumEvalTime*1000/Double(numTokens), precision: 2) ms")
     print("avg prep time \(sumPrepTime*1000/Double(numTokens), precision: 2) ms")
     
-    print("tps eval \(1000/(sumEvalTime*1000/Double(numTokens)), precision: 2) tps")
-    print("tps prep \(1000/(sumPrepTime*1000/Double(numTokens)), precision: 2) tps")
+    print("total \(1000/((sumEvalTime+sumEvalTime)*1000/Double(numTokens)), precision: 2) tps")
 
-
-    /*
-    print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-
-    print("avg time per token \(Date().timeIntervalSince(evalTime)*1000/7,  precision: 2)")
-    print("tok per sec \(1000/(Date().timeIntervalSince(evalTime)*1000/7),  precision: 2)")
-     */
-    
-
-//    print("total time \(Date().timeIntervalSince(startTime)*1000, precision: 2) ms")
-    
     return archive
 }
 
@@ -269,48 +258,5 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var errors = [String: Int]()
 silent = false
 for i in 2...25 {
- //   print("##### iteration", i)
-    let a1 = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
+    let _ = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
 }
-
-print("##### iteration", 2)
-let evalTime = Date()
-let a2 = runNetwork(isTest: true, tokens: tokens)
-print("final eval time \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-
-exit(0)
-/*
-print(tokens.count)
-let a2 = runNetwork(isTest: true, tokens: tokens)
-
-var sumSim : Float = 0.0
-for (key, _) in a1 {
-//    print(key, a1[key].str())
-//    print(key, a2[key].str())
-    let sim = a1[key].cosineSimilarityTo(a2[key])[0]
-    if key != "token 0" {
-        print(key, sim, sumSim)
-        sumSim += sim
-    }
-}
-print(sumSim/9)
-
-if sumSim > 0.85 {
-    print("✅ works")
-} else {
-    fatalError("❌ bad quality")
-}
- 
- 
- /*
- if (!isTest) {
-     for i in 0..<2 {
-         let expert = experts[i]
-         mpsMul(v: fxn, by:expert.w1, out: x1)
-         mpsMul(v: fxn, by:expert.w3, out: x3)
-         silu(x1, x3, out: x2)
-         mpsMul(v: x2, by: expert.w2, out: ffnOut[i])
-         ffnOut[i].mul(by: gateVals.scalarAt(i))
-     }
- } else {*/
-*/
