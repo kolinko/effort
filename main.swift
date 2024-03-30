@@ -89,7 +89,7 @@ func tic() {
 }
 
 func toc(_ _msg: String = "") {
-    let msg = _msg=="" ? "" : "-- \(_msg)"
+//    let  = _msg=="" ? "" : "-- \(_msg)"
     if !silent {
       // print("toc \(countToc): \(Date().timeIntervalSince(ticStartTime)*1000, precision: 2) ms \(msg)")
     }
@@ -100,7 +100,6 @@ func toc(_ _msg: String = "") {
 
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
-    let origCount = _tokens.count
     var tokens = _tokens
     var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
     var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
@@ -119,11 +118,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
     var output = ""
     
-    tic()
     gpu.warnOfEvals = false
-    var evalTime = Date()
     var finalEvalTime = Date()
-
+    var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
     
@@ -133,7 +130,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let layer = modelData.layers[layerNo]!
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
-            toc()
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
             let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
@@ -171,9 +167,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
-            toc("attn")
-
-            toc("eval attn")
             if !silent {
 //                gpu.startCapture()
 //                gpu.eval()
@@ -192,11 +185,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
-            toc("ffn")
-            //if thisToken % 20 == 0 {
-            //    gpu.eval()
-            //}
-            toc("final eval")
             gpu.stopCapture()
 
         }
@@ -218,9 +206,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
         evalTime = Date()
 
-
         let topToken = Int(topKVector.getInt(index: 0))
-        
 
         if tokens.count-1 == thisToken {
             let tokEmbeddings = modelData.tokEmbeddings.asVectorList()

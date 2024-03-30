@@ -37,19 +37,6 @@ class OrderedDict<Value>: Sequence {
     }
 }
 
-class TicToc : OrderedDict<NSDateInterval> {
-    override subscript(index: String) -> NSDateInterval {
-        get { return data[index]! }
-        set {
-            if data[index] == nil {
-                order.append(index)
-                data[index] = NSDateInterval
-            }
-            data[index] = newValue
-        }
-    }
-    
-}
 
 class Archive : OrderedDict<VectorFloat> {
     var addPrefix : String {
