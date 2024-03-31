@@ -711,15 +711,22 @@ func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: Vecto
     //    expNo[0] = 3;
     //  max possible = 10000. Good enough = 5000.
     var goTime = Date()
+    if true {
+        gpu.eval()
+    //    gpu.startCapture()
+        gpu.eval()}
     for i in 0..<10 {
-        BucketMul.shared.mul(by: by, out: out)
+        gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
+        BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
+        BucketMul.shared.mul3(by: by, out: out)
     }
     gpu.eval()
+   // gpu.stopCapture()
     let numLoops = 10000
     for i in 0..<numLoops {
         gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
-        BucketMul.shared.calcDispatch2(v: v, eWeights: by, expNo: expNo, quant: quant)
-        BucketMul.shared.mul2(by: by, out: out)
+        BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
+        BucketMul.shared.mul3(by: by, out: out)
     }
     print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
     goTime = Date()
@@ -746,6 +753,21 @@ class BucketMul {
         self.cutoff = Scalar(value: 0)
     }
 
+    func calcDispatch3(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+        assert(dispatch.rows >= ew.buckets.rows*2)
+        assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+
+        dispatch.size.zero()
+        let q = Int(Double(probesCount-1)*(1-quant))
+
+        gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
+
+        
+        let chunkSize = 16//w.stats.rows//16
+        gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+        gpu.deploy("round", buffers:[dispatch.size], ints:[1024], threadCount: 1) // tofix
+    }
     
     func calcDispatch2(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
@@ -788,6 +810,36 @@ class BucketMul {
         gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
+    
+    func mul3(by: ExpertWeights, out: VectorFloat) {
+        let weightBuckets = by.buckets
+        
+        let bucketSize = 16
+        let numBuckets = out.rows / bucketSize
+        
+        assert(numBuckets % 4 == 0)
+
+        let groups = 256
+
+        gpu.deploy("bucketMul3", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                                ints: [weightBuckets.cols, groups],
+                                threadCount: [weightBuckets.cols, groups, 1],
+                                threadGroupSize: [128,1,1])
+    }
+
+    /*
+     
+     let groups = 64
+
+     gpu.deploy("bucketMul3", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                             ints: [weightBuckets.cols, groups*2],
+                             threadCount: [weightBuckets.cols, groups, 1],
+                             threadGroupSize: [64,1,2])
+     
+     --> 0.09ms for Q8!
+     */
+    
+    
     
     func mul2(by: ExpertWeights, out: VectorFloat) {
         let weightBuckets = by.buckets
