@@ -31,6 +31,140 @@ kernel void probeExpert(device const float *v [[buffer(0)]],
     out[id] = abs(v[id] * probes[id+expNo[0]*4096]);
 }
 
+//gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff2], ints:[q], threadCount: probesCount, threadGroupSize: [1024, 1, 1])
+
+
+kernel void findCutoff(device const float *v [[buffer(0)]],
+                       device const half *probes [[buffer(1)]],
+                       device const uint *expNo [[buffer(2)]],
+                       device half* out[[buffer(3)]],
+
+                       constant uint &_quant [[buffer(4)]],
+
+                       uint id [[thread_position_in_grid]],
+                       uint tiisg [[thread_index_in_simdgroup]],
+                       uint siitg [[simdgroup_index_in_threadgroup]],
+                       uint tpg [[threads_per_grid]]) {
+
+//    const uint probesCount = 4096;
+    uint quant = 4096-_quant;
+    half myMax = -999;
+    half myMin = 999;
+    half4 myVal;
+    
+    for (int i = 0; i<4; i++) {
+        myVal[i] = abs(v[4*id+i]*probes[4*id+i+expNo[0]*4096]);
+        myMax = max(myMax, myVal[i]);
+        myMin = min(myMin, myVal[i]);
+    }
+    
+    //half myVal = abs(v[id]*probes[id+expNo[0]*4096]);
+    half sgMin = simd_min(myMin);
+    half sgMax = simd_max(myMax);
+    
+    threadgroup half tgMin[32] = {999};
+    threadgroup half tgMax[32] = {-999};
+    
+    threadgroup half minBound = 999;
+    threadgroup half maxBound = -999;
+    threadgroup half newBound = -999;
+    threadgroup short minCount = 0;
+    threadgroup short maxCount = 0;
+    
+    if (tiisg == 0) {
+        tgMin[siitg] = sgMin;
+        tgMax[siitg] = sgMax;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (siitg == 0) {
+        sgMin = tgMin[tiisg];
+        sgMax = tgMax[tiisg];
+        
+        minBound = simd_min(sgMin);
+        maxBound = simd_max(sgMax);
+    }
+
+    
+    threadgroup short tgAbove[32] = {0};
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    newBound = (minBound + maxBound)/2;
+
+    ushort loops = 0;
+    minCount = 0;
+    while (true) {
+        loops += 1;
+        ushort countAbove = 0;
+        ushort myAbove = 0;
+        threadgroup ushort globalCount = 0;
+        for (int i = 0; i<4; i++) {
+            myAbove += myVal[i] > newBound ? 1 : 0;
+        }
+
+        tgAbove[siitg] = simd_sum(myAbove);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (siitg == 0) {
+            countAbove = tgAbove[tiisg];
+            countAbove = simd_sum(countAbove);
+            
+            if (countAbove < quant) {
+                maxBound = newBound;
+                maxCount = countAbove;
+            } else {
+                minBound = newBound;
+                minCount = countAbove;
+            }
+            
+            newBound = (maxBound+minBound)/2;
+            globalCount = countAbove;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        if ((globalCount == quant) ||
+            (maxBound - minBound < 0.00001) ||
+            (abs(maxCount - minCount) < 2)) {
+            if (id == 0){
+                out[0] = newBound;
+            }
+            return;
+        }
+        
+        if (loops>100) {
+            return;
+        }
+    }
+}
+
+/*
+ threadgroup half temp[32] = {0};
+ float sum = 0;
+ 
+ // reduce over threads in the group
+ uint begin = id.x;
+ uint end = (id.x+1);
+ for (uint i = begin; i<end; i++) {
+     sum += float(v[i])*float(w[i]);
+ }
+ sum = simd_sum(sum);
+ 
+ threadgroup_barrier(mem_flags::mem_threadgroup);
+ if (tiisg == 0) {
+     temp[sgiitg] = sum;
+ }
+ threadgroup_barrier(mem_flags::mem_threadgroup);
+ if (id.x==0) {
+     sum = 0;
+     for (int i=0; i<sgptg; i++) {
+         sum += temp[i];
+     }
+     assert(tiisg == 0);
+     assert(sgiitg == 0);
+     *scoresOut = sum / sqrt(float(headDim));
+ }
+ 
+ */
+ 
+
 
 /*
 kernel void findCutoff(device const half *v [[buffer(0)]],

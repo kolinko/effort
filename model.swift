@@ -701,13 +701,32 @@ class BucketMul {
     func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         dispatch.size.zero()
+        gpu.startCapture()
+        gpu.eval()
+
         assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+        print(v.str)
+
         gpu.deploy("probeExpert", buffers:[v, ew.probes, expNo, probes], ints:[ew.inSize], threadCount: probesCount)
+        print(v.str)
         probes.sort()
+        print(v.str)
 
         let q = Int(Double(probesCount-1)*(1-quant))
-        gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
+        for qq in 0..<32 {
+            let q = qq*128;
+            gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
+            print(v.str)
+            
+            let cutoff2 = Scalar(value: 0)
+            
+            gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff2], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
+            print(q, cutoff.str, cutoff2.str)
+            print(cutoff2.str)
+        }
         let chunkSize = 16//w.stats.rows//16
+        gpu.eval()
+        gpu.stopCapture()
         gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
         //print(dispatch.bins(binSize: ew.stats.rows/16))
