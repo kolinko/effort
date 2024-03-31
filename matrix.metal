@@ -91,7 +91,7 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
     newBound = (minBound + maxBound)/2;
 
     ushort loops = 0;
-    minCount = 0;
+    minCount = 4096;
     while (true) {
         loops += 1;
         ushort countAbove = 0;
