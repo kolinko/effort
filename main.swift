@@ -17,11 +17,11 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 32
-var numExperts = 8
+var numLayers = 2
+var numExperts = 2
 
 
-var numTokens = 100
+var numTokens = 6//100
 
 if goCapture {
     numLayers = 4
@@ -108,8 +108,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
-    
     for thisToken in 0...numTokens {
+        if thisToken == 2 {
+            gpu.eval()
+            gpu.startCapture()
+            gpu.eval()
+        }
+
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
@@ -182,7 +187,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
-            gpu.stopCapture()
 
         }
 
@@ -220,10 +224,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         }
     }
 
-
     evalTime = Date()
     gpu.eval()
-    
+    gpu.stopCapture()
+
     if let range = output.range(of: "</s>") {
         output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
     } else {

@@ -705,7 +705,7 @@ class BucketMul {
         dispatch.size.zero()
         let q = Int(Double(probesCount-1)*(1-quant))
 
-        if runControl == false {
+        if runControl == true {
             gpu.deploy("probeExpert", buffers:[v, ew.probes, expNo, probes], ints:[ew.inSize], threadCount: probesCount)
             probes.sort()
             
