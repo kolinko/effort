@@ -819,7 +819,7 @@ class BucketMul {
         
         assert(numBuckets % 4 == 0)
 
-        let groups = 256
+        let groups = 128
 
         gpu.deploy("bucketMul3", buffers: [weightBuckets, dispatch, out, dispatch.size],
                                 ints: [weightBuckets.cols, groups],

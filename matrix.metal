@@ -211,7 +211,7 @@ kernel void prepareExpertDispatch(device const float* v[[buffer(0)]],
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;
             }
-            dispatch[idx+counter] = {val, float(i)};
+            dispatch[idx+counter] = {val, float(i*896)};
             counter += 1;
         }
     }
@@ -261,14 +261,15 @@ kernel void bucketMul3(
     for (int r=0; r<dispatchSize[0]/groups; r+=8) { //32) {
         for (int s=0; s<8; s++) { // for better optimisation
             float2 d = dispatch[rowOffset + r+s];//+s
-            half w = weights[int(d[1])*cols + id.x];
-            for (int i=0; i<15; i++) {
-                myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
+            half w = weights[int(d[1]) + id.x];
+            ushort j = (as_type<ushort>(w)&15);
+            for (int i=0; i<16; i++) {
+                myVal[i] += (j == i)?d[0]*float(w):0;
             }
         }
     }
                       
-    for (int i = 0; i<16; i++) {
+    for (int i = 0; i<15; i++) {
         result[id.x*16+i] += myVal[i];
 //      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
     }
