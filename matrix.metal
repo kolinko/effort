@@ -135,67 +135,6 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
     }
 }
 
-/*
- threadgroup half temp[32] = {0};
- float sum = 0;
- 
- // reduce over threads in the group
- uint begin = id.x;
- uint end = (id.x+1);
- for (uint i = begin; i<end; i++) {
-     sum += float(v[i])*float(w[i]);
- }
- sum = simd_sum(sum);
- 
- threadgroup_barrier(mem_flags::mem_threadgroup);
- if (tiisg == 0) {
-     temp[sgiitg] = sum;
- }
- threadgroup_barrier(mem_flags::mem_threadgroup);
- if (id.x==0) {
-     sum = 0;
-     for (int i=0; i<sgptg; i++) {
-         sum += temp[i];
-     }
-     assert(tiisg == 0);
-     assert(sgiitg == 0);
-     *scoresOut = sum / sqrt(float(headDim));
- }
- 
- */
- 
-
-
-/*
-kernel void findCutoff(device const half *v [[buffer(0)]],
-                  device const half *probes [[buffer(1)]],
-                  device half *out[[buffer(2)]],
-                  constant float &quant [[buffer(3)]],
-
-                  uint id [[thread_position_in_grid]]) {
-
-    threadgroup float buf[4096];
-    threadgroup float minVal = buf[0];
-    threadgroup float maxVal = buf[0];
-    
-    buf[id] = abs(v[id] * probes[id]);
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    if (id == 0) {
-        for (int i = 0; i < 4096; i++) {
-            if (buf[i] < minVal) { minVal = buf[i]; }
-            if (buf[i] < maxVal) { maxVal = buf[i]; }
-        }
-    }
-    threadgroup float cutoff = minVal+maxVal / 2;
-    atomic_float counter[1];
-    threadgroup float val[1] = {0};
-    atomic_store_explicit(counter, 0, memory_order_relaxed);
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
-    out[id] = abs(v[id] * probes[id]);
-}*/
-
-
 
 kernel void getVal(device const half* vector [[buffer(0)]],
                    device half *val [[buffer(1)]],

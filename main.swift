@@ -16,16 +16,11 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-let goCapture = false
-var numLayers = 32
-var numExperts = 8
+var numLayers = 2
+var numExperts = 2
 
-var numTokens = 100
+var numTokens = 5
 
-if goCapture {
-    numLayers = 4
-    numTokens = 3
-}
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
@@ -116,12 +111,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
-        /*
+        
         if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
             gpu.eval()
-        }*/
+        }
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
