@@ -453,7 +453,7 @@ class VectorFloat: Bufferable<Float> {
         assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
         let newRows = self.rows / newCols
 
-        return MatrixFloat(shape:[newRows, newCols], buffer: self.buffer)
+        return MatrixFloat(shape:[newRows, newCols], buffer: self.buffer, offset: self.offsetEls)
     }
     
     func reshaped(newCols: Int) -> [VectorFloat] {

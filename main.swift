@@ -63,6 +63,7 @@ for t in tokIds {
 }
 os_signpost(.end, log: log, name: "Loading")
 
+
 let headDim = 128  // Example head dimension
 let numHeadsKV = 8
 let numHeads = 32
@@ -108,6 +109,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
     for thisToken in 0...numTokens {
+        if thisToken == 2 {
+            os_signpost(.begin, log: log, name: "TokenGen")
+        }
 /*        if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
@@ -120,7 +124,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let h_norm = h.rmsNormed()
             h_norm.mul(by:layer.attnNorm)
             let xq = basicMul(v: h_norm, by: layer.wq.core)
-            let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
+            let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
+            basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats, into:xk)
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
             
@@ -129,7 +134,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 xkHeads[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
+            //xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
             
             basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
 
@@ -254,9 +259,11 @@ var runControl = false
 silent = false
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
+os_signpost(.end, log: log, name: "TokenGen")
 
+exit(0)
 runControl = false
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
+_ = runControl(isTest: true, tokens: tokens, quant:0.30)
 
 /*
 for i in 2...25 {

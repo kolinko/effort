@@ -8,13 +8,11 @@
 import Foundation
 
 
-func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
+func runControl(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
 
     var tokens = _tokens
-//    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
     let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateSize])
-//    var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
     
     var h : VectorFloat = tokens[0]
 
@@ -32,8 +30,13 @@ func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
-    
     for thisToken in 0...numTokens {
+/*        if thisToken == 2 {
+            gpu.eval()
+            gpu.startCapture()
+            gpu.eval()
+        }*/
+
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
@@ -41,35 +44,37 @@ func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -
             h_norm.mul(by:layer.attnNorm)
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
-            let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
             
             for i in 0..<numHeads {
-                xqHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
-                xkHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
+                xqHeads[i].mul(complexArray: freqsCis[thisToken])
+                xkHeads[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            xkLayerTokenHead.as3DMatrixList()[layerNo].asMatrixList()[thisToken].copyFrom(xkHeads)
-            xvLayerToken.asMatrixList()[layerNo].asVectorList()[thisToken].copyFrom(xv)
+            xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
+            
+            basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
 
-            let xkTokenHeads = xkLayerTokenHead.as3DMatrixList()[layerNo]
+            let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
-            /*
-            gpu.eval()
             
-            if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
-            if thisToken == 1 && layerNo == 0 {
+            if numExperts == 2 && numLayers == 2 {
                 gpu.eval()
-                gpu.stopCapture()
-                assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
+                
+                if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
+                if thisToken == 1 && layerNo == 0 {
+                    gpu.eval()
+                    gpu.stopCapture()
+                    assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
+                }
+                if thisToken == 1 && layerNo == 1 {
+                    print("hello")
+                }
             }
-            if thisToken == 1 && layerNo == 1 {
-                print("hello")
-            }*/
-            
+                
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()
             }
@@ -105,7 +110,6 @@ func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
-            gpu.stopCapture()
 
         }
 
@@ -143,10 +147,10 @@ func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -
         }
     }
 
-
     evalTime = Date()
     gpu.eval()
-    
+    gpu.stopCapture()
+
     if let range = output.range(of: "</s>") {
         output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
     } else {
