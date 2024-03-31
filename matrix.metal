@@ -219,6 +219,34 @@ kernel void prepareExpertDispatch(device const float* v[[buffer(0)]],
 }
 
 
+kernel void bucketMul2(
+                   device const half *weights [[buffer(0)]],
+                   device const float2 *dispatch [[buffer(1)]],
+                   device atomic_float *result [[buffer(2)]],
+                   constant float *dispatchSize [[buffer(3)]],
+                   constant uint &cols [[buffer(4)]],
+                   constant int &groups [[buffer(5)]],
+                   uint2 id [[thread_position_in_grid]]) {
+                      
+    float myVal[16] = {0};
+    const uint rowOffset = id.y*dispatchSize[0]/groups;
+    for (int r=0; r<dispatchSize[0]/groups; r+=32) { //32) {
+        for (int s=0; s<32; s++) { // for better optimisation
+            
+            float2 d = dispatch[rowOffset + r+s];//+s
+            half w = weights[int(d[1])*cols + id.x];
+            for (int i=0; i<16; i++) {
+                myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
+            }
+        }
+    }
+                      
+    for (int i = 0; i<16; i++) {
+      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+    }
+                          
+}
+
 kernel void bucketMul(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],

@@ -16,7 +16,7 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 32
+var numLayers = 2
 var numExperts = 8
 
 var numTokens = 100
@@ -111,12 +111,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
-        /*
+        
         if thisToken == 2 {
             gpu.eval()
-            gpu.startCapture()
+         //   gpu.startCapture()
             gpu.eval()
-        }*/
+        }
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -165,6 +165,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             // 16MB. With a read speed of 300GB/s it should have a pace of 18750/sec.
             // so 1875 iters would be 100ms
+            
+            // 4096*14336 = 58 MB/s, 15945*896*2 = 28MB/s
 /*
             var goTime = Date()
             //gpu.startCapture()
@@ -217,6 +219,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
         }
 
+        
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
@@ -229,6 +232,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
         gpu.eval()
+        gpu.stopCapture()
+
        // print(thisToken, topKVector.strInt)
         /*
         if thisToken < 2 {
@@ -281,7 +286,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = false
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
+_ = runNetwork(isTest: true, tokens: tokens, quant:0.25)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.90)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.99)

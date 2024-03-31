@@ -243,6 +243,24 @@ kernel void memcpyBig16(const device half* src [[buffer(0)]],
     }
 }
 
+kernel void setVal(device uint* result [[buffer(0)]],
+                        device const uint& number [[buffer(1)]],
+
+                     uint id [[thread_position_in_grid]]) {
+    result[0] = number;
+
+}
+
+kernel void round(device float* result [[buffer(0)]],
+                        device const uint& number [[buffer(1)]],
+
+                     uint id [[thread_position_in_grid]]) {
+    
+    result[0] = uint(result[0])/number * number;
+
+}
+
+
 kernel void memcpyBig32(const device float* src [[buffer(0)]],
                      device float* dst [[buffer(1)]],
                         device const uint& batchSize [[buffer(2)]],
