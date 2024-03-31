@@ -17,10 +17,10 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
-var numTokens = 6
+var numTokens = 100
 
 if goCapture {
     numLayers = 4
@@ -113,10 +113,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             os_signpost(.begin, log: log, name: "TokenGen")
         }
         if thisToken == 2 {
+            sumPrepTime = Date().timeIntervalSince(evalTime)
+            sumEvalTime = Date().timeIntervalSince(evalTime)
+        }
+        /*
+        if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
             gpu.eval()
-        }
+        }*/
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -245,10 +250,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
         print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
-        print("avg eval time \(sumEvalTime*1000/Double(numTokens), precision: 2) ms")
-        print("avg prep time \(sumPrepTime*1000/Double(numTokens), precision: 2) ms")
+        print("avg eval time \(sumEvalTime*1000/Double(numTokens-2), precision: 2) ms")
+        print("avg prep time \(sumPrepTime*1000/Double(numTokens-2), precision: 2) ms")
         
-        print("total \(1000/((sumEvalTime+sumEvalTime)*1000/Double(numTokens)), precision: 2) tps")
+        print("total \(1000*(Double(numTokens-2)/(sumEvalTime+sumEvalTime)), precision: 2) tps")
     }
 
     return archive
