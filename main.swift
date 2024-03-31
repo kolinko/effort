@@ -17,9 +17,8 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 32
-var numExperts = 8
-
+var numLayers = 2
+var numExperts = 2
 
 var numTokens = 100
 
@@ -122,7 +121,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             h_norm.mul(by:layer.attnNorm)
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats)
-            let xv = basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats)
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
             
@@ -132,7 +130,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
             
             xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
-            xvLayerToken[layerNo][thisToken].copyFrom(xv)
+            
+            basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
 
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]

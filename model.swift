@@ -506,6 +506,15 @@ class VectorFloat: Bufferable<Float> {
         gpu.deploy("repeat4x32", buffers: [self, output], threadCount: [128, 8])
         return output
     }
+
+    func repeated(_ count: Int, into:VectorFloat) {
+        assert(self.rows == 128*8)
+        assert(into.rows == count*self.rows)
+//        let output = VectorFloat(shape: [count*self.rows])
+        gpu.deploy("repeat4x32", buffers: [self, into], threadCount: [128, 8])
+//        return output
+    }
+
     
 }
 
