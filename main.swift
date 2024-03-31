@@ -17,11 +17,11 @@ let gpu2 = Gpu()
 print("loading")
 
 let goCapture = false
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
 
-var numTokens = 6//100
+var numTokens = 100
 
 if goCapture {
     numLayers = 4
@@ -103,7 +103,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
     var output = ""
     
-//    gpu.warnOfEvals = true
+    gpu.warnOfEvals = false
     let finalEvalTime = Date()
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
@@ -139,19 +139,20 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
             
-            
-            gpu.eval()
-            
-            if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
-            if thisToken == 1 && layerNo == 0 {
+            if numExperts == 2 && numLayers == 2 {
                 gpu.eval()
-                gpu.stopCapture()
-                assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
+                
+                if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
+                if thisToken == 1 && layerNo == 0 {
+                    gpu.eval()
+                    gpu.stopCapture()
+                    assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
+                }
+                if thisToken == 1 && layerNo == 1 {
+                    print("hello")
+                }
             }
-            if thisToken == 1 && layerNo == 1 {
-                print("hello")
-            }
-            
+                
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()
             }
@@ -255,7 +256,7 @@ silent = false
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
 
-runControl = true
+runControl = false
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
 
 /*
