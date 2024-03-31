@@ -33,15 +33,6 @@ kernel void probeExpert(device const float *v [[buffer(0)]],
 
 
 /*
-kernel void probeShort(device const float *v [[buffer(0)]],
-                  device const half *probes [[buffer(1)]],
-                  device half *out[[buffer(2)]],
-                  constant int &wCols [[buffer(3)]],
-                  uint id [[thread_position_in_grid]]) {
-    out[id] = abs(v[id] * probes[id]);
-}*/
-
-/*
 kernel void findCutoff(device const half *v [[buffer(0)]],
                   device const half *probes [[buffer(1)]],
                   device half *out[[buffer(2)]],

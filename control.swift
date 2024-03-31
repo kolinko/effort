@@ -1,96 +1,20 @@
 //
-//  main.swift
+//  control.swift
 //  mul_col
 //
-//  Created by Tomasz Kolinko on 24/01/2024.
+//  Created by Tomasz Kolinko on 31/03/2024.
 //
-import os
+
 import Foundation
-import Metal
-import simd
 
 
-let log = OSLog(subsystem: "com.kolinko", category: "Performance")
- 
-let gpu = Gpu()
-let gpu2 = Gpu()
-print("loading")
-
-let goCapture = false
-var numLayers = 2
-var numExperts = 2
-
-
-var numTokens = 5
-
-if goCapture {
-    numLayers = 4
-    numTokens = 3
-}
-
-let bam = BufferActivityManager()
-bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
-
-var tokens = [VectorFloat]()
-let tokIds = [1, 1602, 460] // "How are"
-/*
-let tokIds = [1,
-              523,
-              28713,
-              28767,
-              28792,
-              16289,
-              28793,
-              26703,
-              349,
-              6084,
-              387,
-              14469,
-              442,
-              6444,
-              300,
-              28804,
-              28792,
-              28748,
-              16289,
-              28793
-]*/
-let t = Tokeniser()
-
-let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-for t in tokIds {
-    tokens.append(tokEmbeddings[t].asFloat32())
-}
-os_signpost(.end, log: log, name: "Loading")
-
-let headDim = 128  // Example head dimension
-let numHeadsKV = 8
-let numHeads = 32
-let kvRepeats : Int = numHeads/numHeadsKV
-//let maxSeqLen = 128  // Example maximum sequence length
-let maxSeqLen = 2048
-let maxTokens = 2048
-let hiddenSize = 14336//11008
-let stateSize = 4096
-let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
-
-//modelRunTests()
-
-//modelProfile()
-
-
-print()
-gpu.eval()
-
-var silent = true
-
-
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
+func control(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
 
     var tokens = _tokens
+//    var xkLayerTokenHead = Array(repeating: [[VectorFloat]](), count: numLayers + 1)
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
     let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateSize])
+//    var xvLayerToken = Array(repeating: [VectorFloat](), count: numLayers)
     
     var h : VectorFloat = tokens[0]
 
@@ -133,7 +57,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
-            
+            /*
             gpu.eval()
             
             if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
@@ -144,7 +68,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
             if thisToken == 1 && layerNo == 1 {
                 print("hello")
-            }
+            }*/
             
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()
@@ -198,10 +122,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         evalTime = Date()
         gpu.eval()
        // print(thisToken, topKVector.strInt)
-        
+        /*
         if thisToken < 2 {
             assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
-        }
+        }*/
             
         if !silent {
             sumEvalTime += Date().timeIntervalSince(evalTime)
@@ -244,12 +168,3 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
     return archive
 }
-
-silent = false
-_ = control(isTest: true, tokens: tokens, quant:0.30)
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
-
-/*
-for i in 2...25 {
-    let _ = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
-}*/
