@@ -323,9 +323,6 @@ class Matrix3DFloat: Bufferable<Float> {
     subscript(index: Int) -> MatrixFloat {
             get {
                 return MatrixFloat(shape:[shape[1], shape[2]], buffer:self.buffer, offset: self.offsetEls + index*self.shape[1]*self.shape[2])
-                //self.asMatrixList()[index]
-/*                let bufferPointer = self.bufferPointer
-                return bufferPointer[index+Int(self.offsetBytes/self.byteSize)]*/
             }
         }
 }
@@ -345,6 +342,12 @@ class Matrix4DFloat: Bufferable<Float> {
         }
         return out
     }
+    
+    subscript(index: Int) -> Matrix3DFloat {
+            get {
+                return Matrix3DFloat(shape:[shape[1], shape[2], shape[3]], buffer:self.buffer, offset: self.offsetEls + index*self.shape[1]*self.shape[2]*self.shape[3])
+            }
+        }
 }
 
 class Matrix3D: Bufferable<Float16> {
@@ -379,6 +382,12 @@ class MatrixFloat: Bufferable<Float> {
         }
         return out
     }
+    
+    subscript(index: Int) -> VectorFloat {
+            get {
+                VectorFloat(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls + index*self.cols)
+            }
+        }
     
     func scalarAt(_ row: Int, _ col: Int) -> ScalarFloat {
         return ScalarFloat(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)

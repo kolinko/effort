@@ -109,11 +109,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
     for thisToken in 0...numTokens {
-        if thisToken == 2 {
+/*        if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
             gpu.eval()
-        }
+        }*/
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -127,19 +127,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xkHeads = xk.asMatrix(newCols: headDim)
             
             for i in 0..<numHeads {
-                xqHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
-                xkHeads.asVectorList()[i].mul(complexArray: freqsCis[thisToken])
+                xqHeads[i].mul(complexArray: freqsCis[thisToken])
+                xkHeads[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            xkLayerTokenHead.as3DMatrixList()[layerNo].asMatrixList()[thisToken].copyFrom(xkHeads)
-            xvLayerToken.asMatrixList()[layerNo].asVectorList()[thisToken].copyFrom(xv)
+            xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
+            xvLayerToken[layerNo][thisToken].copyFrom(xv)
 
-            let xkTokenHeads = xkLayerTokenHead.as3DMatrixList()[layerNo]
+            let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
             
-            /*
+            
             gpu.eval()
             
             if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
@@ -150,7 +150,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
             if thisToken == 1 && layerNo == 1 {
                 print("hello")
-            }*/
+            }
             
             for headNo in 0..<numHeads {
                 scores.asVectorList()[headNo].softmax()

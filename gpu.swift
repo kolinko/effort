@@ -80,7 +80,7 @@ class Gpu {
     }
     
     func copyBuffer(src: MTLBufferable, dst:MTLBufferable, size: Int) {
-        print("blit!")
+//        print("blit!")
         encoder.endEncoding()
 
         let blitCommandEncoder = commandBuffer.makeBlitCommandEncoder()
