@@ -289,8 +289,8 @@ kernel void dotSetScore2(const device float* xqHeads [[buffer(0)]],
     assert(dimSize == 127);
 
     short headNo = id.z;
-    short headsCount = tpg.z;
-    assert(headsCount == numHeads);
+//    short headsCount = tpg.z;
+//    assert(headsCount == numHeads);
     
     short t2 = id.y;
     short numTokens = tpg.y;

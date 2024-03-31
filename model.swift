@@ -302,6 +302,13 @@ class Matrix: Bufferable<Float16> {
         }
         return out
     }
+    
+    subscript(index: Int) -> Vector {
+            get {
+                Vector(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls+index*self.cols)
+            }
+        }
+
 }
 
 class Matrix3DFloat: Bufferable<Float> {

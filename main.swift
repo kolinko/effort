@@ -20,7 +20,7 @@ let goCapture = false
 var numLayers = 2
 var numExperts = 2
 
-var numTokens = 100
+var numTokens = 6
 
 if goCapture {
     numLayers = 4
@@ -112,11 +112,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         if thisToken == 2 {
             os_signpost(.begin, log: log, name: "TokenGen")
         }
-/*        if thisToken == 2 {
+        if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
             gpu.eval()
-        }*/
+        }
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -158,7 +158,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
                 
             for headNo in 0..<numHeads {
-                scores.asVectorList()[headNo].softmax()
+                scores[headNo].softmax()
             }
             let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
 
@@ -222,10 +222,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let topToken = Int(topKVector.getInt(index: 0))
 
         if tokens.count-1 == thisToken {
-            let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-            tokens.append(tokEmbeddings[topToken].asFloat32())
+            let tokEmbedding = modelData.tokEmbeddings[topToken].asFloat32()
+            tokens.append(tokEmbedding)
             output += t[topToken].replacingOccurrences(of: "▁", with: " ")
-
         }
     }
 
