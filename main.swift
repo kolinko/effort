@@ -16,10 +16,10 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
-var numTokens = 5
+var numTokens = 100
 
 
 let bam = BufferActivityManager()
@@ -111,12 +111,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
-        
+        /*
         if thisToken == 2 {
             gpu.eval()
             gpu.startCapture()
             gpu.eval()
-        }
+        }*/
 
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
@@ -142,7 +142,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
-            
+            /*
             if numExperts == 2 && numLayers == 2 {
                 gpu.eval()
                 
@@ -155,15 +155,37 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 if thisToken == 1 && layerNo == 1 {
                     print("hello")
                 }
-            }
+            }*/
                 
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
             let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
-
-            let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
+            let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
+            // 16MB. With a read speed of 300GB/s it should have a pace of 18750/sec.
+            // so 1875 iters would be 100ms
+/*
+            var goTime = Date()
+            //gpu.startCapture()
+            gpu.eval()
+            layer.w1.buckets.shape = [21, 4096, 4096]
+            let ml = layer.w1.buckets.asMatrixList()
+            let numLoops = 18700
+            let in16 = attnOutput.asFloat16()
+            let out16 = attnOutput.asFloat16()
+            for i in 0..<numLoops { // 18700
+//                basicMul(v: attnOutput, by: ml[i % 21], out: attnFfnOut)// layer.wo.core, out: attnFfnOut)
+                mpsMul(v: in16, by: ml[i % 21], out: out16)
+            }
+            print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+            goTime = Date()
+            gpu.eval()
+            print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+            print("persec \(Double(numLoops) / Date().timeIntervalSince(goTime), precision: 2) runs")
+
+            gpu.eval()
+            gpu.stopCapture()*/
             h.add(by: attnFfnOut)
 
             let fxn = h.rmsNormed()
@@ -248,7 +270,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         print("avg eval time \(sumEvalTime*1000/Double(numTokens-2), precision: 2) ms")
         print("avg prep time \(sumPrepTime*1000/Double(numTokens-2), precision: 2) ms")
         
-        print("total \(1000*(Double(numTokens-2)/(sumEvalTime+sumEvalTime)), precision: 2) tps")
+        print("both \((Double(numTokens-2)/(sumEvalTime+sumPrepTime)), precision: 2) tps")
+        print("just eval \((Double(numTokens-2)/(sumEvalTime)), precision: 2) tps")
+
     }
 
     return archive
@@ -258,6 +282,10 @@ var runControl = false
 silent = false
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.30)
+_ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
+_ = runNetwork(isTest: true, tokens: tokens, quant:0.90)
+_ = runNetwork(isTest: true, tokens: tokens, quant:0.99)
+
 os_signpost(.end, log: log, name: "TokenGen")
 
 exit(0)

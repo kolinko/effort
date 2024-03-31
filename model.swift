@@ -61,7 +61,7 @@ class Bufferable<Type> : MTLBufferable {
         }
         return self._bufferPointer!
     }
-    let shape: [Int]
+    var shape: [Int] // FIX BACK TO LET!
     var rows: Int {self.shape[0]}
     let byteSize: Int
     let bitSize: Int

@@ -16,25 +16,37 @@ func basicMul(v: VectorFloat, by weights: Matrix) -> VectorFloat {
     return out
 }
 
+func basicMulPrev(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
+    assert(weights.rows == result.rows)
+    assert(weights.cols == v.rows)
+    
+    gpu.deploy("basicMul2", buffers: [v, weights, result], ints: [weights.cols] ,threadCount: result.rows)
+}
+
 func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     assert(weights.rows == result.rows)
     assert(weights.cols == v.rows)
     
-    gpu.deploy("basicMul", buffers: [v, weights, result], ints: [weights.cols] ,threadCount: result.rows)
+    assert(weights.cols % 16 == 0)
+    mpsMul(v: v.asFloat16(), by: weights, out: result)
+    /*
+    result.zero()
+    gpu.deploy("basicMul2", buffers: [v, weights, result], ints: [weights.cols, weights.cols/16] ,threadCount: [result.rows, 16])
+     */
 }
 
-func mpsMul(v: VectorFloat, by: Weights) -> VectorFloat {
+func mpsMul(v: Vector, by: Weights) -> VectorFloat {
     let out = VectorFloat(shape:[by.outSize])
     mpsMul(v: v, by: by.core, out: out)
     return out
 }
 
-func mpsMul(v vector: VectorFloat, by weights: Weights, out result: VectorFloat) {
+func mpsMul(v vector: Vector, by weights: Weights, out result: VectorFloat) {
     mpsMul(v: vector, by: weights.core, out: result)
 }
 
 
-func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) {
+func mpsMul(v vector: Vector, by weights: Matrix, out result: VectorFloat) {
     result.zero()
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector
@@ -44,7 +56,7 @@ func mpsMul(v vector: VectorFloat, by weights: Matrix, out result: VectorFloat) 
     // Create MPSMatrixDescriptors for the matrix and the vector
     let matrixDescriptor = MPSMatrixDescriptor(rows: matrixRows, columns: matrixColumns, rowBytes: matrixColumns * MemoryLayout<Float16>.stride, dataType: .float16)
     
-    let vectorDescriptor = MPSVectorDescriptor(length: matrixColumns, dataType: .float32)
+    let vectorDescriptor = MPSVectorDescriptor(length: matrixColumns, dataType: .float16)
     
     let matrix = MPSMatrix(buffer: weights.buffer, descriptor: matrixDescriptor)
     let vector = MPSVector(buffer: vector.buffer, descriptor: vectorDescriptor)

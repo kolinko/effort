@@ -160,6 +160,24 @@ kernel void basicMul(device const float* v[[buffer(0)]],
     out[rowId] = sum;
 }
 
+
+kernel void basicMul2(device const float* v[[buffer(0)]],
+                     device const half* m[[buffer(1)]],
+                     device atomic_float* out[[buffer(2)]],
+                     const device uint &numCols[[buffer(3)]],
+                     const device uint &chunkSize[[buffer(4)]],
+                     uint2 rowId [[thread_position_in_grid]]) {
+    
+    float sum = 0;
+    uint offset = rowId.x*numCols + rowId.y*chunkSize;
+    for (uint i=0; i<chunkSize; i++) {
+        sum += v[rowId.y*chunkSize+i]*m[i+offset];
+    }
+    atomic_fetch_add_explicit(out+rowId.x, sum, memory_order_relaxed);
+//    out[rowId.x] = sum;
+}
+
+
 /*
  
  bucketMul
