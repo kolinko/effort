@@ -193,7 +193,8 @@ kernel void prepareExpertDispatch(device const float* v[[buffer(0)]],
                                   device atomic_float* dispatchCount[[buffer(5)]],
                                   device const int& chunkSize [[buffer(6)]],
                                   device const uint& rowsCount [[buffer(7)]],
-                                  device const int& expertSize[[buffer(8)]],
+                                  device const uint& colsCount [[buffer(8)]],
+                                  device const int& expertSize[[buffer(9)]],
                                   uint id [[thread_position_in_grid]]) {
     uint dispatchOffset = expertSize * expertNo[0];
     uint begin = chunkSize * id + dispatchOffset;
@@ -211,7 +212,7 @@ kernel void prepareExpertDispatch(device const float* v[[buffer(0)]],
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;
             }
-            dispatch[idx+counter] = {val, float(i*896)};
+            dispatch[idx+counter] = {val, float(i*colsCount)};
             counter += 1;
         }
     }
@@ -250,7 +251,7 @@ kernel void bucketMul2(
 kernel void bucketMul3(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
-                   device float *result [[buffer(2)]],
+                   device atomic_float *result [[buffer(2)]],
                    constant float *dispatchSize [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
                    constant int &groups [[buffer(5)]],
@@ -270,8 +271,8 @@ kernel void bucketMul3(
     }
                       
     for (int i = 0; i<15; i++) {
-        result[id.x*16+i] += myVal[i];
-//      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+//        result[id.x*16+i] += myVal[i];
+      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
     }
                           
 }
@@ -293,7 +294,7 @@ kernel void bucketMul(
     //    for (int s=0; s<32; s++) { // for better optimisation
             
             float2 d = dispatch[rowOffset + r];//+s
-            half w = weights[int(d[1])*cols + id.x];
+            half w = weights[int(d[1]) + id.x];
             for (int i=0; i<16; i++) {
                 myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
             }

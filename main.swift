@@ -17,9 +17,9 @@ let gpu2 = Gpu()
 print("loading")
 
 var numLayers = 2
-var numExperts = 8
+var numExperts = 2
 
-var numTokens = 100
+var numTokens = 10
 
 
 let bam = BufferActivityManager()
@@ -27,8 +27,8 @@ bam.startPeriodicDispatch()
 let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
 
 var tokens = [VectorFloat]()
-let tokIds = [1, 1602, 460] // "How are"
-/*
+//let tokIds = [1, 1602, 460] // "How are"
+
 let tokIds = [1,
               523,
               28713,
@@ -49,7 +49,7 @@ let tokIds = [1,
               28748,
               16289,
               28793
-]*/
+]
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -142,20 +142,20 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
-            /*
-            if numExperts == 2 && numLayers == 2 {
+            
+            if numExperts == 2 && numLayers == 2 && false{
                 gpu.eval()
                 
-                if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1021)}
+                if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1022)}
                 if thisToken == 1 && layerNo == 0 {
                     gpu.eval()
                     gpu.stopCapture()
-                    assert(Int(scores.asVectorList()[17][1]*10000) == -24692)
+                    assert(Int(scores.asVectorList()[17][1]*10000) == -24685)
                 }
                 if thisToken == 1 && layerNo == 1 {
                     print("hello")
                 }
-            }*/
+            }
                 
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
@@ -168,26 +168,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             // 4096*14336 = 58 MB/s, 15945*896*2 = 28MB/s
 /*
-            var goTime = Date()
-            //gpu.startCapture()
-            gpu.eval()
             layer.w1.buckets.shape = [21, 4096, 4096]
             let ml = layer.w1.buckets.asMatrixList()
-            let numLoops = 18700
             let in16 = attnOutput.asFloat16()
             let out16 = attnOutput.asFloat16()
-            for i in 0..<numLoops { // 18700
-//                basicMul(v: attnOutput, by: ml[i % 21], out: attnFfnOut)// layer.wo.core, out: attnFfnOut)
-                mpsMul(v: in16, by: ml[i % 21], out: out16)
+            timeIt(18700) { i in
+                    //basicMul(v: attnOutput, by: ml[i % 21], out: attnFfnOut)// layer.wo.core, out: attnFfnOut)
+                    mpsMul(v: in16, by: ml[i % 21], out: out16)
             }
-            print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
-            goTime = Date()
-            gpu.eval()
-            print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
-            print("persec \(Double(numLoops) / Date().timeIntervalSince(goTime), precision: 2) runs")
-
-            gpu.eval()
-            gpu.stopCapture()*/
+            */
             h.add(by: attnFfnOut)
 
             let fxn = h.rmsNormed()
@@ -206,12 +195,22 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gateVals.softmax()
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
-                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                if !isTest {
+                    expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    
+                    silu(x1, x3, out: x2)
+                    expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    ffnOut[i].mul(by: gateVals.scalarAt(i))
+                } else {
+                    expertMul3(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    expertMul3(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    
+                    silu(x1, x3, out: x2)
+                    expertMul3(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    ffnOut[i].mul(by: gateVals.scalarAt(i))
 
-                silu(x1, x3, out: x2)
-                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                ffnOut[i].mul(by: gateVals.scalarAt(i))
+                    }
             }
 
             h.add(by: ffnOut[0])
@@ -235,10 +234,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         gpu.stopCapture()
 
        // print(thisToken, topKVector.strInt)
-        /*
+        
         if thisToken < 2 {
-            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
-        }*/
+//            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
+        }
             
         if !silent {
             sumEvalTime += Date().timeIntervalSince(evalTime)
@@ -286,10 +285,22 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = false
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.25)
+
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.60)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
+
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.90)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.90)
+
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.99)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.99)
+
+
+
+
+
 
 os_signpost(.end, log: log, name: "TokenGen")
 

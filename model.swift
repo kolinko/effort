@@ -704,37 +704,22 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 
 func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     out.zero()
-    BucketMul.shared.calcDispatch2(v: v, eWeights: by, expNo: expNo, quant: quant)
-    BucketMul.shared.mul2(by: by, out: out)
+    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.mul(by: by, out: out)
+    return
+}
 
-//    return
-    //    expNo[0] = 3;
-    //  max possible = 10000. Good enough = 5000.
-    var goTime = Date()
-    if true {
-        gpu.eval()
-    //    gpu.startCapture()
-        gpu.eval()}
-    for i in 0..<10 {
+func expertMul3(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+    out.zero()
+    BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.mul3(by: by, out: out)
+    
+    timeIt(repeats:10000) { i in     //  max possible = 10000. Good enough = 5000.
         gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
         BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
         BucketMul.shared.mul3(by: by, out: out)
     }
-    gpu.eval()
-   // gpu.stopCapture()
-    let numLoops = 10000
-    for i in 0..<numLoops {
-        gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
-        BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
-        BucketMul.shared.mul3(by: by, out: out)
-    }
-    print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
-    goTime = Date()
-    gpu.eval()
-    print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
-    print("eval per loop \(Date().timeIntervalSince(goTime)*1000/Double(numLoops), precision: 2) ms")
 
-    print("persec \(Double(numLoops) / Date().timeIntervalSince(goTime), precision: 2) runs")
     exit(0)
 }
 
@@ -765,26 +750,10 @@ class BucketMul {
         
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+                   ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
         gpu.deploy("round", buffers:[dispatch.size], ints:[1024], threadCount: 1) // tofix
     }
-    
-    func calcDispatch2(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
-        assert(dispatch.rows >= ew.buckets.rows*2)
-        assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-
-        dispatch.size.zero()
-        let q = Int(Double(probesCount-1)*(1-quant))
-
-        gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
-
         
-        let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
-        gpu.deploy("round", buffers:[dispatch.size], ints:[1024], threadCount: 1) // tofix
-    }
-    
     func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
@@ -792,23 +761,11 @@ class BucketMul {
         dispatch.size.zero()
         let q = Int(Double(probesCount-1)*(1-quant))
 
-        if runControl == true {
-            gpu.deploy("probeExpert", buffers:[v, ew.probes, expNo, probes], ints:[ew.inSize], threadCount: probesCount)
-            probes.sort()
-            
-            gpu.deploy("getVal", buffers: [probes, cutoff], ints:[q], threadCount: probesCount)
-        } else {
-            gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
-        }
-        /*
-        gpu.eval()
-        if abs(cutoff.val - cutoff2.val)>0.001 {
-            print("?=", cutoff.str, cutoff2.str)
-        }*/
+        gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
         let chunkSize = 16//w.stats.rows//16
         gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, ew.inSize, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+                   ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
     
     func mul3(by: ExpertWeights, out: VectorFloat) {

@@ -6,6 +6,31 @@
 //
 
 import Foundation
+
+func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) -> Void) {
+    print("profiling, reps \(repeats)...")
+    var goTime = Date()
+    gpu.startCapture(cond: withCapture)
+    // warmup loop & in case of capture - just the roop
+    for i in 0..<10 {
+        closure(i)
+    }
+    if withCapture {
+        gpu.stopCapture()
+    }
+    gpu.eval()
+    
+    for i in 0..<repeats {
+        closure(i)
+    }
+    print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+    goTime = Date()
+    gpu.eval()
+    print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+    print("eval per loop \(Date().timeIntervalSince(goTime)*1000/Double(repeats), precision: 2) ms")
+    print("persec \(Double(repeats) / Date().timeIntervalSince(goTime), precision: 2) runs")
+}
+
 /*
 func modelProfile(captureGPU: Bool = false, mine: Bool = true) {
     let bucketMul = BucketMul.shared

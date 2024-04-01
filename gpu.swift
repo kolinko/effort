@@ -39,7 +39,7 @@ class Gpu {
                              "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeExpert",
                              "basicBitonicSort", "getVal", "prepareExpertDispatch", "bucketMul",
                              "silu32", "mulScalar32x32", "memcpy16", "memcpyBig16", "touch",
-                             "dotSetScore2", "findCutoff"]
+                             "dotSetScore2", "findCutoff", "round", "setVal", "bucketMul3"]
         
         
         /*["sum_of_squares32",
@@ -158,7 +158,8 @@ class Gpu {
     func startCapture(cond: Bool = true) {
         if !cond { return }
         if self.captureON { return }
-        
+        gpu.eval()
+
         let captureDescriptor = MTLCaptureDescriptor()
         captureDescriptor.captureObject = device
         do {
@@ -166,7 +167,7 @@ class Gpu {
         } catch {
             fatalError("error when trying to capture: \(error)")
         }
-        
+        gpu.eval()
         self.captureON = true
         
     }
