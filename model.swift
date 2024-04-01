@@ -711,16 +711,17 @@ func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: Vecto
 
 func expertMul3(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     out.zero()
-    BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    gpu.deploy("round", buffers:[BucketMul.shared.dispatch.size], ints:[1024], threadCount: 1) // tofix
     BucketMul.shared.mul3(by: by, out: out)
-    
+    /*
     timeIt(repeats:10000) { i in     //  max possible = 10000. Good enough = 5000.
         gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
-        BucketMul.shared.calcDispatch3(v: v, eWeights: by, expNo: expNo, quant: quant)
+        BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
         BucketMul.shared.mul3(by: by, out: out)
     }
 
-    exit(0)
+    exit(0)*/
 }
 
 class BucketMul {
@@ -736,22 +737,6 @@ class BucketMul {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
         self.probes = Vector(shape: [probesCount])
         self.cutoff = Scalar(value: 0)
-    }
-
-    func calcDispatch3(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
-        assert(dispatch.rows >= ew.buckets.rows*2)
-        assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
-
-        dispatch.size.zero()
-        let q = Int(Double(probesCount-1)*(1-quant))
-
-        gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
-
-        
-        let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
-                   ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
-        gpu.deploy("round", buffers:[dispatch.size], ints:[1024], threadCount: 1) // tofix
     }
         
     func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {

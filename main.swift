@@ -16,10 +16,10 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
-var numTokens = 10
+var numTokens = 100
 
 
 let bam = BufferActivityManager()
