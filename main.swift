@@ -8,8 +8,9 @@ import os
 import Foundation
 import Metal
 import simd
-
-
+print("starting up")
+//runTokenizerTests()
+/*
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
@@ -30,7 +31,7 @@ while true {
         }
     }
 }
-
+*/
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
@@ -38,8 +39,8 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 2
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
 var numTokens = 100
 
@@ -129,7 +130,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     for thisToken in 0...numTokens {
         if thisToken == 2 {
             os_signpost(.begin, log: log, name: "TokenGen")
-            gpu.startCapture()
+//            gpu.startCapture()
 
         }
         if thisToken == 2 {
@@ -311,6 +312,41 @@ silent = true
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.25)
 _ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 
+var storedIntegers: [Int] = []
+var storedStrings: [String] = []
+
+var quant: Double = 0.25
+
+while true {
+    print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
+    while true {
+        print("> ", terminator: "")
+        if let input = readLine() {
+//            if input.lowercased() == "q" {  // Quit command
+//                break
+            if let number = Int(input), (0...100).contains(number) {
+                quant = Double(number)/100.0
+//                print("Stored \(number) as an integer.")
+            } else {
+                var tokens = [VectorFloat]()
+
+                let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+                let encoded = encode(prompt: "[INST]"+input+"[/INST]")
+                for t in encoded {
+                    tokens.append(tokEmbeddings[t].asFloat32())
+                }
+                _ = runNetwork(isTest: true, tokens: tokens, quant:quant)
+
+//                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
+//                storedStrings.append(input)
+//                print("Stored \"\(input)\" as a string.")
+            }
+        }
+    }
+}
+
+exit(0)
+
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
 _ = runNetwork(isTest: false, tokens: tokens, quant:0.60)
 
@@ -330,6 +366,8 @@ os_signpost(.end, log: log, name: "TokenGen")
 exit(0)
 runControl = false
 _ = runControl(isTest: true, tokens: tokens, quant:0.30)
+
+
 
 /*
 for i in 2...25 {
