@@ -31,6 +31,21 @@ func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) ->
     print("persec \(Double(repeats) / Date().timeIntervalSince(goTime), precision: 2) runs")
 }
 
+// 16MB. With a read speed of 300GB/s it should have a pace of 18750/sec.
+// so 1875 iters would be 100ms
+
+// 4096*14336 = 58 MB/s, 15945*896*2 = 28MB/s
+/*
+layer.w1.buckets.shape = [21, 4096, 4096]
+let ml = layer.w1.buckets.asMatrixList()
+let in16 = attnOutput.asFloat16()
+let out16 = attnOutput.asFloat16()
+timeIt(18700) { i in
+        //basicMul(v: attnOutput, by: ml[i % 21], out: attnFfnOut)// layer.wo.core, out: attnFfnOut)
+        mpsMul(v: in16, by: ml[i % 21], out: out16)
+}
+*/
+
 /*
 func modelProfile(captureGPU: Bool = false, mine: Bool = true) {
     let bucketMul = BucketMul.shared

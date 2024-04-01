@@ -27,8 +27,9 @@ bam.startPeriodicDispatch()
 let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
 
 var tokens = [VectorFloat]()
-//let tokIds = [1, 1602, 460] // "How are"
+let tokIds = [1, 1602, 460] // "How are"
 
+/*
 let tokIds = [1,
               523,
               28713,
@@ -49,7 +50,7 @@ let tokIds = [1,
               28748,
               16289,
               28793
-]
+]*/
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -111,10 +112,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
+
         
         if thisToken == 2 {
-            gpu.eval()
-         //   gpu.startCapture()
             gpu.eval()
         }
 
@@ -134,8 +134,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 xkHeads[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            //xkLayerTokenHead[layerNo][thisToken].copyFrom(xkHeads)
-            
             basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
 
             let xkTokenHeads = xkLayerTokenHead[layerNo]
@@ -143,7 +141,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
             
-            if numExperts == 2 && numLayers == 2 && false{
+            if numExperts == 2 && numLayers == 2 {
                 gpu.eval()
                 
                 if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1022)}
@@ -163,20 +161,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
             
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
-            // 16MB. With a read speed of 300GB/s it should have a pace of 18750/sec.
-            // so 1875 iters would be 100ms
             
-            // 4096*14336 = 58 MB/s, 15945*896*2 = 28MB/s
-/*
-            layer.w1.buckets.shape = [21, 4096, 4096]
-            let ml = layer.w1.buckets.asMatrixList()
-            let in16 = attnOutput.asFloat16()
-            let out16 = attnOutput.asFloat16()
-            timeIt(18700) { i in
-                    //basicMul(v: attnOutput, by: ml[i % 21], out: attnFfnOut)// layer.wo.core, out: attnFfnOut)
-                    mpsMul(v: in16, by: ml[i % 21], out: out16)
-            }
-            */
             h.add(by: attnFfnOut)
 
             let fxn = h.rmsNormed()
@@ -187,10 +172,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
-            if !silent {
-//                gpu.startCapture()
-//                gpu.eval()
-            }
 
             gateVals.softmax()
             for i in 0..<2 {
@@ -230,28 +211,37 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         sumPrepTime += Date().timeIntervalSince(evalTime)
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
-        gpu.eval()
-        gpu.stopCapture()
 
-       // print(thisToken, topKVector.strInt)
-        
+        /*
         if thisToken < 2 {
-//            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
+            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
+        }*/
+        
+
+
+        if tokens.count-1 == thisToken {
+            tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
+            gpu.eval()
+            let topToken = Int(topKVector.getInt(index: 0))
+            let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
+            output += newS
+            if (silent) {
+                print(newS, terminator: "")
+                fflush(stdout)
+                if output.contains("</s>") {
+                    break
+                }
+            }
         }
-            
+        sumEvalTime += Date().timeIntervalSince(evalTime)
+        evalTime = Date()
+
         if !silent {
-            sumEvalTime += Date().timeIntervalSince(evalTime)
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
 
-        let topToken = Int(topKVector.getInt(index: 0))
-
-        if tokens.count-1 == thisToken {
-            let tokEmbedding = modelData.tokEmbeddings[topToken].asFloat32()
-            tokens.append(tokEmbedding)
-            output += t[topToken].replacingOccurrences(of: "▁", with: " ")
-        }
+        
     }
 
     evalTime = Date()
@@ -271,19 +261,27 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
         print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
-        print("avg eval time \(sumEvalTime*1000/Double(numTokens-2), precision: 2) ms")
-        print("avg prep time \(sumPrepTime*1000/Double(numTokens-2), precision: 2) ms")
+        print("avg eval time \(sumEvalTime*1000/Double(tokens.count-2), precision: 2) ms")
+        print("avg prep time \(sumPrepTime*1000/Double(tokens.count-2), precision: 2) ms")
         
-        print("both \((Double(numTokens-2)/(sumEvalTime+sumPrepTime)), precision: 2) tps")
-        print("just eval \((Double(numTokens-2)/(sumEvalTime)), precision: 2) tps")
+        print("both \((Double(tokens.count-2)/(sumEvalTime+sumPrepTime)), precision: 2) tps")
+        print("just eval \((Double(tokens.count-2)/(sumEvalTime)), precision: 2) tps")
 
+    } else {
+        print("\n")
+        let evalTime = sumEvalTime*1000/Double(tokens.count-2)
+        let prepTime = sumPrepTime*1000/Double(tokens.count-2)
+        let sumTps = Double(tokens.count-2)/(sumEvalTime+sumPrepTime)
+        let evalTps = Double(tokens.count-2)/(sumEvalTime)
+        print("\(quant*100, precision: 2)%: \(prepTime, precision: 2)ms + \(evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
+        print("")
     }
 
     return archive
 }
 
 var runControl = false
-silent = false
+silent = true
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
 _ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.25)

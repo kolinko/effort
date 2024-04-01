@@ -174,7 +174,8 @@ class Model {
         var layers = [Int: Layer]()
         for i in 0..<numLayers {
             layers[i] = Layer(i, numExperts:numExperts, percentLoad: percentLoad)
-            print("preparing layer \(i)")
+            print("preparing layer \(i)...\r", terminator:"")
+            fflush(stdout)
             gpu.eval()
         }
         self.layers = layers

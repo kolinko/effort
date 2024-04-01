@@ -294,6 +294,12 @@ class Matrix: Bufferable<Float16> {
         return Scalar(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)
     }
     
+    func fetchRow(_ rowNum: ScalarFloat) -> VectorFloat {
+        let out = VectorFloat(shape:[self.cols])
+        gpu.deploy("fetchRow16to32", buffers: [rowNum, self, out], threadCount: self.cols)
+        return out
+    }
+    
     func asVectorList() -> [Vector] {
         var out = [Vector]()
         out.reserveCapacity(self.rows)

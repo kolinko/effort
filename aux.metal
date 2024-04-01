@@ -260,6 +260,16 @@ kernel void round(device float* result [[buffer(0)]],
 
 }
 
+//gpu.deploy("fetchRow16to32", buffers: [rowNum, self, out], threadCount: self.rows)
+kernel void fetchRow16to32(const device int* rowNo,
+                           const device half* src,
+                           device float* dst,
+                           uint id [[thread_position_in_grid]],
+                           uint cols [[threads_per_grid]]) {
+    
+    dst[id] = src[rowNo[0]*cols + id];
+}
+
 
 kernel void memcpyBig32(const device float* src [[buffer(0)]],
                      device float* dst [[buffer(1)]],
