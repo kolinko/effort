@@ -10,14 +10,36 @@ import Metal
 import simd
 
 
+var storedIntegers: [Int] = []
+var storedStrings: [String] = []
+
+while true {
+    print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
+    while true {
+        print("> ", terminator: "")
+        if let input = readLine() {
+            if input.lowercased() == "q" {  // Quit command
+                break
+            } else if let number = Int(input), (0...100).contains(number) {
+                storedIntegers.append(number)
+                print("Stored \(number) as an integer.")
+            } else {
+                storedStrings.append(input)
+                print("Stored \"\(input)\" as a string.")
+            }
+        }
+    }
+}
+
+
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 32
-var numExperts = 8
+var numLayers = 2
+var numExperts = 2
 
 var numTokens = 100
 
@@ -107,6 +129,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     for thisToken in 0...numTokens {
         if thisToken == 2 {
             os_signpost(.begin, log: log, name: "TokenGen")
+            gpu.startCapture()
+
         }
         if thisToken == 2 {
             sumPrepTime = Date().timeIntervalSince(evalTime)
@@ -240,6 +264,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
+        gpu.stopCapture()
 
         
     }
@@ -283,17 +308,17 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = true
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.25)
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.60)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.60)
 
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.90)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.90)
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.90)
 
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.99)
 _ = runNetwork(isTest: true, tokens: tokens, quant:0.99)
+_ = runNetwork(isTest: false, tokens: tokens, quant:0.99)
 
 
 

@@ -19,6 +19,7 @@
 		A45C6C922BAEC56E004AE765 /* profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C6C912BAEC56D004AE765 /* profile.swift */; };
 		A46F18E02BB76FAA00A630B4 /* watchman.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18DF2BB76FAA00A630B4 /* watchman.swift */; };
 		A46F18E22BB93D6700A630B4 /* control.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18E12BB93D6700A630B4 /* control.swift */; };
+		A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
 		A4CE9F7C2B6277E700910766 /* model in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7B2B6277E700910766 /* model */; };
@@ -51,6 +52,7 @@
 		A45C6C912BAEC56D004AE765 /* profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = profile.swift; sourceTree = "<group>"; };
 		A46F18DF2BB76FAA00A630B4 /* watchman.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = watchman.swift; sourceTree = "<group>"; };
 		A46F18E12BB93D6700A630B4 /* control.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = control.swift; sourceTree = "<group>"; };
+		A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser2.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A4CE9F6E2B626DB500910766 /* model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = model.swift; sourceTree = "<group>"; };
@@ -73,6 +75,7 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */,
 				A46F18E12BB93D6700A630B4 /* control.swift */,
 				A46F18DF2BB76FAA00A630B4 /* watchman.swift */,
 				A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */,
@@ -176,6 +179,7 @@
 			files = (
 				A45C6C922BAEC56E004AE765 /* profile.swift in Sources */,
 				A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */,
+				A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */,
 				A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */,
 				A46F18E22BB93D6700A630B4 /* control.swift in Sources */,
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
