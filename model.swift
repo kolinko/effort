@@ -139,10 +139,20 @@ class Bufferable<Type> : MTLBufferable {
         gpu.deploy("add\(bitSize)", buffers:[self, buf, self], threadCount: self.count)
     }
 
-    func copyFrom(_ src: Bufferable<Type>) {
+    func copyFrom(_ src: Bufferable<Float16>, smallerSize: Bool = false) {
+        if !smallerSize {
+            assert(src.countBytes == self.countBytes)
+        }
+        gpu.copyBuffer(src: src, dst: self, size: min(src.countBytes, self.countBytes))
+    }
+    
+    
+    func copyFrom(_ src: Bufferable<Float>) {
         assert(src.count == self.count)
         gpu.copyBuffer(src: src, dst: self, size: src.countBytes)
     }
+    
+    
     
     var str: String {
         return _str()
@@ -643,6 +653,32 @@ class Vector: Bufferable<Float16> {
         for p in 0..<logn {
             for q in 0..<p+1 {
                 gpu.deploy("basicBitonicSort", buffers: [self], ints: [p, q], threadCount: self.rows)
+            }
+        }
+    }
+    
+    
+    func sortAbs(idxs: Vector) {
+        assert(idxs.rows == self.rows)
+  //      gpu.startCapture()
+
+        guard let logn = Int(exactly: log2(Double(self.rows))) else {
+            let l2 = Int(log2(Double(self.rows)))
+            let paddedSize = Int(pow(Double(2), Double(l2+1)))
+            let paddedSelf = Vector(shape: [paddedSize])
+            paddedSelf.copyFrom(self, smallerSize: true)
+            let paddedIdxs = Vector(shape: [paddedSize])
+            paddedIdxs.copyFrom(idxs, smallerSize: true)
+            
+            paddedSelf.sortAbs(idxs: paddedIdxs)
+            self.copyFrom(paddedSelf, smallerSize: true)
+            idxs.copyFrom(paddedIdxs, smallerSize: true)
+            return
+        }
+
+        for p in 0..<logn {
+            for q in 0..<p+1 {
+                gpu.deploy("idxsBitonicSortAbs", buffers: [self, idxs], ints: [p, q], threadCount: self.rows)
             }
         }
     }
