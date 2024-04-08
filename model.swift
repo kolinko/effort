@@ -221,7 +221,11 @@ class Bufferable<Type> : MTLBufferable {
                 bufferPointer[index+Int(self.offsetBytes/self.byteSize)] = newValue
             }
         }
-    
+    func setVal(_ newValue: Type, at index: Int) {
+        let bufferPointer = self.bufferPointer
+        bufferPointer[index+Int(self.offsetBytes/self.byteSize)] = newValue
+    }
+
     /*
     func test(_ name: String, cond: Bool = true, mul:Int, val:[Type]) -> Bool {
         if (!cond) {
@@ -335,11 +339,21 @@ class Matrix: Bufferable<Float16> {
         return out
     }
     
+    func ss(_ index: Int) -> Vector {
+        return Vector(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls+index*self.cols)
+    }
+    
     subscript(index: Int) -> Vector {
             get {
                 Vector(shape:[self.cols], buffer:self.buffer, offset: self.offsetEls+index*self.cols)
             }
         }
+    
+    func sliced(numSlices: Int) -> Matrix3D {
+        assert(self.rows % numSlices == 0)
+        return Matrix3D(shape: [numSlices, self.rows/numSlices, self.cols], buffer: self.buffer, offset: self.offsetEls)
+    }
+
 
 }
 
@@ -404,6 +418,12 @@ class Matrix3D: Bufferable<Float16> {
         }
         return out
     }
+    
+    subscript(index: Int) -> Matrix {
+            get {
+                return Matrix(shape:[shape[1], shape[2]], buffer:self.buffer, offset: self.offsetEls + index*self.shape[1]*self.shape[2])
+            }
+        }
 }
 
 class MatrixFloat: Bufferable<Float> {

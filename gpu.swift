@@ -99,6 +99,8 @@ class Gpu {
                 buffers: [MTLBufferable],
                 ints: [Int] = [],
                 float16s: [Float16] = [],
+                floats: [Float] = [],
+
                 threadCount: Int,
                 threadGroupSize tgs: [Int] = [32, 1, 1]) {
         deploy(fname, buffers: buffers, ints: ints, float16s: float16s, threadCount: [threadCount], threadGroupSize: tgs)
@@ -108,6 +110,8 @@ class Gpu {
                 buffers: [MTLBufferable],
                 ints: [Int] = [],
                 float16s: [Float16] = [],
+                floats: [Float] = [],
+
                 threadCount: [Int],
                 threadGroupSize tgs: [Int] = [32, 1, 1]) {
         
@@ -142,6 +146,12 @@ class Gpu {
         for i in float16s {
             var val = i
             encoder.setBytes(&val, length: MemoryLayout<Float16>.stride, index: idx)
+            idx += 1
+        }
+        
+        for i in floats {
+            var val = i
+            encoder.setBytes(&val, length: MemoryLayout<Float32>.stride, index: idx)
             idx += 1
         }
             
