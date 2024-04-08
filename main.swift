@@ -10,8 +10,6 @@ import Metal
 import simd
 print("starting up")
 
-//let tSaver = TensorSaver(path: "./model-mixtral", model: "fullfp16")
-//let testSaver = TensorSaver(path: "./", model: "tests")
 let testLoader = TensorLoader(path: "./", model: "tests")
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
@@ -20,12 +18,10 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 32
-var numExperts = 8
+var numLayers = 10
+var numExperts = 2
 
 var numTokens = 100
-//goConvert()
-//exit(0)
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
@@ -178,41 +174,36 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             let ht = h.copy().asFloat16()
             gpu.eval()
-                
+
+            testVec("h-out:\(thisToken):\(layerNo)", h)
+            /*
             if (numLayers == 10 && numExperts == 2) {
                 let tt = (testLoader["h-out:\(thisToken):\(layerNo)"] as! Vector).asFloat32()
                 print(tt.cosineSimilarityTo(h))
                 assert(tt.cosineSimilarityTo(h) > 0.99)
-            }
+            }*/
             
-            //testSaver[0]["h-out:\(thisToken):\(layerNo)"] = ht
         }
-//        testSaver.save()
-//        exit(0)
-        /*
-        archive["token \(thisToken)"] = h.copy()
-        let hh = h.copy()
-        gpu.eval()
-        testSaver[0]["token:\(thisToken)"] = hh*/
+        
+        testVec32("token:\(thisToken)", h)
 
+        /*
         if (numLayers == 10 && numExperts == 2) {
-            let tt = (testLoader["token:\(thisToken)"] as! VectorFloat)
+            let tt = (testLoader[] as! VectorFloat)
             print(tt.cosineSimilarityTo(h))
             assert(tt.cosineSimilarityTo(h) > 0.99)
-        }
+        }*/
 
-        
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
 
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
 
+        
+        testVec32("ovector:\(thisToken)", outputVector)
+
         if (numLayers == 10 && numExperts == 2) {
-            let tt = (testLoader["ovector:\(thisToken)"] as! VectorFloat)
-            print(tt.cosineSimilarityTo(outputVector))
-            assert(tt.cosineSimilarityTo(outputVector) > 0.99)
-            
             if thisToken >= 10 {
                 exit(0)
             }
