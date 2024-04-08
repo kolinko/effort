@@ -20,7 +20,7 @@ print("loading")
 //exit(0)
 
 var numLayers = 32
-var numExperts = 5//8
+var numExperts = 8//8
 
 var numTokens = 10
 
