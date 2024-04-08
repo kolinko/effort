@@ -110,11 +110,22 @@ class TensorLoader {
             }
         }
     
-    func fetchTensor(keyname: String) -> MTLBufferable {
+    func fetchTensor(keyname _keyname: String) -> MTLBufferable {
         //var tensors = [String: MTLBufferable]()
         
+        var fname = ""
+        var keyname = ""
+        if self.index.keys.contains(_keyname) {
+            keyname = _keyname
+        } else {
+            keyname = String(_keyname.dropLast(4))
+        }
         
-        let fname = mergePaths(self.path, self.index[keyname]!)
+        if keyname.contains(".bucket.stats") {
+            keyname = String(_keyname.dropLast(17)) + ".stats"
+
+        }
+        fname = mergePaths(self.path, self.index[keyname]!)
         
         guard let fileHandle = FileHandle(forReadingAtPath: fname) else {
             print("Failed to open file \(fname).")

@@ -9,7 +9,6 @@ import Foundation
 import Metal
 import simd
 print("starting up")
-
 let testLoader = TensorLoader(path: "./", model: "tests")
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
@@ -17,6 +16,8 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
+//runConvert([.mixtral, .fp16])
+//exit(0)
 
 var numLayers = 10
 var numExperts = 2

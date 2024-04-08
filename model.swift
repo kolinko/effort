@@ -326,6 +326,10 @@ class Scalar: Bufferable<Float16> {
 class Matrix: Bufferable<Float16> {
     var cols: Int { self.shape[1] }
     
+    func TDimHack() {
+        self.shape = [self.shape[1], self.shape[0]]
+    }
+    
     func asVector() -> Vector {
         return Vector(shape: [self.count], buffer: self.buffer, offset: self.offsetEls)
     }

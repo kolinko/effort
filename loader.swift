@@ -21,7 +21,7 @@ class Weights {
         self.buckets = buckets
         self.stats = stats
         self.probes = probes
-        assertDims()
+       // assertDims()
     }
     
     init(elName: String) {
@@ -34,7 +34,7 @@ class Weights {
             probesSize = 1024
         }
         self.probes = Vector(fname: elName+".probes.bin", shape: [probesSize])
-        assertDims()
+       // assertDims()
     }
     
     func assertDims() {
@@ -50,13 +50,13 @@ class Weights {
     convenience init(fromFile: String, shape: [Int]) {
         let core : Matrix = loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
         let bShape = [shape[1]*16, shape[0]/16]
-        let buckets : Matrix = loadBinaryMatrix(named: fromFile+".buckets.bin", shape: bShape)
+        let buckets : Matrix = Matrix(shape:[1])//loadBinaryMatrix(named: fromFile+".buckets.bin", shape: bShape)
         
         let sShape = [shape[1]*16, 4]
-        let stats : Matrix = loadBinaryMatrix(named: fromFile+".bucket.stats.bin", shape: sShape)
+        let stats : Matrix = Matrix(shape:[1])//loadBinaryMatrix(named: fromFile+".bucket.stats.bin", shape: sShape)
         
         let pShape = [(shape[0]>=4096 && shape[1]>=4096) ? 4096 : 1024]
-        let probes : Vector = loadBinaryMatrix(named: fromFile+".probes.bin", shape: pShape).asVector()
+        let probes : Vector = Vector(shape:[1])//loadBinaryMatrix(named: fromFile+".probes.bin", shape: pShape).asVector()
 
         self.init(core: core, buckets: buckets, stats: stats, probes: probes)
         
@@ -98,8 +98,8 @@ class ExpertWeights {
         for eNo in 0..<numExperts {
             let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
             probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
-            statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
             bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
+            statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
         }
     }
 }
@@ -194,7 +194,8 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
-private let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
+//private let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
+private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-FP16")
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
    // print(fileName)
@@ -224,6 +225,7 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
      */
     
     let safeten = tLoader[fileName]
+    print(fileName, (safeten as! Bufferable<Float16>).shape)
     //assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
     return safeten.buffer
     
@@ -274,7 +276,12 @@ func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
 }
 
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
-    return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+    do {
+        return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+    } catch {
+        return Vector(shape: shape, buffer: loadBinaryFile(named:  String(fileName.dropLast(4)), shape: shape))
+
+    }
 }
 
 func extractNumber(from string: String) -> Int? {

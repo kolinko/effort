@@ -17,32 +17,28 @@ struct ConvertOptions: OptionSet {
     static let fp16 = ConvertOptions(rawValue: 1 << 3)
 }
 
-//func runConvert(mistral: Bool = false, mixtral: Bool = false, Q8: Bool = false, FP16: Bool = true) {
 func runConvert(_ options: ConvertOptions) {
-        
-    if options.contains(.mistral) {
-        if options.contains(.fp16) {
-            convertMistral(goQ8: false)
-        }
-        if options.contains(.q8) {
-            convertMistral(goQ8: true)
-        }
-    }
     if options.contains(.mixtral) {
         if options.contains(.fp16) {
-            convertMixtral(goQ8: false)
+            convertMixtral()//goQ8: false)
         }
         if options.contains(.q8) {
-            convertMixtral(goQ8: true)
+            assertionFailure("not implemented yet")
+            convertMixtral()//goQ8: true)
         }
     }
     
 }
 
 
-func convertMixtral(goQ8: Bool) {
-    let tensors = TensorLoader(path:"./models/mixtral-7x8b")
-    let saveTensors = TensorSaver(path:"./models/mixtral-7x8b", model: "buckets-\(goQ8 ? "Q8" : "FP16" )")
+func convertMixtral() {
+//    let tensors = TensorLoader(path:"./models/mixtral-7x8b")
+    let tCore = TensorLoader(path: "./model-mixtral/", model: "corefp16")
+    let tBuckets = TensorLoader(path: "./model-mixtral/", model: "rawfp16")
+
+    
+    let tensors = TensorMetaLoader([tBuckets, tCore])
+    let saveTensors = TensorSaver(path:"./models/mixtral-new", model: "buckets-FP16")
 
     print("done loading.\n")
 
@@ -52,44 +48,49 @@ func convertMixtral(goQ8: Bool) {
         var layerTensors = saveTensors[layerNo]
         
         if layerNo == 0 {
-            for k in ["model.norm.weight", "lm_head.weight", "model.embed_tokens.weight"] {
+            for k in ["norm.bin", "output.core.bin", "tok_embeddings.core.bin"] {
                 layerTensors[k] = tensors[k]
             }
         }
         
-        for k in ["block_sparse_moe.gate.weight",
-                  "input_layernorm.weight",
-                  "post_attention_layernorm.weight"] {
-            let prefix = "model.layers.\(layerNo)."
-
-            layerTensors[prefix+k] = tensors[prefix+k]
+        for k in ["feed_forward.gate.bin",
+                  "attention_norm.bin",
+                  "ffn_norm.bin"] {
+            let prefix = "layers.\(layerNo).\(k)"
+            layerTensors[prefix] = tensors[prefix]
         }
         
         
         for s in ["k", "o", "q", "v"] {
-            let prefix = "model.layers.\(layerNo).self_attn.\(s)_proj."
+            let prefix = "layers.\(layerNo).attention.w\(s).core.bin"
 //            gpu.startCapture()
-            layerTensors[prefix+"weight"] = tensors[prefix+"weight"]
-            gpu.stopCapture()
+            layerTensors[prefix] = tensors[prefix]
 
-            bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: goQ8)
+         //   bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: false)
         }
         
         for expertNo in 0..<numExperts {
-            var evalTime = Date()
-            let prefix = "model.layers.\(layerNo).block_sparse_moe.experts.\(expertNo)."
+            let evalTime = Date()
+
+            let prefix = "layers.\(layerNo).feed_forward.experts.\(expertNo)."
             print("processing \(prefix)..")
-            //let ten = Vector(shape:[4096]); ten.copyFrom((tensors[prefix+"w1.weight"] as! Matrix)[0]); ten.convertBF16();ten.str
-            bucketize(tensors[prefix+"w1.weight"] as! Matrix, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
+
+            let srcw1 = tensors[prefix+"w1.core.bin"] as! Matrix
+            srcw1.TDimHack()
+            bucketize(srcw1, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: false)
             gpu.eval()
 
-            bucketize(tensors[prefix+"w2.weight"] as! Matrix, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
+            let srcw2 = tensors[prefix+"w2.core.bin"] as! Matrix
+            srcw2.TDimHack()
+            bucketize(srcw2, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: false)
             gpu.eval()
 
-            bucketize(tensors[prefix+"w3.weight"] as! Matrix, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
+            let srcw3 = tensors[prefix+"w3.core.bin"] as! Matrix
+            srcw3.TDimHack()
+            bucketize(srcw3, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: false)
             gpu.eval()
-            let repsLeft = 8*32-expertNo-(layerNo*8)
-            var sumTime = Date().timeIntervalSince(evalTime)
+            let repsLeft = numLayers*numExperts-expertNo-(layerNo*numExperts)
+            let sumTime = Date().timeIntervalSince(evalTime)
             let totalTime = sumTime * Double(repsLeft)
 
             // Convert totalTime to minutes and seconds
@@ -149,7 +150,7 @@ func bucketize(_ w: Matrix, outTensorsPref: String, tensors: inout [String: MTLB
     gpu.deploy("bucketize", buffers: [bVals, buckets], ints:[inDim, outDim, bSize], threadCount: [inDim, outDim/bSize])
     
     // compute averages, to be used by dispatch
-    let stats = Vector(shape:[inDim*bSize])
+    let stats = Vector(shape:[inDim*bSize, 4])
     gpu.deploy("makeStats", buffers: [buckets, stats], ints:[buckets.cols], threadCount: buckets.rows)
     gpu.stopCapture()
     
