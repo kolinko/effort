@@ -39,7 +39,7 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 2
+var numLayers = 5
 var numExperts = 8
 
 var numTokens = 100
@@ -47,7 +47,7 @@ var numTokens = 100
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x10)//0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -309,7 +309,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = true
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.25)
+_ = runNetwork(isTest: true, tokens: tokens, quant:1)//0.25)
 _ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
 
 var storedIntegers: [Int] = []
