@@ -22,7 +22,7 @@ print("loading")
 var numLayers = 32
 var numExperts = 8//8
 
-var numTokens = 10
+var numTokens = 100
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
@@ -153,18 +153,18 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
                 if !isTest {
-                    expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                    expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                    
-                    silu(x1, x3, out: x2)
-                    expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                    ffnOut[i].mul(by: gateVals.scalarAt(i))
-                } else {
                     expertMul3(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
                     expertMul3(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                     
                     silu(x1, x3, out: x2)
                     expertMul3(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    ffnOut[i].mul(by: gateVals.scalarAt(i))
+                } else {
+                    expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    expertMulQ8(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    
+                    silu(x1, x3, out: x2)
+                    expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                     ffnOut[i].mul(by: gateVals.scalarAt(i))
 
                     }
@@ -298,7 +298,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
 var runControl = false
 silent = true
-_ = runNetwork(isTest: false, tokens: tokens, quant:1)
+_ = runNetwork(isTest: true, tokens: tokens, quant:1)
 
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
 //_ = runNetwork(isTest: true, tokens: tokens, quant:1)//0.25)
@@ -326,7 +326,7 @@ while true {
                 for t in encoded {
                     tokens.append(tokEmbeddings[t].asFloat32())
                 }
-                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
+                _ = runNetwork(isTest: true, tokens: tokens, quant:quant)
 
 //                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
 //                storedStrings.append(input)

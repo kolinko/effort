@@ -263,7 +263,7 @@ kernel void bucketIntegrate(device const float* tmpMulVec[[buffer(0)]],
 
 // same as regular, but appends slice encoding.
 kernel void prepareExpertDispatchQ8(device const float* v[[buffer(0)]],
-                                  device const half* binStats[[buffer(1)]],
+                                  device const half4* binStats[[buffer(1)]],
                                   device const int* expertNo[[buffer(2)]],
                                   device const half* cutoff[[buffer(3)]],
                                   device float4* dispatch[[buffer(4)]],
@@ -283,10 +283,10 @@ kernel void prepareExpertDispatchQ8(device const float* v[[buffer(0)]],
     ushort counter = idxIncr;
     
     for (uint i = begin; i<end; i++) {
-        half s = binStats[i];
+        half4 s = binStats[i];
         float val = v[i % rowsCount]; // int(s[0])
-        float ucomp = float(s) * abs(val);
-        if (true) {//cutoff[0] < ucomp) {
+        float ucomp = float(s.z) * abs(val);
+        if (cutoff[0] < ucomp) {
             if (counter == idxIncr) {
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;
