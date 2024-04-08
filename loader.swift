@@ -195,6 +195,11 @@ func readJson() -> [String: [Int]] {
 }
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
+    
+    let safeten = tLoader[fileName]
+    assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
+    return safeten.buffer
+    
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
@@ -222,12 +227,14 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
     }
     
     print(fileName, shape)
-    let layNo : Int? = extractNumber(from: fileName)
-    if layNo != nil {
-        assert((o as! Bufferable<Float16>).shape != [1])
-        tSaver[layNo!][fileName] = o
-        print(layNo!)
+    var layNo : Int? = extractNumber(from: fileName)
+    if layNo == nil {
+       layNo = 0
     }
+    
+    assert((o as! Bufferable<Float16>).shape != [1])
+    //tSaver[layNo!][fileName] = o
+    print(layNo!)
     
     return buffer
 }

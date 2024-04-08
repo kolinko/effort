@@ -12,8 +12,9 @@ print("starting up")
 
 let tSaver = TensorSaver(path: "./model-mixtral", model: "rawfp16")
 //let tSaver = TensorSaver(path: "./", model: "tests")
+let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
 
-let tLoader = TensorLoader(path: "./", model: "tests")
+let testLoader = TensorLoader(path: "./", model: "tests")
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
@@ -28,7 +29,7 @@ var numTokens = 100
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)//0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x01)//0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -178,12 +179,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let ht = h.copy().asFloat16()
             gpu.eval()
             
-            let tt = (tLoader["h-out\(layerNo)"] as! Vector).asFloat32()
+            let tt = (testLoader["h-out\(layerNo)"] as! Vector).asFloat32()
             print(tt.cosineSimilarityTo(h))
             assert(tt.cosineSimilarityTo(h) > 0.99)
 //            tSaver[0]["h-out\(layerNo)"] = ht
         }
-        tSaver.save()
+//        tSaver.save()
         exit(0)
         
         archive["token \(thisToken)"] = h.copy()
@@ -227,6 +228,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             evalTime = Date()
         }
         gpu.stopCapture()
+        tSaver.save()
+        exit(0)
 
         
     }
