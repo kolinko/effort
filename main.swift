@@ -180,21 +180,53 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
                 
             if (numLayers == 10 && numExperts == 2) {
-                let tt = (testLoader["h-out\(layerNo)"] as! Vector).asFloat32()
+                let tt = (testLoader["h-out:\(thisToken):\(layerNo)"] as! Vector).asFloat32()
                 print(tt.cosineSimilarityTo(h))
                 assert(tt.cosineSimilarityTo(h) > 0.99)
             }
-//            testSaver[0]["h-out\(layerNo)"] = ht
+            
+            //testSaver[0]["h-out:\(thisToken):\(layerNo)"] = ht
         }
 //        testSaver.save()
-        exit(0)
-        
+//        exit(0)
+        /*
         archive["token \(thisToken)"] = h.copy()
+        let hh = h.copy()
+        gpu.eval()
+        testSaver[0]["token:\(thisToken)"] = hh*/
+/*
+        if (numLayers == 10 && numExperts == 2) {
+            let tt = (testLoader["token:\(thisToken)"] as! Vector).asFloat32()
+            print(tt.cosineSimilarityTo(h))
+            assert(tt.cosineSimilarityTo(h) > 0.99)
+        }*/
+
+        
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
 
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
+/*
+        if (numLayers == 10 && numExperts == 2) {
+            let tt = (testLoader["ovector:\(thisToken)"] as! Vector).asFloat32()
+            print(tt.cosineSimilarityTo(outputVector))
+            assert(tt.cosineSimilarityTo(outputVector) > 0.99)
+        }*/
+
+        
+        /*
+        let ho = outputVector.copy()
+        gpu.eval()
+        testSaver[0]["ovector:\(thisToken)"] = ho
+         */
+
+        if thisToken >= 10 {
+//                    testSaver.save()
+                    exit(0)
+
+        }
+
         let topKVector = mpsTopK(v: outputVector)
 
         sumPrepTime += Date().timeIntervalSince(evalTime)
