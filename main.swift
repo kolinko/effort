@@ -39,7 +39,7 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 32
+var numLayers = 2
 var numExperts = 8
 
 var numTokens = 100
