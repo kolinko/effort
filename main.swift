@@ -20,8 +20,8 @@ let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 10
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
 var numTokens = 100
 //goConvert()
@@ -212,6 +212,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let tt = (testLoader["ovector:\(thisToken)"] as! VectorFloat)
             print(tt.cosineSimilarityTo(outputVector))
             assert(tt.cosineSimilarityTo(outputVector) > 0.99)
+            
+            if thisToken >= 10 {
+                exit(0)
+            }
         }
 
         
@@ -220,12 +224,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         gpu.eval()
         testSaver[0]["ovector:\(thisToken)"] = ho
          */
-
-        if thisToken >= 10 {
-//                    testSaver.save()
-                    exit(0)
-
-        }
 
         let topKVector = mpsTopK(v: outputVector)
 
@@ -302,7 +300,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     }
 
     
-    exit(0)
+  //  exit(0)
     return archive
 }
 
