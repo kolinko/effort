@@ -240,7 +240,7 @@ func saveSafetensors(fname filePath: String, tensors: [String: MTLBufferable]) {
         
         // Write each tensor's data
         for tensor in tensorsArray {
-            let data = Data(bytesNoCopy: tensor.buffer.contents(), count: tensor.buffer.length, deallocator: .none)
+            let data = Data(bytes: tensor.buffer.contents(), count: tensor.buffer.length)//, deallocator: .none)
                 // Assuming the data is already in BF16 format; otherwise, you would need to convert it.
             fileHandle.write(data)
         }

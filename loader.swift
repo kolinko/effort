@@ -194,12 +194,40 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
+private let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
+
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
+   // print(fileName)
+   // print(shape)
+    /*
+    var cShape = shape
+    
+    if shape[0] == 12288 {
+        cShape[0] = 65536
+    } else if shape[0] == 43008 {
+        cShape[0] = 229376
+    }
+    
+    prepConvertBinaryFile(named: fileName, shape: cShape, tSaver: tSaver)
+    let targetSuffix = "buckets.bin"
+    let replacementSuffix = "core.bin"
+
+    if fileName.hasSuffix(targetSuffix) && fileName !=  "output.buckets.bin" {
+        let newFname = fileName.dropLast(targetSuffix.count) + replacementSuffix
+        prepConvertBinaryFile(named: String(newFname), shape: [16*shape[0]/3, shape[1]*16], tSaver: tSaver)
+      //  print("conv buckets, new size", [shape[1]*16, shape[0]/3])
+        if !fileName.contains("experts") {
+        //    print("hm")
+        }
+//        assert(shape.reduce(1, *) ==[shape[1]*16, shape[0]/3] )
+    }
+     */
     
     let safeten = tLoader[fileName]
-    assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
+    //assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
     return safeten.buffer
     
+     
     let fileURL = URL(fileURLWithPath: absolutePath + fileName)
 
     // Calculate the expected size
@@ -226,18 +254,20 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
         assert(false)
     }
     
-    print(fileName, shape)
+   // print(fileName, shape)
     var layNo : Int? = extractNumber(from: fileName)
     if layNo == nil {
        layNo = 0
     }
     
     assert((o as! Bufferable<Float16>).shape != [1])
-    //tSaver[layNo!][fileName] = o
-    print(layNo!)
-    
+//    tSaver[layNo!][fileName] = o
+   // print(layNo!)
+    close(fileDescriptor)
     return buffer
 }
+
+
 
 func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
     return Matrix(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))

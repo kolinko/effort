@@ -10,11 +10,10 @@ import Metal
 import simd
 print("starting up")
 
-let tSaver = TensorSaver(path: "./model-mixtral", model: "rawfp16")
-//let tSaver = TensorSaver(path: "./", model: "tests")
-let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
-
+//let tSaver = TensorSaver(path: "./model-mixtral", model: "fullfp16")
+//let testSaver = TensorSaver(path: "./", model: "tests")
 let testLoader = TensorLoader(path: "./", model: "tests")
+
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
@@ -25,11 +24,12 @@ var numLayers = 10
 var numExperts = 2
 
 var numTokens = 100
-
+//goConvert()
+//exit(0)
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x01)//0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0xC)//C)//0x0C)//0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -178,13 +178,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             let ht = h.copy().asFloat16()
             gpu.eval()
-            
-            let tt = (testLoader["h-out\(layerNo)"] as! Vector).asFloat32()
-            print(tt.cosineSimilarityTo(h))
-            assert(tt.cosineSimilarityTo(h) > 0.99)
-//            tSaver[0]["h-out\(layerNo)"] = ht
+                
+            if (numLayers == 10 && numExperts == 2) {
+                let tt = (testLoader["h-out\(layerNo)"] as! Vector).asFloat32()
+                print(tt.cosineSimilarityTo(h))
+                assert(tt.cosineSimilarityTo(h) > 0.99)
+            }
+//            testSaver[0]["h-out\(layerNo)"] = ht
         }
-//        tSaver.save()
+//        testSaver.save()
         exit(0)
         
         archive["token \(thisToken)"] = h.copy()
@@ -227,9 +229,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
-        gpu.stopCapture()
-        tSaver.save()
-        exit(0)
+
+        //testSaver.save()
+        //exit(0)
 
         
     }
@@ -267,14 +269,17 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         print("")
     }
 
+    
+    exit(0)
     return archive
 }
 
 var runControl = false
 silent = true
+_ = runNetwork(isTest: false, tokens: tokens, quant:1)
+
 //_ = control(isTest: true, tokens: tokens, quant:0.30)
-_ = runNetwork(isTest: true, tokens: tokens, quant:1)//0.25)
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.25)
+//_ = runNetwork(isTest: true, tokens: tokens, quant:1)//0.25)
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
@@ -299,7 +304,7 @@ while true {
                 for t in encoded {
                     tokens.append(tokEmbeddings[t].asFloat32())
                 }
-                _ = runNetwork(isTest: true, tokens: tokens, quant:quant)
+                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
 
 //                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
 //                storedStrings.append(input)
