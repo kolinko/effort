@@ -103,7 +103,7 @@ class Gpu {
 
                 threadCount: Int,
                 threadGroupSize tgs: [Int] = [32, 1, 1]) {
-        deploy(fname, buffers: buffers, ints: ints, float16s: float16s, threadCount: [threadCount], threadGroupSize: tgs)
+        deploy(fname, buffers: buffers, ints: ints, float16s: float16s, floats: floats, threadCount: [threadCount], threadGroupSize: tgs)
     }
     
     func deploy(_ fname: String,

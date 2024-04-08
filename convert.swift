@@ -20,25 +20,25 @@ struct ConvertOptions: OptionSet {
 func runConvert(_ options: ConvertOptions) {
     if options.contains(.mixtral) {
         if options.contains(.fp16) {
-            convertMixtral()//goQ8: false)
+            convertMixtral(goQ8: true)//goQ8: false)
         }
         if options.contains(.q8) {
-            assertionFailure("not implemented yet")
-            convertMixtral()//goQ8: true)
+//            assertionFailure("not implemented yet")
+            convertMixtral(goQ8: true)//goQ8: true)
         }
     }
     
 }
 
 
-func convertMixtral() {
+func convertMixtral(goQ8: Bool) {
 //    let tensors = TensorLoader(path:"./models/mixtral-7x8b")
     let tCore = TensorLoader(path: "./model-mixtral/", model: "corefp16")
     let tBuckets = TensorLoader(path: "./model-mixtral/", model: "rawfp16")
 
     
     let tensors = TensorMetaLoader([tBuckets, tCore])
-    let saveTensors = TensorSaver(path:"./models/mixtral-new", model: "buckets-FP16")
+    let saveTensors = TensorSaver(path:"./models/mixtral-new", model: "buckets-\(goQ8 ? "Q8" : "FP16")")
 
     print("done loading.\n")
 
@@ -77,17 +77,17 @@ func convertMixtral() {
 
             let srcw1 = tensors[prefix+"w1.core.bin"] as! Matrix
             srcw1.TDimHack()
-            bucketize(srcw1, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: false)
+            bucketize(srcw1, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
             gpu.eval()
 
             let srcw2 = tensors[prefix+"w2.core.bin"] as! Matrix
             srcw2.TDimHack()
-            bucketize(srcw2, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: false)
+            bucketize(srcw2, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
             gpu.eval()
 
             let srcw3 = tensors[prefix+"w3.core.bin"] as! Matrix
             srcw3.TDimHack()
-            bucketize(srcw3, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: false)
+            bucketize(srcw3, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
             gpu.eval()
             let repsLeft = numLayers*numExperts-expertNo-(layerNo*numExperts)
             let sumTime = Date().timeIntervalSince(evalTime)
@@ -240,9 +240,9 @@ func bucketize(_ w: Matrix, outTensorsPref: String, tensors: inout [String: MTLB
         exit(0)*/
     }
     
-    tensors[outTensorsPref+"bucketsQ8"] = bucketsQ8
-    tensors[outTensorsPref+"outliersQ8"] = outliersQ8
-    tensors[outTensorsPref+"sliceStatsQ8"] = sliceStatsQ8
+    tensors[outTensorsPref+"buckets"] = bucketsQ8
+    tensors[outTensorsPref+"outliers"] = outliersQ8
+    tensors[outTensorsPref+"sliceStats"] = sliceStatsQ8
 
     
 }

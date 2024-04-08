@@ -76,18 +76,23 @@ class ExpertWeights {
     let buckets: Matrix3D
     let stats: Matrix3D
     let probes: Matrix
+    let sliceStats: Matrix3DFloat?
+    let Q8: Bool
+    let bSize: Int
     
-    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {
+    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int, Q8: Bool = false) {
+        self.Q8 = Q8
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
+        self.bSize = Q8 ? 8 : 16
         
         let probesCount = 4096
 
         self.probes = Matrix(shape: [numExperts, probesCount])
         let probesList: [Vector] = probes.asVectorList()
         
-        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
+        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/bSize])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
         bam.addBuffer(self.buckets)
         
@@ -95,11 +100,25 @@ class ExpertWeights {
         let statList: [Matrix] = self.stats.asMatrixList()
         bam.addBuffer(self.stats)
 
+        var sliceStatsList: [MatrixFloat]?
+        
+        if Q8 {
+            self.sliceStats = Matrix3DFloat(shape: [numExperts, inDim*percentLoad, 4])
+//            bam.addBuffer(self.sliceStats)
+            sliceStatsList = self.sliceStats!.asMatrixList()
+        } else {
+            self.sliceStats = nil
+        }
+//        let sliceStatsList: [MatrixFloat] =
+        
         for eNo in 0..<numExperts {
             let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
             probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
             bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
             statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
+            if Q8 {
+                sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: statList[eNo].shape))
+            }
         }
     }
 }
@@ -274,14 +293,13 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
 func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
     return Matrix(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
+func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat {
+    return MatrixFloat(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+}
+
 
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
-    do {
-        return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
-    } catch {
-        return Vector(shape: shape, buffer: loadBinaryFile(named:  String(fileName.dropLast(4)), shape: shape))
-
-    }
+    return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
 
 func extractNumber(from string: String) -> Int? {

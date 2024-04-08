@@ -16,11 +16,11 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
-runConvert([.mixtral, .fp16])
+runConvert([.mixtral, .q8])
 exit(0)
 
-var numLayers = 10
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 
 var numTokens = 100
 
@@ -335,32 +335,3 @@ while true {
         }
     }
 }
-
-exit(0)
-
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.60)
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.60)
-
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.90)
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.90)
-
-_ = runNetwork(isTest: true, tokens: tokens, quant:0.99)
-_ = runNetwork(isTest: false, tokens: tokens, quant:0.99)
-
-
-
-
-
-
-os_signpost(.end, log: log, name: "TokenGen")
-
-exit(0)
-runControl = false
-_ = runControl(isTest: true, tokens: tokens, quant:0.30)
-
-
-
-/*
-for i in 2...25 {
-    let _ = runNetwork(isTest: true, tokens: tokens, quant:Double(i*2)/100)
-}*/
