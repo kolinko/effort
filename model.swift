@@ -185,6 +185,32 @@ class Bufferable<Type> : MTLBufferable {
     }
 
     
+    var strInt2: String {
+        gpu.eval()
+        let _count = count<self.count ? count : self.count
+        var outStr = ""
+        for i in 0..<_count {
+            outStr += "\(self.getInt(index: i)), "
+        }
+        return outStr
+    }
+    
+    
+    
+    func getInt2(index: Int) -> Int16 {
+        var floatStorage: Type
+            floatStorage = self[index]
+
+        var intStorage: Int16 = 0
+
+        withUnsafePointer(to: &floatStorage) { floatPointer in
+            floatPointer.withMemoryRebound(to: Int16.self, capacity: 1) { intPointer in
+                intStorage = intPointer.pointee
+            }
+        }
+        return intStorage
+    }
+    
     subscript(index: Int) -> Type {
             get {
                 let bufferPointer = self.bufferPointer
