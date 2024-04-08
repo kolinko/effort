@@ -210,6 +210,25 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
 
     // Create MTLBuffer from the memory-mapped data
     let buffer = gpu.device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
+    
+    var o : MTLBufferable = Vector(shape:[1])
+    
+    if shape.count == 1 {
+        o = Vector(shape: shape, buffer: buffer)
+    } else if shape.count == 2 {
+        o = Matrix(shape: shape, buffer: buffer)
+    } else {
+        assert(false)
+    }
+    
+    print(fileName, shape)
+    let layNo : Int? = extractNumber(from: fileName)
+    if layNo != nil {
+        assert((o as! Bufferable<Float16>).shape != [1])
+        tSaver[layNo!][fileName] = o
+        print(layNo!)
+    }
+    
     return buffer
 }
 
@@ -220,3 +239,27 @@ func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
     return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
+
+func extractNumber(from string: String) -> Int? {
+    do {
+        let regex = try NSRegularExpression(pattern: "\\d+", options: [])
+        let matches = regex.matches(in: string, options: [], range: NSRange(location: 0, length: min(12, string.count)))
+        
+        if let match = matches.first {
+            if let range = Range(match.range, in: string) {
+                let numberString = string[range]
+                if let number = Int(numberString) {
+                    // Ensure the extracted number is within the range of 0 to 32
+                    if (0...32).contains(number) {
+                        return number
+                    }
+                }
+            }
+        }
+    } catch {
+        print("Error: \(error)")
+    }
+    
+    return nil
+}
+

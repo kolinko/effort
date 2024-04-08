@@ -10,7 +10,9 @@ import Metal
 import simd
 print("starting up")
 
-let tSaver = TensorSaver(path: "./", model: "tests")
+let tSaver = TensorSaver(path: "./model-mixtral", model: "rawfp16")
+//let tSaver = TensorSaver(path: "./", model: "tests")
+
 let tLoader = TensorLoader(path: "./", model: "tests")
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
@@ -172,14 +174,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
+            
             let ht = h.copy().asFloat16()
-            let tt = (tLoader["h-out\(layerNo)"] as! Vector).asFloat32()
             gpu.eval()
+            
+            let tt = (tLoader["h-out\(layerNo)"] as! Vector).asFloat32()
             print(tt.cosineSimilarityTo(h))
             assert(tt.cosineSimilarityTo(h) > 0.99)
 //            tSaver[0]["h-out\(layerNo)"] = ht
         }
-//        tSaver.save()
+        tSaver.save()
         exit(0)
         
         archive["token \(thisToken)"] = h.copy()
