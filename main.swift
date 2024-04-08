@@ -16,17 +16,17 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
-runConvert([.mixtral, .q8])
-exit(0)
+//runConvert([.mixtral, .q8])
+//exit(0)
 
 var numLayers = 32
-var numExperts = 8
+var numExperts = 5//8
 
-var numTokens = 100
+var numTokens = 10
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0xC)//C)//0x0C)//0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x8)//0xC)//C)//0x0C)//0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"

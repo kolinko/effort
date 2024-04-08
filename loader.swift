@@ -66,6 +66,7 @@ class Weights {
 
 let stateDim = 4096
 let hiddenDim = 14336
+let goQ8 = true
 
 class ExpertWeights {
     let inSize: Int
@@ -80,8 +81,8 @@ class ExpertWeights {
     let Q8: Bool
     let bSize: Int
     
-    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int, Q8: Bool = false) {
-        self.Q8 = Q8
+    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {//}, Q8: Bool = false) {
+        self.Q8 = goQ8
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
@@ -92,7 +93,7 @@ class ExpertWeights {
         self.probes = Matrix(shape: [numExperts, probesCount])
         let probesList: [Vector] = probes.asVectorList()
         
-        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/bSize])
+        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
         bam.addBuffer(self.buckets)
         
@@ -103,7 +104,7 @@ class ExpertWeights {
         var sliceStatsList: [MatrixFloat]?
         
         if Q8 {
-            self.sliceStats = Matrix3DFloat(shape: [numExperts, inDim*percentLoad, 4])
+            self.sliceStats = Matrix3DFloat(shape: [numExperts, 8 , 2])//inDim*percentLoad, 1])
 //            bam.addBuffer(self.sliceStats)
             sliceStatsList = self.sliceStats!.asMatrixList()
         } else {
@@ -117,7 +118,7 @@ class ExpertWeights {
             bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
             statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
             if Q8 {
-                sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: statList[eNo].shape))
+                sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
             }
         }
     }
@@ -214,7 +215,7 @@ func readJson() -> [String: [Int]] {
 }
 
 //private let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
-private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-FP16")
+private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-\(goQ8 ? "Q8" : "FP16")")
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
    // print(fileName)
@@ -244,7 +245,7 @@ func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
      */
     
     let safeten = tLoader[fileName]
-    print(fileName, (safeten as! Bufferable<Float16>).shape)
+    print(fileName)//, (safeten as! Bufferable<Float16>).shape)
     //assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
     return safeten.buffer
     
