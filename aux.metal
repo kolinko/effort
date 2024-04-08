@@ -212,7 +212,7 @@ kernel void cosinePrecalc32(const device float *A,
 }
 
 
-kernel void cosineCalc(device float *dotProduct,
+kernel void cosineCalc32(device float *dotProduct,
                        device float *magnitudeA,
                        device float *magnitudeB) {
     dotProduct[0] = dotProduct[0]/(sqrt(magnitudeA[0]) * sqrt(magnitudeB[0]));

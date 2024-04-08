@@ -9,71 +9,28 @@ import Foundation
 import Metal
 import simd
 print("starting up")
-//runTokenizerTests()
-/*
-var storedIntegers: [Int] = []
-var storedStrings: [String] = []
 
-while true {
-    print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
-    while true {
-        print("> ", terminator: "")
-        if let input = readLine() {
-            if input.lowercased() == "q" {  // Quit command
-                break
-            } else if let number = Int(input), (0...100).contains(number) {
-                storedIntegers.append(number)
-                print("Stored \(number) as an integer.")
-            } else {
-                storedStrings.append(input)
-                print("Stored \"\(input)\" as a string.")
-            }
-        }
-    }
-}
-*/
-
+let tSaver = TensorSaver(path: "./", model: "tests")
+let tLoader = TensorLoader(path: "./", model: "tests")
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
 
-var numLayers = 5
-var numExperts = 8
+var numLayers = 10
+var numExperts = 2
 
 var numTokens = 100
 
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x10)//0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x0C)//0x0C)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
 
-/*
-let tokIds = [1,
-              523,
-              28713,
-              28767,
-              28792,
-              16289,
-              28793,
-              26703,
-              349,
-              6084,
-              387,
-              14469,
-              442,
-              6444,
-              300,
-              28804,
-              28792,
-              28748,
-              16289,
-              28793
-]*/
 let t = Tokeniser()
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
@@ -129,15 +86,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var sumEvalTime = Date().timeIntervalSince(evalTime)
     for thisToken in 0...numTokens {
         if thisToken == 2 {
-            os_signpost(.begin, log: log, name: "TokenGen")
-//            gpu.startCapture()
-
-        }
-        if thisToken == 2 {
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
-
         
         if thisToken == 2 {
             gpu.eval()
@@ -221,9 +172,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
-
+            let ht = h.copy().asFloat16()
+            let tt = (tLoader["h-out\(layerNo)"] as! Vector).asFloat32()
+            gpu.eval()
+            print(tt.cosineSimilarityTo(h))
+            assert(tt.cosineSimilarityTo(h) > 0.99)
+//            tSaver[0]["h-out\(layerNo)"] = ht
         }
-
+//        tSaver.save()
+        exit(0)
         
         archive["token \(thisToken)"] = h.copy()
         let outNormed = h.rmsNormed()
