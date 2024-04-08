@@ -170,8 +170,14 @@ class TensorLoader {
         var out : MTLBufferable
         
         if dtype == "F32" {
-            precondition(shape.count == 2, "unsupported type for F32 only Matrixes")
-            out = MatrixFloat(shape: shape, buffer: buffer)
+            if shape.count == 1 {
+                out = VectorFloat(shape: shape, buffer: buffer)
+            } else if shape.count == 2 {
+                out = MatrixFloat(shape: shape, buffer: buffer)
+            } else {
+                preconditionFailure("unsupported shape for F32")
+            }
+//            out = MatrixFloat(shape: shape, buffer: buffer)
         } else if shape.count == 1 {
             out = Vector(shape: shape, buffer: buffer)
         } else if shape.count == 2 {
