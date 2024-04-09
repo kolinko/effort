@@ -44,6 +44,7 @@ kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
     
 }
 
+# define STEP 4
 
 kernel void bucketMulFast(
                    device const half *weights [[buffer(0)]],
@@ -57,19 +58,19 @@ kernel void bucketMulFast(
     float myVal[16] = {0};
       
     const uint rowOffset = id.y*dispatchSize[0]/groups;
-    for (int r=0; r<dispatchSize[0]/groups; r+=1) { //32) {
-    //    for (int s=0; s<32; s++) { // for better optimisation
+    for (int r=0; r<dispatchSize[0]/groups; r+=STEP) {
+        for (int s=0; s<STEP; s++) { // for better optimisation
             
             float2 d = dispatch[rowOffset + r];//+s
             half w = weights[int(d[1]) + id.x];
             for (int i=0; i<16; i++) {
                 myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
             }
-//        }
+        }
     }
                       
     for (int i = 0; i<16; i++) {
-      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+      atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
     }
                           
 }
