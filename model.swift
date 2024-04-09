@@ -431,6 +431,17 @@ let _dotBuffer = ScalarFloat(value:0)
 
 class VectorFloat: Bufferable<Float> {
     
+    func rmsNorm(out: VectorFloat) {
+        out.zero()
+        gpu.deploy("rmsNorm32", buffers: [self, out], threadCount: 4096)
+    }
+
+    func rmsNormFast(out: VectorFloat) {
+        out.zero()
+        gpu.deploy("rmsNorm32fast", buffers: [self, out], threadCount: 1024, threadGroupSize: [1024, 1, 1])
+    }
+
+    
     func cosineSimilarityTo(_ vec: VectorFloat) -> Float {
         _normABuffer.zero()
         _normBBuffer.zero()
@@ -661,15 +672,15 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
 }
 
 
-func calcScores2(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int) -> MatrixFloat {
-    let scores = MatrixFloat(shape: [numHeads, numTokens])
+func calcScores2(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int, out scores: MatrixFloat) {
+//    let scores = MatrixFloat(shape: [numHeads, numTokens])
 
     gpu.deploy("dotSetScore2",
                buffers: [xq_heads, xkTokenHeads, scores],
                threadCount: [128, numTokens, numHeads],
                threadGroupSize: [128, 1, 1])
     
-    return scores
+  //  return scores
 }
 
 func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [VectorFloat] {
@@ -710,7 +721,7 @@ func sumScores2(numHeads: Int, headDim:Int, scores: MatrixFloat, xvToken: Matrix
     
     return outMatrix.asVector()
 }
-
+/*
 func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [VectorFloat]) -> VectorFloat {
     let outMatrix = MatrixFloat(shape: [numHeads, headDim])
     let scoresMatrix = gpuConsolidate(vecList: scores)
@@ -721,6 +732,15 @@ func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [Vect
     gpu.deploy("sumScores32", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: [numDims])
     
     return outMatrix.asVector()
+}*/
+func sumScores(numHeads: Int, headDim:Int, scores: MatrixFloat, xvToken: MatrixFloat, numTokens: Int, out outMatrix: MatrixFloat) {
+    let numDims = numHeads*headDim
+    
+    assert(scores.cols == numTokens)
+//    outMatrix.zero()
+    gpu.deploy("sumScores32", buffers:[scores, xvToken, outMatrix], ints: [numTokens], threadCount: [numDims])
+    
+//    return outMatrix.asVector()
 }
 
 func silu(_ x1: Vector, _ x3: Vector, out: Vector) {

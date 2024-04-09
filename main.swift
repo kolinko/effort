@@ -91,7 +91,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
-            let h_norm = h.rmsNormed()
+            let h_norm = VectorFloat(shape:[stateDim])
+            h.rmsNorm(out: h_norm)
+//            h.rmsNorm(into: h_norm)
+            
             h_norm.mul(by:layer.attnNorm)
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
@@ -109,18 +112,24 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
-            let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
+            let scores = MatrixFloat(shape: [numHeads, thisToken+1])
+
+            calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1, out: scores)
             
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
-            let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
-            
+//            let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
+            let attnOutMatrix = MatrixFloat(shape: [numHeads, headDim])
+            sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1, out: attnOutMatrix)
+            let attnOutput = attnOutMatrix.asVector()
+
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
             h.add(by: attnFfnOut)
-            
-            let fxn = h.rmsNormed()
+
+            let fxn = VectorFloat(shape:[stateDim])
+            h.rmsNorm(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
             let gateOut = VectorFloat(shape: [numExperts])
@@ -159,7 +168,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         testVec32("token:\(thisToken)", h)
         
-        let outNormed = h.rmsNormed()
+        let outNormed = VectorFloat(shape: [stateDim])
+//        let outNormed = h.rmsNormed()
+        h.rmsNorm(out: outNormed)
         outNormed.mul(by: modelData.norm.asVector())
         
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
