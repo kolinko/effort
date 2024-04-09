@@ -42,12 +42,13 @@ func mpsMul(v: Vector, by: Weights) -> VectorFloat {
 }
 
 func mpsMul(v vector: Vector, by weights: Weights, out result: VectorFloat) {
+
     mpsMul(v: vector, by: weights.core, out: result)
 }
 
 
 func mpsMul(v vector: Vector, by weights: Matrix, out result: VectorFloat) {
-//    return
+//    if goNoMuls { return }
     result.zero()
     // Assuming `device` and `commandQueue` are already initialized
     // Shapes of the matrix and vector

@@ -27,7 +27,8 @@ let bSize: Int
 var numLayers = 10
 var numExperts = 2
 var numTokens = 100
-let goVerify = (numLayers == 10 && numExperts == 2)
+let goNoMuls = true
+let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls
 let goSaveTests = false
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
@@ -106,7 +107,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
-//            gpu.startCapture()
+            gpu.startCapture()
 //            print(h._str(count:5000))
             let layer = modelData.layers[layerNo]!
             h.rmsNormFast(out: h_norm)
