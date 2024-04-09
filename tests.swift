@@ -25,8 +25,9 @@ func modelRunTests() {
     print(ew.buckets.str)
     
     expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
+//    gpu.startCapture()
     expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test)
-    
+//    gpu.stopCapture()
 
     timeIt(repeats:1000) { _ in
         expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
