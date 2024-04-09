@@ -9,7 +9,6 @@ import Foundation
 import Metal
 import simd
 print("starting up")
-let testLoader = TensorLoader(path: "./", model: "tests")
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
@@ -25,10 +24,11 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
 let bSize: Int
 
-var numLayers = 32
-var numExperts = 8
+var numLayers = 10
+var numExperts = 2
 var numTokens = 100
 let goVerify = (numLayers == 10 && numExperts == 2)
+let goSaveTests = false
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
@@ -183,7 +183,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         
         testVec32("ovector:\(thisToken)", outputVector)
-        testReport(thisToken >= 10)
+        testReport(thisToken >= 15)
         
         let topKVector = mpsTopK(v: outputVector)
         

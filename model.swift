@@ -763,6 +763,7 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     out.zero()
     BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+//    print(BucketMul.shared.dispatch.size.val, BucketMul.shared.dispatch.size.intVal)
     BucketMul.shared.mul(by: by, out: out)
     return
 }
