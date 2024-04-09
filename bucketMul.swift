@@ -8,7 +8,6 @@ func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: V
 }
 
 
-
 class BucketMulFast {
     let probesCount = 4096
     let maxDispatchSize = 229376 * 2//176128
@@ -34,9 +33,26 @@ class BucketMulFast {
         gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
         let chunkSize = 16//w.stats.rows//16
-        gpu.deploy("prepareExpertDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+        gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
+    
+    
+    
+       func mul(by: ExpertWeights, out: VectorFloat) {
+           let weightBuckets = by.buckets
+           
+           let bucketSize = 16
+           let numBuckets = out.rows / bucketSize
+           
+           assert(numBuckets % 4 == 0)
+
+           let groups = 32
+           gpu.deploy("bucketMulFast", buffers: [weightBuckets, dispatch, out, dispatch.size],
+                                   ints: [weightBuckets.cols, groups],
+                                   threadCount: [weightBuckets.cols, groups])
+       }
+
     
     func mul3(by: ExpertWeights, out: VectorFloat) {
         let weightBuckets = by.buckets
@@ -66,20 +82,6 @@ class BucketMulFast {
      --> 0.09ms for Q8!
      */
  
-    func mul(by: ExpertWeights, out: VectorFloat) {
-        let weightBuckets = by.buckets
-        
-        let bucketSize = 16
-        let numBuckets = out.rows / bucketSize
-        
-        assert(numBuckets % 4 == 0)
-
-        let groups = 32
-        gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, out, dispatch.size],
-                                ints: [weightBuckets.cols, groups],
-                                threadCount: [weightBuckets.cols,groups])
-    }
-
     
 }
 
