@@ -30,7 +30,7 @@ func modelRunTests() {
 //    gpu.stopCapture()
 
     timeIt(repeats:1000) { _ in
-        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
     }
 
     print()
