@@ -162,11 +162,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
                 if !goQ8 {
-                    expertMul3(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                    expertMul3(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                     
                     silu(x1, x3, out: x2)
-                    expertMul3(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                     ffnOut[i].mul(by: gateVals.scalarAt(i))
                 } else {
                     expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
