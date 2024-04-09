@@ -112,10 +112,15 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
             
+            let fCis = freqsCis[thisToken]
+            xqHeads.mul(complexArray: fCis)
+            xkHeads.mul(complexArray: fCis)
+
+            /*
             for i in 0..<numHeads {
                 xqHeads[i].mul(complexArray: freqsCis[thisToken])
                 xkHeads[i].mul(complexArray: freqsCis[thisToken])
-            }
+            }*/
             
             let xv_temp = basicMul(v: h_norm, by: layer.wv.core)
             xv_temp.repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
@@ -127,10 +132,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
                         out: scores)
-            /*
-            for headNo in 0..<numHeads {
-                scores[headNo].softmax()
-            }*/
+
             scores.softmax()
 
             sumScores(scores: scores,
@@ -148,6 +150,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
             
             gateVals.softmax()
+            
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
                 if !goQ8 {
@@ -183,7 +186,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         
         testVec32("ovector:\(thisToken)", outputVector)
-        testReport(thisToken >= 15)
+        testReport(thisToken >= 10)
         
         let topKVector = mpsTopK(v: outputVector)
         

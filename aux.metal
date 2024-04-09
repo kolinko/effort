@@ -154,6 +154,23 @@ kernel void softmax_add32(device float* vec [[buffer(0)]],
     vec[id] = exp(vec[id]) / sum[0];
 }
 
+kernel void mulComplex32_mx(device float2* m [[buffer(0)]],
+                        const device float2* comp [[buffer(1)]],
+                        const device uint &numCols [[buffer(2)]],
+                        uint2 id [[thread_position_in_grid]]) {
+    
+    float a = m[id.x+id.y*numCols/2].x;
+    float b = m[id.x+id.y*numCols/2].y;
+    float c = comp[id.x].x;
+    float d = comp[id.x].y;
+    
+    float2 out;
+    out.x = a * c - b * d;
+    out.y = a * d + b * c;
+    
+    m[id.x+id.y*numCols/2] = out;
+    
+}
 
 kernel void repeat4x32(const device float* v [[buffer(0)]],
                    device float* out [[buffer(1)]],

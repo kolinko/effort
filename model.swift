@@ -412,7 +412,11 @@ class MatrixFloat: Bufferable<Float> {
         gpu.deploy("softmax_add32_mx", buffers: [self, _rms_mx], ints: [self.cols], threadCount: [self.cols, numHeads])
     }
 
-    
+    func mul(complexArray: VectorFloat) {
+        assert(self.cols == complexArray.rows, "Layer size must be twice the size of the complex array")
+        gpu.deploy("mulComplex32_mx", buffers: [self, complexArray], ints:[self.cols], threadCount: [self.cols / 2, self.rows])
+    }
+
 }
 
 class DynaVectorFloat: VectorFloat {
