@@ -100,6 +100,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
+            gpu.warnOfEvals = true
         }
         
         h = tokens[thisToken].copy()
@@ -176,30 +177,40 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
             
-            gpu.eval()
+          //  gpu.eval()
             
-            testVec("h-out:\(thisToken):\(layerNo)", h)
+          //  testVec("h-out:\(thisToken):\(layerNo)", h)
         }
         
-        testVec32("token:\(thisToken)", h)
         
         h.rmsNorm(out: outNormed)
         outNormed.mul(by: modelData.norm.asVector())
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         
-        testVec32("ovector:\(thisToken)", outputVector)
-        testReport(thisToken >= 10)
-        
         let topKVector = mpsTopK(v: outputVector)
         
+        gpu.warnOfEvals = false
         sumPrepTime += Date().timeIntervalSince(evalTime)
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
-        
+        gpu.eval()
+        sumEvalTime += Date().timeIntervalSince(evalTime)
+        evalTime = Date()
+        testVec32("token:\(thisToken)", h)
+        testVec32("ovector:\(thisToken)", outputVector)
+
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
+
+
+            if thisToken >= 10 && goVerify {
+                speedReport()
+            }
+
+            testReport(thisToken >= 10)
+
             let topToken = Int(topKVector.getInt(index: 0))
             let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
             output += newS
@@ -211,8 +222,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 }
             }
         }
-        sumEvalTime += Date().timeIntervalSince(evalTime)
-        evalTime = Date()
+        
+        gpu.warnOfEvals = true
         
         if !silent {
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
@@ -245,11 +256,24 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         print("just eval \((Double(tokens.count-2)/(sumEvalTime)), precision: 2) tps")
         
     } else {
+        speedReport()
+    }
+    
+    func speedReport() {
         print("\n")
-        let evalTime = sumEvalTime*1000/Double(tokens.count-2)
-        let prepTime = sumPrepTime*1000/Double(tokens.count-2)
+        var evalTime = sumEvalTime*1000/Double(tokens.count-2)
+        var prepTime = sumPrepTime*1000/Double(tokens.count-2)
+        
+        evalTime /= Double(numLayers) / 32.0
+        prepTime /= Double(numLayers) / 32.0
+
+        sumEvalTime /= Double(numLayers) / 32.0
+        sumPrepTime /= Double(numLayers) / 32.0
+
+        
         let sumTps = Double(tokens.count-2)/(sumEvalTime+sumPrepTime)
         let evalTps = Double(tokens.count-2)/(sumEvalTime)
+        
         print("\(quant*100, precision: 2)%: \(prepTime, precision: 2)ms + \(evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
         print("")
     }
