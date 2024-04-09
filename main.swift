@@ -70,7 +70,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     
     // buffers
     let h_norm = VectorFloat(shape:[stateDim])
-    let attnOutMatrix = MatrixFloat(shape: [numHeads, headDim])
+    let attnOutput = VectorFloat(shape: [numHeads * headDim])
     let fxn = VectorFloat(shape:[stateDim])
     let gateOut = VectorFloat(shape: [numExperts])
     let gateIdxs = VectorFloat(shape:[2])
@@ -121,19 +121,23 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
-            calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1, out: scores)
+            calcScores2(xq_heads: xqHeads, 
+                        xkTokenHeads: xkTokenHeads,
+                        numTokens: thisToken+1,
+                        out: scores)
             
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
 
-            sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1, out: attnOutMatrix)
-            let attnOutput = attnOutMatrix.asVector()
-
+            sumScores(scores: scores,
+                      xvToken: xvToken,
+                      numTokens: thisToken+1,
+                      out: attnOutput)
+            
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
             h.add(by: attnFfnOut)
-
             h.rmsNorm(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)

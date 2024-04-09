@@ -733,14 +733,13 @@ func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [Vect
     
     return outMatrix.asVector()
 }*/
-func sumScores(numHeads: Int, headDim:Int, scores: MatrixFloat, xvToken: MatrixFloat, numTokens: Int, out outMatrix: MatrixFloat) {
+func sumScores(scores: MatrixFloat, xvToken: MatrixFloat, numTokens: Int, out: VectorFloat) {
     let numDims = numHeads*headDim
     
     assert(scores.cols == numTokens)
-//    outMatrix.zero()
-    gpu.deploy("sumScores32", buffers:[scores, xvToken, outMatrix], ints: [numTokens], threadCount: [numDims])
+    out.zero()
+    gpu.deploy("sumScores32", buffers:[scores, xvToken, out], ints: [numTokens], threadCount: [numDims])
     
-//    return outMatrix.asVector()
 }
 
 func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
