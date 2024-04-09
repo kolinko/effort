@@ -756,7 +756,7 @@ func silu(_ x1: Vector, _ x3: Vector, out: Vector) {
 }
 
 func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
-    gpu.deploy("silu32", buffers: [x1, x3, out], threadCount: x1.rows)
+    gpu.deploy("silu32b", buffers: [x1, x3, out], threadCount: x1.rows/64)
 }
 
 

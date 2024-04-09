@@ -22,6 +22,18 @@ kernel void silu32(device const float *x1 [[buffer(0)]],
     out[id] = x3[id] * x1[id] / (1 + exp(-x1[id]));
 }
 
+kernel void silu32b(device const float *x1 [[buffer(0)]],
+                 device const float *x3 [[buffer(1)]],
+                 device float *out [[buffer(2)]],
+                 uint id [[thread_position_in_grid]]) {
+    uint begin = id*64;
+    uint end = id*64+64;
+    for (uint i=begin; i<end; i++) {
+        out[i] = x3[i] * x1[i] / (1 + exp(-x1[i]));
+    }
+}
+
+
 kernel void probeExpert(device const float *v [[buffer(0)]],
                         device const half *probes [[buffer(1)]],
                         device const uint *expNo [[buffer(2)]],
