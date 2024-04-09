@@ -87,7 +87,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
 
-    
+    let _layer = modelData.layers[0]!
+    let xq = VectorFloat(shape: [_layer.wq.outSize])
+    let xk_temp = VectorFloat(shape: [_layer.wk.outSize])
+    let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
+    let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
+
     for thisToken in 0...numTokens {
         let scores = MatrixFloat(shape: [numHeads, thisToken+1])
 
@@ -104,23 +109,27 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             h.rmsNorm(out: h_norm)
             
             h_norm.mul(by:layer.attnNorm)
-            let xq = basicMul(v: h_norm, by: layer.wq.core)
+
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
-            let xk_temp = basicMul(v: h_norm, by: layer.wk.core)
+            let xv = xvLayerToken[layerNo][thisToken]
+            
+            basicMul(v: h_norm, by: layer.wq.core, out: xq)
+            
+            basicMul(v: h_norm, by: layer.wk.core, out: xk_temp)
             xk_temp.repeated(kvRepeats, into:xk)
+                        
+            basicMul(v: h_norm, by: layer.wv.core, out: xv_temp)
+            xv_temp.repeated(kvRepeats, into: xv)
             
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
+
+            let xkTokenHeads = xkLayerTokenHead[layerNo]
+            let xvToken = xvLayerToken[layerNo]
             
             let fCis = freqsCis[thisToken]
             xqHeads.mul(complexArray: fCis)
             xkHeads.mul(complexArray: fCis)
-            
-            let xv_temp = basicMul(v: h_norm, by: layer.wv.core)
-            xv_temp.repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
-            
-            let xkTokenHeads = xkLayerTokenHead[layerNo]
-            let xvToken = xvLayerToken[layerNo]
             
             calcScores2(xq_heads: xqHeads, 
                         xkTokenHeads: xkTokenHeads,
@@ -134,7 +143,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                       numTokens: thisToken+1,
                       out: attnOutput)
             
-            let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
+            basicMul(v: attnOutput, by: layer.wo.core, out: attnFfnOut)
             
             h.add(by: attnFfnOut)
             h.rmsNorm(out:fxn)
