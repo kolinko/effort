@@ -93,6 +93,47 @@ kernel void strictDiff(const device half* a [[buffer(0)]],
 }
 
 // rms norm
+kernel void rmsNorm32fast(device float* input [[buffer(0)]],
+                             device float* output [[buffer(1)]],
+                             uint count [[threads_per_grid]],
+                             uint id [[thread_position_in_grid]],
+                              ushort tiisg [[thread_index_in_simdgroup]],
+                              ushort sgiitg [[simdgroup_index_in_threadgroup]],
+                              ushort sgptg [[simdgroups_per_threadgroup]]) {
+
+    threadgroup float temp[32] = {0};
+    threadgroup float full_sum = 0;
+    float sum = 0;
+    
+    // reduce over threads in the group
+    const uint mul = 4;
+    const uint begin = id*mul;
+    const uint end = id*mul+mul;
+    const uint numEls = count * mul;
+    
+    for (uint i = begin; i<end; i++) {
+        sum += float(input[i])*float(input[i]);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    sum = simd_sum(sum);
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (tiisg == 0) {
+        temp[sgiitg] = sum;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (sgiitg == 0) {
+        sum = temp[tiisg];
+        full_sum = simd_sum(sum);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    for (uint i = begin; i<end; i++) {
+        output[i] = input[i] / sqrt(float(full_sum)/float(numEls) + 1e-6);
+    }
+//    output[0] = 10+sum;
+}
 
 kernel void rmsNorm32(device float* input [[buffer(0)]],
                              device float* output [[buffer(1)]],
@@ -102,8 +143,9 @@ kernel void rmsNorm32(device float* input [[buffer(0)]],
     for (uint i=0; i<count; i++) {
         sum += float(input[i]) * float(input[i]);
     }
-    
+
     output[id] = input[id] / sqrt(sum/count + 1e-6);
+  //  output[0] = 10+sum;
 }
 
 /* unused below ?*/

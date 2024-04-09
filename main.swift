@@ -106,9 +106,17 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
-            gpu.startCapture()
+//            gpu.startCapture()
+//            print(h._str(count:5000))
             let layer = modelData.layers[layerNo]!
-            h.rmsNorm(out: h_norm)
+            h.rmsNormFast(out: h_norm)
+            /*
+            let h_norm_tst = h_norm.copy()
+            h.rmsNormFast(out: h_norm_tst)
+
+            print(h_norm.str)
+            print(h_norm_tst.str)
+            exit(0)*/
             
             h_norm.mul(by:layer.attnNorm)
 
@@ -148,7 +156,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             basicMul(v: attnOutput, by: layer.wo.core, out: attnFfnOut)
             
             h.add(by: attnFfnOut)
-            h.rmsNorm(out:fxn)
+            h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
             basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
@@ -185,7 +193,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         }
         
         
-        h.rmsNorm(out: outNormed)
+        h.rmsNormFast(out: outNormed)
         outNormed.mul(by: modelData.norm.asVector())
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)

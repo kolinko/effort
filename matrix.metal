@@ -243,7 +243,7 @@ kernel void bucketMul2(
     }
                       
     for (int i = 0; i<16; i++) {
-      atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
+    //  atomic_fetch_add_explicit(result+(id.x*16+i), myVal[i], memory_order_relaxed);
     }
                           
 }

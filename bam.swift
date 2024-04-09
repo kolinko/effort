@@ -25,7 +25,7 @@ class BufferActivityManager {
         lock = false
     }
         
-    func startPeriodicDispatch(interval: TimeInterval = 0.1) {
+    func startPeriodicDispatch(interval: TimeInterval = 1.0) {
         stopPeriodicDispatch() // Stop any existing timer
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
