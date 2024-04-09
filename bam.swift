@@ -15,7 +15,9 @@ class BufferActivityManager {
     private var lock = false
     private let bsScalar = ScalarFloat(value: 0.0)
     
-    init() {}
+    init() {
+        self.startPeriodicDispatch()
+    }
 
     func addBuffer(_ m: Bufferable<Float16>) {
         lock = true

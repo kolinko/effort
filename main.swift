@@ -30,15 +30,12 @@ var numExperts = 2
 var numTokens = 10
 let goVerify = (numLayers == 10 && numExperts == 2)
 
-
-let bam = BufferActivityManager()
-bam.startPeriodicDispatch()
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
 
-let t = Tokeniser()
+let t = Tokeniser(modelData)
 
 let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
 for t in tokIds {
@@ -51,11 +48,8 @@ let headDim = 128  // Example head dimension
 let numHeadsKV = 8
 let numHeads = 32
 let kvRepeats : Int = numHeads/numHeadsKV
-//let maxSeqLen = 128  // Example maximum sequence length
 let maxSeqLen = 2048
-let maxTokens = 2048
-let hiddenSize = 14336//11008
-let stateSize = 4096
+let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelRunTests()
@@ -73,14 +67,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
     var tokens = _tokens
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
-    let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateSize])
+    let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
     
     var h : VectorFloat = tokens[0]
 
-    let x1 = VectorFloat(shape:[hiddenSize])
-    let x3 = VectorFloat(shape:[hiddenSize])
-    let x2 = VectorFloat(shape:[hiddenSize])
-    let ffnOut = [VectorFloat]([VectorFloat(shape:[stateSize]), VectorFloat(shape:[stateSize])])
+    let x1 = VectorFloat(shape:[hiddenDim])
+    let x3 = VectorFloat(shape:[hiddenDim])
+    let x2 = VectorFloat(shape:[hiddenDim])
+    let ffnOut = [VectorFloat]([VectorFloat(shape:[stateDim]), VectorFloat(shape:[stateDim])])
     
     let archive = Archive()
 
@@ -174,7 +168,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                     expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                     ffnOut[i].mul(by: gateVals.scalarAt(i))
 
-                    }
+                }
             }
 
             h.add(by: ffnOut[0])
@@ -184,11 +178,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
 
             testVec("h-out:\(thisToken):\(layerNo)", h)
-            
         }
         
         testVec32("token:\(thisToken)", h)
-
 
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
@@ -196,34 +188,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
 
-        
         testVec32("ovector:\(thisToken)", outputVector)
-
-        if goVerify && thisToken >= 10 {
-            print("\n")
-            print("testsDone")
-            exit(0)
-        }
-
-        
-        /*
-        let ho = outputVector.copy()
-        gpu.eval()
-        testSaver[0]["ovector:\(thisToken)"] = ho
-         */
+        testReport(thisToken >= 10)
 
         let topKVector = mpsTopK(v: outputVector)
 
         sumPrepTime += Date().timeIntervalSince(evalTime)
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
-
-        /*
-        if thisToken < 2 {
-            assert(topKVector.getInt(index: 0) == [18816, 31739][thisToken])//, 3971, 25215, 2810, 20686, 9608, 20686, 9608, 20686, 9608, 20686][thisToken])
-        }*/
-        
-
 
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
@@ -232,7 +204,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
             output += newS
             if (silent) {
-                print(newS, terminator: "")
+                print(newS, terminator: goVerify ? "\n" : "")
                 fflush(stdout)
                 if output.contains("</s>") {
                     break

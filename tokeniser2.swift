@@ -38,12 +38,12 @@ import Foundation
 
 
 // Assuming the JSON structure based on your Python code
-struct ModelData: Decodable {
+private struct ModelData: Decodable {
     let vocab: [String:Int]
     let merges: [String]
 }
 
-struct TokenizerData: Decodable {
+private struct TokenizerData: Decodable {
     let model: ModelData
 }
 
@@ -93,24 +93,24 @@ class MistralTokenizer {
     }
 }
 
-let mistralTokenizer = MistralTokenizer()
+private let mistralTokenizer = MistralTokenizer()
 
-func getMergeIdentifierString(_ firstTokenId: Int, _ secondTokenId: Int) -> String {
+private func getMergeIdentifierString(_ firstTokenId: Int, _ secondTokenId: Int) -> String {
     return mistralTokenizer.vocabById[firstTokenId]! + " " + mistralTokenizer.vocabById[secondTokenId]!
 }
 
 // Helper function to convert a UTF-8 byte to a hex string
-func utf8ByteToHex(_ c: UInt8) -> String {
+private func utf8ByteToHex(_ c: UInt8) -> String {
     return String(format: "<0x%02X>", c)
 }
 
 // Helper function to convert a hex string back to a UTF-8 byte
-func hexToUtf8Byte(_ hex: String) -> UInt8? {
+private func hexToUtf8Byte(_ hex: String) -> UInt8? {
     let strippedHex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "<0x>"))
     return UInt8(strippedHex, radix: 16)
 }
 
-func mapCharactersToTokenIds(prompt _prompt: String, addBosToken: Bool, addPrecedingSpace: Bool) -> [Int] {
+private func mapCharactersToTokenIds(prompt _prompt: String, addBosToken: Bool, addPrecedingSpace: Bool) -> [Int] {
     var tokenIds = [Int]()
     if addBosToken {
         tokenIds.append(1)
@@ -149,7 +149,7 @@ func mapCharactersToTokenIds(prompt _prompt: String, addBosToken: Bool, addPrece
     return tokenIds
 }
 
-class Node : Comparable {
+private class Node : Comparable {
     let tokenId : Int
     var prev : Node? = nil
     var next : Node? = nil

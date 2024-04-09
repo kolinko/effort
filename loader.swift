@@ -8,6 +8,8 @@ import Metal
 import Foundation
 let shapeDict = readJson()
 
+private let bam = BufferActivityManager()
+
 class Weights {
     let core: Matrix
     let buckets: Matrix

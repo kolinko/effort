@@ -9,7 +9,8 @@ import Foundation
 
 class Tokeniser {
     let data : [String: String]
-
+    let tokEmbeddings: [Vector]
+    
     subscript(token: Int) -> String {
         return data[String(token)]!
     }
@@ -26,10 +27,22 @@ class Tokeniser {
         return out
     }
     
-    init() {
+    init(_ modelData: Model) {
         let fileUrl = URL(fileURLWithPath: absolutePath + "swift-tokeniser.json")
         let data = try! Data(contentsOf: fileUrl)
         self.data = try! JSONSerialization.jsonObject(with: data, options: []) as! [String:String]
+        self.tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+    }
+    
+    func embed(_ tokIds: [Int]) -> [VectorFloat] {
+        var tokens = [VectorFloat]()
+        
+        let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
+        for t in tokIds {
+            tokens.append(tokEmbeddings[t].asFloat32())
+        }
+        
+        return tokens
     }
 }
 

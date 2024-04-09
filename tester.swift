@@ -13,19 +13,31 @@ func saveTest(s: String) {
     testSaver[0]["token:\(thisToken)"] = hh}
 */
 
+var testCount = 0
+
 func testVec(_ title: String, _ v: VectorFloat) {
+    testCount += 1
     if goVerify {
         let tt = (testLoader[title] as! Vector).asFloat32()
-        print(tt.cosineSimilarityTo(v))
+     //   print(tt.cosineSimilarityTo(v))
         assert(tt.cosineSimilarityTo(v) > 0.99)
     }
 }
 
 
 func testVec32(_ title: String, _ v: VectorFloat) {
+    testCount += 1
+
     if goVerify {
         let tt = testLoader[title] as! VectorFloat
-        print(tt.cosineSimilarityTo(v))
+        print(title, tt.cosineSimilarityTo(v))
         assert(tt.cosineSimilarityTo(v) > 0.99)
+    }
+}
+
+func testReport(_ cond: Bool) {
+    if goVerify && cond {
+        print("✅ tests completed: \(testCount)")
+        exit(0)
     }
 }
