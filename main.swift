@@ -106,6 +106,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
+            gpu.startCapture()
             let layer = modelData.layers[layerNo]!
             h.rmsNorm(out: h_norm)
             
@@ -178,6 +179,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             h.add(by: ffnOut[1])
             
           //  gpu.eval()
+            gpu.stopCapture()
             
           //  testVec("h-out:\(thisToken):\(layerNo)", h)
         }

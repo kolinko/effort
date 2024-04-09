@@ -151,6 +151,7 @@ class Gpu {
     
     func stopCapture() {
         if (self.captureON) {
+            gpu.eval()
             self.captureManager.stopCapture()
             self.captureON = false
         }
