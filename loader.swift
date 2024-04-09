@@ -75,10 +75,8 @@ class ExpertWeights {
     let stats: Matrix3D
     let probes: Matrix
     let sliceStats: Matrix3DFloat?
-    let Q8: Bool
     
     init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {//}, Q8: Bool = false) {
-        self.Q8 = goQ8
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
@@ -98,29 +96,24 @@ class ExpertWeights {
 
         var sliceStatsList: [MatrixFloat]?
         
-        if Q8 {
+        if goQ8 {
             self.sliceStats = Matrix3DFloat(shape: [numExperts, 8 , 2])//inDim*percentLoad, 1])
-//            bam.addBuffer(self.sliceStats)
             sliceStatsList = self.sliceStats!.asMatrixList()
         } else {
             self.sliceStats = nil
         }
-//        let sliceStatsList: [MatrixFloat] =
         
         for eNo in 0..<numExperts {
             let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
             probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
             bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
             statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
-            if Q8 {
+            if goQ8 {
                 sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
             }
         }
     }
 }
-
-
-
 
 class Layer {
     var data = [String: Matrix]()
@@ -178,7 +171,7 @@ class Model {
     let layers: [Int: Layer]
     
     //numLayers: 32, numExperts: 8, percentLoad: 0xA
-    init(from filePath: String, numLayers: Int, numExperts: Int, percentLoad: Int) {
+    init(numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
 
         self.norm = loadBinaryMatrix(named: "norm.bin", shape: shapeDict["norm"]!)
@@ -197,7 +190,6 @@ class Model {
 
         print("data init time \(Date().timeIntervalSince(startTime)) seconds")
     }
-    
 }
 
 
@@ -209,81 +201,13 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
-//private let tLoader = TensorLoader(path: "./model-mixtral", model: "rawfp16")
 private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-\(goQ8 ? "Q8" : "FP16")")
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
-   // print(fileName)
-   // print(shape)
-    /*
-    var cShape = shape
-    
-    if shape[0] == 12288 {
-        cShape[0] = 65536
-    } else if shape[0] == 43008 {
-        cShape[0] = 229376
-    }
-    
-    prepConvertBinaryFile(named: fileName, shape: cShape, tSaver: tSaver)
-    let targetSuffix = "buckets.bin"
-    let replacementSuffix = "core.bin"
-
-    if fileName.hasSuffix(targetSuffix) && fileName !=  "output.buckets.bin" {
-        let newFname = fileName.dropLast(targetSuffix.count) + replacementSuffix
-        prepConvertBinaryFile(named: String(newFname), shape: [16*shape[0]/3, shape[1]*16], tSaver: tSaver)
-      //  print("conv buckets, new size", [shape[1]*16, shape[0]/3])
-        if !fileName.contains("experts") {
-        //    print("hm")
-        }
-//        assert(shape.reduce(1, *) ==[shape[1]*16, shape[0]/3] )
-    }
-     */
-    
     let safeten = tLoader[fileName]
     print(fileName)//, (safeten as! Bufferable<Float16>).shape)
-    //assert(shape == [2, 4096] || shape == (safeten as! Bufferable<Float16>).shape)
     return safeten.buffer
-    
-     
-    let fileURL = URL(fileURLWithPath: absolutePath + fileName)
-
-    // Calculate the expected size
-    let expectedCount = shape.reduce(1, *)
-    let expectedSize = expectedCount * MemoryLayout<Float16>.size
-
-    // Memory map the file
-    let fileDescriptor = open(fileURL.path, O_RDONLY)
-    precondition(fileDescriptor != -1, "Cannot open file \(fileName).")
-
-    let dataPointer = mmap(nil, expectedSize, PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
-    precondition(dataPointer != MAP_FAILED, "Memory mapping of \(fileName) failed.")
-
-    // Create MTLBuffer from the memory-mapped data
-    let buffer = gpu.device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
-    
-    var o : MTLBufferable = Vector(shape:[1])
-    
-    if shape.count == 1 {
-        o = Vector(shape: shape, buffer: buffer)
-    } else if shape.count == 2 {
-        o = Matrix(shape: shape, buffer: buffer)
-    } else {
-        assert(false)
-    }
-    
-   // print(fileName, shape)
-    var layNo : Int? = extractNumber(from: fileName)
-    if layNo == nil {
-       layNo = 0
-    }
-    
-    assert((o as! Bufferable<Float16>).shape != [1])
-//    tSaver[layNo!][fileName] = o
-   // print(layNo!)
-    close(fileDescriptor)
-    return buffer
 }
-
 
 
 func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
@@ -293,11 +217,10 @@ func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat 
     return MatrixFloat(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
 
-
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
     return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
-
+/*
 func extractNumber(from string: String) -> Int? {
     do {
         let regex = try NSRegularExpression(pattern: "\\d+", options: [])
@@ -320,4 +243,4 @@ func extractNumber(from string: String) -> Int? {
     
     return nil
 }
-
+*/

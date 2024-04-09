@@ -14,18 +14,16 @@ let testLoader = TensorLoader(path: "./", model: "tests")
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
-let gpu2 = Gpu()
 print("loading")
 
+//runConvert([.mixtral, .q8])
+//exit(0)
 
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
 let bSize: Int
-
-//runConvert([.mixtral, .q8])
-//exit(0)
 
 var numLayers = 10
 var numExperts = 2
@@ -35,7 +33,7 @@ let goVerify = (numLayers == 10 && numExperts == 2)
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
+let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"

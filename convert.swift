@@ -66,7 +66,7 @@ func convertMixtral(goQ8: Bool) {
 //            gpu.startCapture()
             layerTensors[prefix] = tensors[prefix]
 
-         //   bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: false)
+         //   bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: goQ8)
         }
         
         for expertNo in 0..<numExperts {
@@ -216,28 +216,14 @@ func bucketize(_ w: Matrix, outTensorsPref: String, tensors: inout [String: MTLB
         sliceStatsQ8[i].setVal((Float(maxRange)-Float(minRange))/Float(numSteps), at: 1)
         
         let outliers = outlierSlicesQ8[i]
-/*        print(slice.str)
-        print(minRange, maxRange)
-        print(findPercentile(v: slice.asVector(), perc: 0.99))
-        print(findPercentile(v: slice.asVector(), perc: 0.95))
-        print(findPercentile(v: slice.asVector(), perc: 0.90))
-        print(findPercentile(v: slice.asVector(), perc: 0.85))
-        print(findPercentile(v: slice.asVector(), perc: 0.80))
-        print(findPercentile(v: slice.asVector(), perc: 0.75))
 
-        gpu.startCapture()*/
         gpu.deploy("extract", buffers: [slice, sliceQ8, outliers],
                    ints: [slice.cols],
                    floats: [minCutoff, maxCutoff, minRange, maxRange],
                    threadCount: slice.rows)
         gpu.eval()
         gpu.stopCapture()
-/*        gpu.stopCapture()
-        let o = sliceQ8[0].decodeQ8(minRange: minRange, step: Float16((Float(maxRange)-Float(minRange))/Float(bSize)))
-        gpu.eval()
-        print(o.str)
-        print(slice.str)
-        exit(0)*/
+
     }
     
     tensors[outTensorsPref+"buckets"] = bucketsQ8

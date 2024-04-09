@@ -13,7 +13,6 @@
 		A4260AED2BB0CC0900DB76DA /* tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEC2BB0CC0900DB76DA /* tests.swift */; };
 		A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */; };
 		A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */ = {isa = PBXBuildFile; fileRef = A429EFEE2BA81B7600B25B68 /* mps.swift */; };
-		A43361582BC405A7006C12E9 /* converterX.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43361572BC405A7006C12E9 /* converterX.swift */; };
 		A433615D2BC41357006C12E9 /* tester.swift in Sources */ = {isa = PBXBuildFile; fileRef = A433615C2BC41357006C12E9 /* tester.swift */; };
 		A433615F2BC414C4006C12E9 /* convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = A433615E2BC414C4006C12E9 /* convert.swift */; };
 		A43361612BC4203E006C12E9 /* convert.metal in Sources */ = {isa = PBXBuildFile; fileRef = A43361602BC4203E006C12E9 /* convert.metal */; };
@@ -25,7 +24,6 @@
 		A45C6C922BAEC56E004AE765 /* profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C6C912BAEC56D004AE765 /* profile.swift */; };
 		A45D52FE2BC3DD87007E484D /* safetensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45D52FD2BC3DD87007E484D /* safetensors.swift */; };
 		A46F18E02BB76FAA00A630B4 /* watchman.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18DF2BB76FAA00A630B4 /* watchman.swift */; };
-		A46F18E22BB93D6700A630B4 /* control.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18E12BB93D6700A630B4 /* control.swift */; };
 		A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
@@ -53,8 +51,6 @@
 		A4260AEC2BB0CC0900DB76DA /* tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tests.swift; sourceTree = "<group>"; };
 		A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser.swift; sourceTree = "<group>"; };
 		A429EFEE2BA81B7600B25B68 /* mps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mps.swift; sourceTree = "<group>"; };
-		A43361572BC405A7006C12E9 /* converterX.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = converterX.swift; sourceTree = "<group>"; };
-		A433615B2BC40D55006C12E9 /* tmpConverter.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = tmpConverter.md; sourceTree = "<group>"; };
 		A433615C2BC41357006C12E9 /* tester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tester.swift; sourceTree = "<group>"; };
 		A433615E2BC414C4006C12E9 /* convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = convert.swift; sourceTree = "<group>"; };
 		A43361602BC4203E006C12E9 /* convert.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = convert.metal; sourceTree = "<group>"; };
@@ -66,7 +62,6 @@
 		A45C6C912BAEC56D004AE765 /* profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = profile.swift; sourceTree = "<group>"; };
 		A45D52FD2BC3DD87007E484D /* safetensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = safetensors.swift; sourceTree = "<group>"; };
 		A46F18DF2BB76FAA00A630B4 /* watchman.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = watchman.swift; sourceTree = "<group>"; };
-		A46F18E12BB93D6700A630B4 /* control.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = control.swift; sourceTree = "<group>"; };
 		A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser2.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -94,11 +89,8 @@
 				A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */,
 				A43361602BC4203E006C12E9 /* convert.metal */,
 				A433615C2BC41357006C12E9 /* tester.swift */,
-				A433615B2BC40D55006C12E9 /* tmpConverter.md */,
-				A43361572BC405A7006C12E9 /* converterX.swift */,
 				A433615E2BC414C4006C12E9 /* convert.swift */,
 				A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */,
-				A46F18E12BB93D6700A630B4 /* control.swift */,
 				A46F18DF2BB76FAA00A630B4 /* watchman.swift */,
 				A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */,
 				A4260AEC2BB0CC0900DB76DA /* tests.swift */,
@@ -205,9 +197,7 @@
 				A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */,
 				A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */,
 				A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */,
-				A46F18E22BB93D6700A630B4 /* control.swift in Sources */,
 				A4AB4DC52B6144350098B05D /* main.swift in Sources */,
-				A43361582BC405A7006C12E9 /* converterX.swift in Sources */,
 				A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */,
 				A4CE9F6F2B626DB500910766 /* model.swift in Sources */,
 				A46F18E02BB76FAA00A630B4 /* watchman.swift in Sources */,
