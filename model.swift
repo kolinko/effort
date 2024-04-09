@@ -378,6 +378,8 @@ class Matrix3D: Bufferable<Float16> {
         }
 }
 
+private let _rms_mx = VectorFloat(shape: [numHeads])
+
 class MatrixFloat: Bufferable<Float> {
     var cols: Int { self.shape[1] }
 
@@ -404,6 +406,13 @@ class MatrixFloat: Bufferable<Float> {
         return ScalarFloat(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)
     }
 
+    func softmax() {
+        _rms_mx.zero()
+        gpu.deploy("sum_of_exps32_mx", buffers: [self, _rms_mx], ints: [self.cols], threadCount: [self.cols, numHeads])
+        gpu.deploy("softmax_add32_mx", buffers: [self, _rms_mx], ints: [self.cols], threadCount: [self.cols, numHeads])
+    }
+
+    
 }
 
 class DynaVectorFloat: VectorFloat {

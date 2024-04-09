@@ -124,6 +124,21 @@ kernel void normalize_vector(device half* input [[buffer(0)]],
     output[id] = input[id] / sqrt(mean + 1e-6);
 }*/
 
+kernel void sum_of_exps32_mx(const device float* input [[buffer(0)]],
+                          device atomic_float* sum [[buffer(1)]],
+                          device const uint &numCols [[buffer(2)]],
+                          uint2 id [[thread_position_in_grid]]) {
+    atomic_fetch_add_explicit(&sum[id.y], exp(input[id.x+id.y*numCols]), memory_order_relaxed);
+}
+
+kernel void softmax_add32_mx(device float* vec [[buffer(0)]],
+                             device float* sum [[buffer(1)]],
+                             device const uint &numCols [[buffer(2)]],
+                             uint2 id [[thread_position_in_grid]]) {
+    
+    vec[id.x+id.y*numCols] = exp(vec[id.x+id.y*numCols]) / sum[id.y];
+}
+
 // softmax
 kernel void sum_of_exps32(const device float* input [[buffer(0)]],
                           device atomic_float* sum [[buffer(1)]],

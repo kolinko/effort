@@ -25,8 +25,8 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
 let bSize: Int
 
-var numLayers = 10
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 var numTokens = 100
 let goVerify = (numLayers == 10 && numExperts == 2)
 
@@ -75,6 +75,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     let gateOut = VectorFloat(shape: [numExperts])
     let gateIdxs = VectorFloat(shape:[2])
     let gateVals = VectorFloat(shape:[2])
+    let outputVector = VectorFloat(shape:[modelData.output.outSize])
+    let outNormed = VectorFloat(shape: [stateDim])
 
     
     // timers
@@ -125,10 +127,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
                         out: scores)
-            
+            /*
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
-            }
+            }*/
+            scores.softmax()
 
             sumScores(scores: scores,
                       xvToken: xvToken,
@@ -174,12 +177,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         testVec32("token:\(thisToken)", h)
         
-        let outNormed = VectorFloat(shape: [stateDim])
-//        let outNormed = h.rmsNormed()
         h.rmsNorm(out: outNormed)
         outNormed.mul(by: modelData.norm.asVector())
         
-        let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         
         testVec32("ovector:\(thisToken)", outputVector)
