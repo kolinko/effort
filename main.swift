@@ -115,12 +115,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let fCis = freqsCis[thisToken]
             xqHeads.mul(complexArray: fCis)
             xkHeads.mul(complexArray: fCis)
-
-            /*
-            for i in 0..<numHeads {
-                xqHeads[i].mul(complexArray: freqsCis[thisToken])
-                xkHeads[i].mul(complexArray: freqsCis[thisToken])
-            }*/
             
             let xv_temp = basicMul(v: h_norm, by: layer.wv.core)
             xv_temp.repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])

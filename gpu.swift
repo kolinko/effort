@@ -35,20 +35,13 @@ class Gpu {
         self.library = device.makeDefaultLibrary()!
         self.globalStates = [:]
         let functionNames = ["memcpy32", "rmsNorm32","halfToFloat", "mulVec32by16", "basicMul",
-                             "repeat4x32", "mulComplex32", "dotSetScore32", "zero32", "sum_of_exps32",
+                             "repeat4x32", "mulComplex32_mx", "dotSetScore32", "zero32", "sum_of_exps32",
                              "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeExpert",
                              "basicBitonicSort", "getVal", "prepareExpertDispatch", "bucketMul",
                              "silu32", "mulScalar32x32", "memcpy16", "memcpyBig16", "touch",
                              "dotSetScore2", "findCutoff", "round", "setVal", "bucketMul3"]
         
         
-        /*["sum_of_squares32",
-                             "sum_of_exps","softmax_add", "memcpy", "sumScores",
-                             "dot", "setScore",  "mul_vec", "add_vec", "mul_complex",
-                             "floatToHalf", "silu", "cosinePrecalc", "cosineCalc",
-                             "basicBitonicSort", "probe", "getVal", "bucketMul","prepareDispatch", "zero32", "zero16",
-        "cosinePrecalc16","strictDiff", "rms_norm", "dotSetScore", "silu32", "prepareDispatch32", "dotSetScore2"]*/
-
         for fname in functionNames {
             makeFunction(fname)
         }
@@ -67,7 +60,6 @@ class Gpu {
 
     }
     
-    
     func eval() {
         if self.warnOfEvals {
             print("warn: EVAL")
@@ -81,7 +73,6 @@ class Gpu {
     }
     
     func copyBuffer(src: MTLBufferable, dst:MTLBufferable, size: Int) {
-//        print("blit!")
         encoder.endEncoding()
 
         let blitCommandEncoder = commandBuffer.makeBlitCommandEncoder()

@@ -530,10 +530,6 @@ class VectorFloat: Bufferable<Float> {
         gpu.deploy("mulVec32by16", buffers:[self, wa, self], threadCount:self.rows)
     }
     
-    func mul(complexArray: VectorFloat) {
-        assert(self.rows == complexArray.rows, "Layer size must be twice the size of the complex array")
-        gpu.deploy("mulComplex32", buffers: [self, complexArray], threadCount: self.rows / 2)
-    }
     
     func repeated(_ count: Int) -> VectorFloat {
         assert(self.rows == 128*8)

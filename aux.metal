@@ -198,21 +198,6 @@ kernel void mulVec32by16(const device float* v [[buffer(0)]],
 }
 
 
-kernel void mulComplex32(device float2* v [[buffer(0)]],
-                        const device float2* comp [[buffer(1)]],
-                        uint id [[thread_position_in_grid]]) {
-    
-    float a = v[id].x;
-    float b = v[id].y;
-    float c = comp[id].x;
-    float d = comp[id].y;
-    
-    float2 out;
-    out.x = a * c - b * d;
-    out.y = a * d + b * c;
-    
-    v[id] = out;    
-}
 
 // cosine similarity
 kernel void floatToHalf(const device float *inVec,
