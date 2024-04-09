@@ -9,7 +9,7 @@ import Foundation
 
 func modelRunTests() {
   
-    let modelData = Model(numLayers: 1, numExperts: 2, percentLoad: percentLoad)
+    let modelData = Model(numLayers: 3, numExperts: 1, percentLoad: 0x10)
     let t = Tokeniser(modelData)
 
     //var tokens = [VectorFloat]()
@@ -26,12 +26,17 @@ func modelRunTests() {
     
     expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
 //    gpu.startCapture()
-    expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test)
-//    gpu.stopCapture()
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    gpu.stopCapture()
 
-    timeIt(repeats:1000) { _ in
-        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    timeIt(repeats:1000) { i in
+        let ew = modelData.layers[i % 3]!.w1
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 0.15)
     }
+  //  gpu.startCapture()
+
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    gpu.stopCapture()
 
     print()
     let score = test.cosineSimilarityTo(control)

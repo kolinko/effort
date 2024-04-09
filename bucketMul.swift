@@ -3,7 +3,9 @@ func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: V
     if goNoMuls {return;}
     out.zero()
     let bm = BucketMulFast.shared
+    bm.dispatch.zero()
     bm.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    gpu.deploy("round", buffers:[bm.dispatch.size], ints:[4096], threadCount: 1) // tofix
     bm.mul(by: by, out: out)
 }
 

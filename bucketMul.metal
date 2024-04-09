@@ -10,6 +10,8 @@ using namespace metal;
 
 
 
+
+
 kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
                                   device const half4* binStats[[buffer(1)]],
                                   device const int* expertNo[[buffer(2)]],
@@ -49,7 +51,7 @@ kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
 kernel void bucketMulFast(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
-                   device atomic_float *result [[buffer(2)]],
+                   device float *result [[buffer(2)]],
                    constant float *dispatchSize [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
                    constant int &groups [[buffer(5)]],
@@ -59,18 +61,24 @@ kernel void bucketMulFast(
       
     const uint rowOffset = id.y*dispatchSize[0]/groups;
     for (int r=0; r<dispatchSize[0]/groups; r+=STEP) {
+//        threadgroup_barrier(mem_flags::mem_threadgroup);
+
         for (int s=0; s<STEP; s++) { // for better optimisation
-            
-            float2 d = dispatch[rowOffset + r];//+s
+            float2 d = dispatch[rowOffset + r + s];//+s
             half w = weights[int(d[1]) + id.x];
+            float v = d[0]*float(w);
+            ushort pos = as_type<ushort>(w)&15;
+            
             for (int i=0; i<16; i++) {
-                myVal[i] += ((as_type<ushort>(w)&15) == i)?d[0]*float(w):0;
+                myVal[i] += (pos == i) ? v : 0;
             }
+            
         }
     }
                       
     for (int i = 0; i<16; i++) {
-      atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
+        result[id.x*16+i] += myVal[i];
+      //  atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
     }
                           
 }

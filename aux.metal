@@ -315,7 +315,7 @@ kernel void round(device float* result [[buffer(0)]],
 
                      uint id [[thread_position_in_grid]]) {
     
-    result[0] = uint(result[0])/number * number;
+    result[0] = 1+(uint(result[0])/number) * number;
 
 }
 
