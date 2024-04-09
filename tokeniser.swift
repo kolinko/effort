@@ -41,9 +41,8 @@ class Tokeniser {
     func embed(_ tokIds: [Int]) -> [VectorFloat] {
         var tokens = [VectorFloat]()
         
-        let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
         for t in tokIds {
-            tokens.append(tokEmbeddings[t].asFloat32())
+            tokens.append(self.tokEmbeddings[t].asFloat32())
         }
         
         return tokens

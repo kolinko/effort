@@ -28,8 +28,11 @@ var numLayers = 10
 var numExperts = 2
 var numTokens = 10
 let goNoMuls = false
-let goVerify = true && numLayers == 10 && numExperts == 2 && !goNoMuls
+let goVerify = false && numLayers == 10 && numExperts == 2 && !goNoMuls
 let goSaveTests = false
+
+modelRunTests()
+
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
@@ -47,8 +50,6 @@ let kvRepeats : Int = numHeads/numHeadsKV
 let maxSeqLen = 2048
 let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
-
-//modelRunTests()
 
 //modelProfile()
 
