@@ -173,7 +173,6 @@ private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
     let safeten = tLoader[fileName]
-    print(fileName)//, (safeten as! Bufferable<Float16>).shape)
     return safeten.buffer
 }
 

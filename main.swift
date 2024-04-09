@@ -27,7 +27,7 @@ let bSize: Int
 
 var numLayers = 10
 var numExperts = 2
-var numTokens = 10
+var numTokens = 100
 let goVerify = (numLayers == 10 && numExperts == 2)
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
@@ -68,37 +68,45 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     let x2 = VectorFloat(shape:[hiddenDim])
     let ffnOut = [VectorFloat]([VectorFloat(shape:[stateDim]), VectorFloat(shape:[stateDim])])
     
+    // buffers
+    let h_norm = VectorFloat(shape:[stateDim])
+    let attnOutMatrix = MatrixFloat(shape: [numHeads, headDim])
+    let fxn = VectorFloat(shape:[stateDim])
+    let gateOut = VectorFloat(shape: [numExperts])
+    let gateIdxs = VectorFloat(shape:[2])
+    let gateVals = VectorFloat(shape:[2])
+
     
+    // timers
     var output = ""
-    
     gpu.warnOfEvals = false
     let finalEvalTime = Date()
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
+
     
     for thisToken in 0...numTokens {
-        
+        let scores = MatrixFloat(shape: [numHeads, thisToken+1])
+
         if thisToken == 2 {
+            gpu.eval()
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
         
-        if thisToken == 2 {
-            gpu.eval()
-        }
-        
         h = tokens[thisToken].copy()
+
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
-            let h_norm = VectorFloat(shape:[stateDim])
             h.rmsNorm(out: h_norm)
-//            h.rmsNorm(into: h_norm)
             
             h_norm.mul(by:layer.attnNorm)
             let xq = basicMul(v: h_norm, by: layer.wq.core)
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
-            basicMul(v: h_norm, by: layer.wk.core).repeated(kvRepeats, into:xk)
+            let xk_temp = basicMul(v: h_norm, by: layer.wk.core)
+            xk_temp.repeated(kvRepeats, into:xk)
+            
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
             
@@ -107,20 +115,18 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 xkHeads[i].mul(complexArray: freqsCis[thisToken])
             }
             
-            basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
+            let xv_temp = basicMul(v: h_norm, by: layer.wv.core)
+            xv_temp.repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
             
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
-            let scores = MatrixFloat(shape: [numHeads, thisToken+1])
-
             calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1, out: scores)
             
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
-//            let attnOutput = sumScores2(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1)
-            let attnOutMatrix = MatrixFloat(shape: [numHeads, headDim])
+
             sumScores(numHeads: numHeads, headDim:headDim, scores: scores, xvToken: xvToken, numTokens: thisToken+1, out: attnOutMatrix)
             let attnOutput = attnOutMatrix.asVector()
 
@@ -128,14 +134,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             h.add(by: attnFfnOut)
 
-            let fxn = VectorFloat(shape:[stateDim])
             h.rmsNorm(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
-            let gateOut = VectorFloat(shape: [numExperts])
             basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
-            let gateIdxs = VectorFloat(shape:[2])
-            let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
             
             gateVals.softmax()
