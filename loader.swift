@@ -64,9 +64,6 @@ class Weights {
     
 }
 
-let stateDim = 4096
-let hiddenDim = 14336
-let goQ8 = true
 
 class ExpertWeights {
     let inSize: Int
@@ -79,14 +76,12 @@ class ExpertWeights {
     let probes: Matrix
     let sliceStats: Matrix3DFloat?
     let Q8: Bool
-    let bSize: Int
     
     init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {//}, Q8: Bool = false) {
         self.Q8 = goQ8
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
-        self.bSize = Q8 ? 8 : 16
         
         let probesCount = 4096
 

@@ -16,17 +16,26 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 let gpu2 = Gpu()
 print("loading")
+
+
+let stateDim = 4096
+let hiddenDim = 14336
+let goQ8 = false
+let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
+let bSize: Int
+
 //runConvert([.mixtral, .q8])
 //exit(0)
 
-var numLayers = 32
-var numExperts = 8//8
+var numLayers = 10
+var numExperts = 2
+var numTokens = 10
+let goVerify = (numLayers == 10 && numExperts == 2)
 
-var numTokens = 100
 
 let bam = BufferActivityManager()
 bam.startPeriodicDispatch()
-let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: 0x8)//0xC)//C)//0x0C)//0x0C)
+let modelData = Model(from: "shape.json", numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
 var tokens = [VectorFloat]()
 let tokIds = [1, 1602, 460] // "How are"
@@ -152,7 +161,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gateVals.softmax()
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
-                if !isTest {
+                if !goQ8 {
                     expertMul3(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
                     expertMul3(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                     
@@ -177,23 +186,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
 
             testVec("h-out:\(thisToken):\(layerNo)", h)
-            /*
-            if (numLayers == 10 && numExperts == 2) {
-                let tt = (testLoader["h-out:\(thisToken):\(layerNo)"] as! Vector).asFloat32()
-                print(tt.cosineSimilarityTo(h))
-                assert(tt.cosineSimilarityTo(h) > 0.99)
-            }*/
             
         }
         
         testVec32("token:\(thisToken)", h)
 
-        /*
-        if (numLayers == 10 && numExperts == 2) {
-            let tt = (testLoader[] as! VectorFloat)
-            print(tt.cosineSimilarityTo(h))
-            assert(tt.cosineSimilarityTo(h) > 0.99)
-        }*/
 
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
@@ -204,10 +201,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         testVec32("ovector:\(thisToken)", outputVector)
 
-        if (numLayers == 10 && numExperts == 2) {
-            if thisToken >= 10 {
-                exit(0)
-            }
+        if goVerify && thisToken >= 10 {
+            print("\n")
+            print("testsDone")
+            exit(0)
         }
 
         

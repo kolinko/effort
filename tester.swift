@@ -14,18 +14,18 @@ func saveTest(s: String) {
 */
 
 func testVec(_ title: String, _ v: VectorFloat) {
-    if (numLayers == 10 && numExperts == 2) {
+    if goVerify {
         let tt = (testLoader[title] as! Vector).asFloat32()
         print(tt.cosineSimilarityTo(v))
-//        assert(tt.cosineSimilarityTo(v) > 0.99)
+        assert(tt.cosineSimilarityTo(v) > 0.99)
     }
 }
 
 
 func testVec32(_ title: String, _ v: VectorFloat) {
-    if (numLayers == 10 && numExperts == 2) {
+    if goVerify {
         let tt = testLoader[title] as! VectorFloat
         print(tt.cosineSimilarityTo(v))
-  //      assert(tt.cosineSimilarityTo(v) > 0.99)
+        assert(tt.cosineSimilarityTo(v) > 0.99)
     }
 }
