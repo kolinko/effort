@@ -27,8 +27,13 @@ func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) ->
     goTime = Date()
     gpu.eval()
     print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
-    print("eval per loop \(Date().timeIntervalSince(goTime)*1000/Double(repeats), precision: 2) ms")
+    let epl = Date().timeIntervalSince(goTime)*1000/Double(repeats)
+    print("eval per loop \(epl, precision: 2) ms")
     print("persec \(Double(repeats) / Date().timeIntervalSince(goTime), precision: 2) runs")
+    print()
+    print("tpt \(epl*2*4*32, precision: 2) ms")
+    print("spd \(1000/(epl*2*4*32), precision: 2) tps")
+
 }
 
 // 16MB. With a read speed of 300GB/s it should have a pace of 18750/sec.

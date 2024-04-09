@@ -27,10 +27,16 @@ func modelRunTests() {
     expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
     expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test)
     
-    print()
-    print(test.cosineSimilarityTo(control))
 
-    
+    timeIt(repeats:1000) { _ in
+        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    }
+
+    print()
+    let score = test.cosineSimilarityTo(control)
+    print("\(Double(score), precision:2)", score>0.99 ? "✓" : "✗")
+    print()
+
     
     exit(0)
     
