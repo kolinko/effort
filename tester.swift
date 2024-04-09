@@ -19,7 +19,6 @@ func testVec(_ title: String, _ v: VectorFloat) {
     testCount += 1
     if goVerify {
         let tt = (testLoader[title] as! Vector).asFloat32()
-     //   print(tt.cosineSimilarityTo(v))
         assert(tt.cosineSimilarityTo(v) > 0.99)
     }
 }

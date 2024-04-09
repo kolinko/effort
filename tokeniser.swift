@@ -33,6 +33,10 @@ class Tokeniser {
         self.data = try! JSONSerialization.jsonObject(with: data, options: []) as! [String:String]
         self.tokEmbeddings = modelData.tokEmbeddings.asVectorList()
     }
+
+    func embed(_ prompt: String) -> [VectorFloat] {
+        return embed(encode(prompt: prompt))
+    }
     
     func embed(_ tokIds: [Int]) -> [VectorFloat] {
         var tokens = [VectorFloat]()

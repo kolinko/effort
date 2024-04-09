@@ -12,56 +12,22 @@ private let bam = BufferActivityManager()
 
 class Weights {
     let core: Matrix
-    let buckets: Matrix
-    let stats: Matrix
-    let probes: Vector
     var outSize: Int { return core.rows }
     var inSize: Int { return core.cols }
     
     init(core: Matrix, buckets:Matrix, stats:Matrix, probes: Vector) {
         self.core = core
-        self.buckets = buckets
-        self.stats = stats
-        self.probes = probes
-       // assertDims()
     }
     
     init(elName: String) {
         let shape = shapeDict[elName]!
         self.core = Matrix(fname: elName+".core.bin", shape: shape)
-        self.buckets = Matrix(fname: elName+".buckets.bin", shape: [shape[1]*16, shape[0]/16])
-        self.stats = Matrix(fname: elName+".bucket.stats.bin", shape: [shape[1]*16, 4])
-        var probesSize = 4096
-        if self.core.rows < 4096 || self.core.cols < 4096 {
-            probesSize = 1024
-        }
-        self.probes = Vector(fname: elName+".probes.bin", shape: [probesSize])
-       // assertDims()
-    }
-    
-    func assertDims() {
-        assert(core.cols*16 == buckets.rows)
-        assert(core.cols*16 == stats.rows)
-        if self.inSize >= 4096 && self.outSize >= 4096 {
-            assert(self.probes.rows == 4096)
-        } else {
-            assert(self.probes.rows == 1024)
-        }
-    }
-    
-    convenience init(fromFile: String, shape: [Int]) {
-        let core : Matrix = loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
-        let bShape = [shape[1]*16, shape[0]/16]
-        let buckets : Matrix = Matrix(shape:[1])//loadBinaryMatrix(named: fromFile+".buckets.bin", shape: bShape)
-        
-        let sShape = [shape[1]*16, 4]
-        let stats : Matrix = Matrix(shape:[1])//loadBinaryMatrix(named: fromFile+".bucket.stats.bin", shape: sShape)
-        
-        let pShape = [(shape[0]>=4096 && shape[1]>=4096) ? 4096 : 1024]
-        let probes : Vector = Vector(shape:[1])//loadBinaryMatrix(named: fromFile+".probes.bin", shape: pShape).asVector()
 
-        self.init(core: core, buckets: buckets, stats: stats, probes: probes)
-        
+    }
+    
+    
+    init(fromFile: String, shape: [Int]) {
+        self.core = loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
     }
     
 }
@@ -222,27 +188,3 @@ func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat 
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
     return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
 }
-/*
-func extractNumber(from string: String) -> Int? {
-    do {
-        let regex = try NSRegularExpression(pattern: "\\d+", options: [])
-        let matches = regex.matches(in: string, options: [], range: NSRange(location: 0, length: min(12, string.count)))
-        
-        if let match = matches.first {
-            if let range = Range(match.range, in: string) {
-                let numberString = string[range]
-                if let number = Int(numberString) {
-                    // Ensure the extracted number is within the range of 0 to 32
-                    if (0...32).contains(number) {
-                        return number
-                    }
-                }
-            }
-        }
-    } catch {
-        print("Error: \(error)")
-    }
-    
-    return nil
-}
-*/

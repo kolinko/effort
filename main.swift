@@ -32,17 +32,12 @@ let goVerify = (numLayers == 10 && numExperts == 2)
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
-var tokens = [VectorFloat]()
-let tokIds = [1, 1602, 460] // "How are"
-
 let t = Tokeniser(modelData)
 
-let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-for t in tokIds {
-    tokens.append(tokEmbeddings[t].asFloat32())
-}
-os_signpost(.end, log: log, name: "Loading")
+//var tokens = [VectorFloat]()
+let tokens = t.embed([1, 1602, 460])
 
+os_signpost(.end, log: log, name: "Loading")
 
 let headDim = 128  // Example head dimension
 let numHeadsKV = 8
@@ -56,28 +51,24 @@ let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelProfile()
 
-
 print()
 gpu.eval()
 
 var silent = true
 
-
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) -> Archive{
-
+func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) {
     var tokens = _tokens
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
     let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
     
     var h : VectorFloat = tokens[0]
-
+    
     let x1 = VectorFloat(shape:[hiddenDim])
     let x3 = VectorFloat(shape:[hiddenDim])
     let x2 = VectorFloat(shape:[hiddenDim])
     let ffnOut = [VectorFloat]([VectorFloat(shape:[stateDim]), VectorFloat(shape:[stateDim])])
     
-    let archive = Archive()
-
+    
     var output = ""
     
     gpu.warnOfEvals = false
@@ -85,7 +76,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
+    
     for thisToken in 0...numTokens {
+        
         if thisToken == 2 {
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
@@ -94,7 +87,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         if thisToken == 2 {
             gpu.eval()
         }
-
+        
         h = tokens[thisToken].copy()
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
@@ -112,26 +105,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
             
             basicMul(v: h_norm, by: layer.wv.core).repeated(kvRepeats, into: xvLayerToken[layerNo][thisToken])
-
+            
             let xkTokenHeads = xkLayerTokenHead[layerNo]
             let xvToken = xvLayerToken[layerNo]
             
             let scores = calcScores2(xq_heads: xqHeads, xkTokenHeads: xkTokenHeads, numTokens: thisToken+1)
             
-            if numExperts == 2 && numLayers == 2 {
-                gpu.eval()
-                
-                if thisToken == 0 && layerNo == 0 { gpu.eval(); assert (Int(scores.asVectorList()[0][0]*10000) == 1022)}
-                if thisToken == 1 && layerNo == 0 {
-                    gpu.eval()
-                    gpu.stopCapture()
-                    assert(Int(scores.asVectorList()[17][1]*10000) == -24685)
-                }
-                if thisToken == 1 && layerNo == 1 {
-                    print("hello")
-                }
-            }
-                
             for headNo in 0..<numHeads {
                 scores[headNo].softmax()
             }
@@ -140,16 +119,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let attnFfnOut = basicMul(v: attnOutput, by: layer.wo.core)
             
             h.add(by: attnFfnOut)
-
+            
             let fxn = h.rmsNormed()
-
+            
             fxn.mul(by:layer.ffnNorm)
             let gateOut = VectorFloat(shape: [numExperts])
             basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
             let gateIdxs = VectorFloat(shape:[2])
             let gateVals = VectorFloat(shape:[2])
             mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
-
+            
             gateVals.softmax()
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
@@ -167,36 +146,34 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                     silu(x1, x3, out: x2)
                     expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                     ffnOut[i].mul(by: gateVals.scalarAt(i))
-
                 }
             }
-
+            
             h.add(by: ffnOut[0])
             h.add(by: ffnOut[1])
             
-            let ht = h.copy().asFloat16()
             gpu.eval()
-
+            
             testVec("h-out:\(thisToken):\(layerNo)", h)
         }
         
         testVec32("token:\(thisToken)", h)
-
+        
         let outNormed = h.rmsNormed()
         outNormed.mul(by: modelData.norm.asVector())
-
+        
         let outputVector = VectorFloat(shape:[modelData.output.outSize])
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
-
+        
         testVec32("ovector:\(thisToken)", outputVector)
         testReport(thisToken >= 10)
-
+        
         let topKVector = mpsTopK(v: outputVector)
-
+        
         sumPrepTime += Date().timeIntervalSince(evalTime)
         let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
-
+        
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
@@ -213,22 +190,18 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         }
         sumEvalTime += Date().timeIntervalSince(evalTime)
         evalTime = Date()
-
+        
         if !silent {
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
-
-        //testSaver.save()
-        //exit(0)
-
         
     }
-
+    
     evalTime = Date()
     gpu.eval()
     gpu.stopCapture()
-
+    
     if let range = output.range(of: "</s>") {
         output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
     } else {
@@ -247,7 +220,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         print("both \((Double(tokens.count-2)/(sumEvalTime+sumPrepTime)), precision: 2) tps")
         print("just eval \((Double(tokens.count-2)/(sumEvalTime)), precision: 2) tps")
-
+        
     } else {
         print("\n")
         let evalTime = sumEvalTime*1000/Double(tokens.count-2)
@@ -257,18 +230,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         print("\(quant*100, precision: 2)%: \(prepTime, precision: 2)ms + \(evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
         print("")
     }
-
     
-  //  exit(0)
-    return archive
 }
 
 var runControl = false
 silent = true
-_ = runNetwork(isTest: true, tokens: tokens, quant:1)
-
-//_ = control(isTest: true, tokens: tokens, quant:0.30)
-//_ = runNetwork(isTest: true, tokens: tokens, quant:1)//0.25)
+runNetwork(isTest: true, tokens: tokens, quant:1)
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
@@ -280,24 +247,11 @@ while true {
     while true {
         print("> ", terminator: "")
         if let input = readLine() {
-//            if input.lowercased() == "q" {  // Quit command
-//                break
             if let number = Int(input), (0...100).contains(number) {
                 quant = Double(number)/100.0
-//                print("Stored \(number) as an integer.")
             } else {
-                var tokens = [VectorFloat]()
-
-                let tokEmbeddings = modelData.tokEmbeddings.asVectorList()
-                let encoded = encode(prompt: "[INST]"+input+"[/INST]")
-                for t in encoded {
-                    tokens.append(tokEmbeddings[t].asFloat32())
-                }
-                _ = runNetwork(isTest: true, tokens: tokens, quant:quant)
-
-//                _ = runNetwork(isTest: false, tokens: tokens, quant:quant)
-//                storedStrings.append(input)
-//                print("Stored \"\(input)\" as a string.")
+                let tokens = t.embed("[INST]"+input+"[/INST]")
+                runNetwork(isTest: true, tokens: tokens, quant:quant)
             }
         }
     }

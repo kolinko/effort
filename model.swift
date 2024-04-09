@@ -44,14 +44,6 @@ class MTLBufferable {
         }
     }
     
-    func load() {
-        _ = self.buffer
-    }
-    
-    func unloadBuffer() {
-        self._buffer = nil // does this erase memory?
-    }
-
 }
 
 class Bufferable<Type> : MTLBufferable {
@@ -236,60 +228,6 @@ class Bufferable<Type> : MTLBufferable {
         bufferPointer[index+Int(self.offsetBytes/self.byteSize)] = newValue
     }
 
-    /*
-    func test(_ name: String, cond: Bool = true, mul:Int, val:[Type]) -> Bool {
-        if (!cond) {
-            return true
-        }
-        let result = self.test(mul: mul, val: val)
-        if result {
-            print("✔️ \(name)")
-        } else {
-            print("❌ \(name)")
-        }
-        return result
-    }
-    
-    func test(mul:Int, val:[Type]) -> Bool {
-        gpu.eval()
-        for i in 0..<val.count {
-            if val[i] != 666 {
-                if round(self[i]*Type(mul)) != round(val[i]*Type(mul)) {
-                    print("assert failed for values")
-                    for j in 0..<val.count {
-                        print(self[j])
-                    }
-                    print("assert failed, on pos \(i), \(self[i]) ≠ \(val[i])")
-                    return false
-                }
-            }
-        }
-        return true
-    }
-    
-    func testInt(_ name: String, val:[Int16]) -> Bool {
-        let result = self.testInt(val: val)
-        if result {
-            print("✔️ \(name)")
-        } else {
-            print("❌ \(name)")
-        }
-        return result
-    }
-        
-    func testInt(val:[Int16]) -> Bool {
-        for i in 0..<val.count {
-            if (self.getInt(index: i) != val[i]) {
-                print("assert failed for values")
-                for j in 0..<val.count {
-                    print(self.getInt(index:j))
-                }
-                print("assert failed, on pos \(i), \(self.getInt(index: i)) ≠ \(val[i])")
-                return false
-            }
-        }
-        return true
-    }*/
 }
 
 class ScalarFloat: Bufferable<Float> {

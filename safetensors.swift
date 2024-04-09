@@ -158,26 +158,8 @@ class TensorLoader {
         precondition(offsets[1]-offsets[0] == shape.reduce(1, *)*numBytes)
         offsets[0]+=headerSize+8
         
-        for i in 0..<32 {
-            for n in ["k", "q", "v", "o"] {
-                /*
-                    patching up the differences between .safetensors and .pt
-                 */
-                if keyname == "model.layers.\(i).self_attn.\(n)_proj.weight" {
-//                    print("??")
-                    let (_, myData) = loadBinarySegment(named: "./model-mixtral/layers.\(i).attention.w\(n).core.bin", fromOffset: 0, withShape: shape, bytesPerEl: 2)
-                    let buffer = myData!
-                    let out = Matrix(shape: shape, buffer: buffer)
-                    fileHandle.closeFile()
-                    return out
-                }
-            }
-        }
-
-        
-        let (off, _buffer) = loadBinarySegment(named: fname, fromOffset: off_t(offsets[0]), withShape: shape, bytesPerEl: numBytes)
+        let _buffer = loadBinarySegment(named: fname, fromOffset: off_t(offsets[0]), withShape: shape, bytesPerEl: numBytes)
         let buffer = _buffer!
-    //    print("\(keyname) \(shape)")
         var out : MTLBufferable
         
         if dtype == "F32" {
@@ -276,85 +258,6 @@ extension Data {
     }
 }
 
-/*
-func batchLoadSafetensors(_ range: ClosedRange<Int>, _ maxLayers: Int, _ filePath: String, convertBF: Bool = false) -> [String: MTLBufferable] {
-    let filePattern = filePath + "-%05d-of-%05d.safetensors"
-    var tensors = [String: MTLBufferable]()
-    for i in range {
-        let filename = String(format: filePattern, i, maxLayers)
-        let _tensors = loadSafetensors(fromFileAtPath: filename, convertBF: convertBF)
-        tensors.merge(_tensors) { (_, new) in new }
-    }
-    return tensors
-}
-
-func loadSafetensors(fromFileAtPath filePath: String, convertBF: Bool = false) -> [String: MTLBufferable] {
-    var tensors = [String: MTLBufferable]()
-    guard let fileHandle = FileHandle(forReadingAtPath: filePath) else {
-        print("Failed to open file \(filePath).")
-        exit(1)
-    }
-    do {
-        print("Loading \(filePath)")
-        // Read the first 8 bytes to get the header size
-        let headerSizeData = fileHandle.readData(ofLength: 8)
-        let headerSize = UInt64(littleEndian: headerSizeData.withUnsafeBytes { $0.load(as: UInt64.self) })
-        
-        print("headerSize \(headerSize)")
-        // Read the header
-        let headerData = fileHandle.readData(ofLength: Int(headerSize))
-        let headerJson = try JSONSerialization.jsonObject(with: headerData) as! [String: Any]
-        
-        // Parse tensors info from the header
-        for (key, value) in headerJson where key != "__metadata__" {
-            let tensorDict = value as! [String: Any]
-            let dtype = tensorDict["dtype"] as! String
-            var numBytes = 2
-            if dtype == "F32" {
-                numBytes = 4
-            }
-            
-            precondition(["BF16", "F16", "F32"].contains(dtype), "number type in safetensors unsupported. got \(dtype), expected either BF16 or F16. Did you try to load a quantized model?")
-            
-            let shape = tensorDict["shape"] as! [Int]
-            var offsets = tensorDict["data_offsets"] as! [UInt64]
-            precondition(offsets.count == 2)
-            precondition(offsets[1]-offsets[0] == shape.reduce(1, *)*numBytes)
-            print(offsets[0])
-            offsets[0]+=headerSize+8
-            
-            let buffer = loadBinarySegment(named: filePath, fromOffset: off_t(offsets[0]), withShape: shape, bytesPerEl: numBytes)!
-            if dtype == "F32" {
-                precondition(shape.count == 2, "unsupported type for F32 only Matrixes")
-                tensors[key] = MatrixFloat(shape: shape, buffer: buffer)
-            } else if shape.count == 1 {
-                tensors[key] = Vector(shape: shape, buffer: buffer)
-            } else if shape.count == 2 {
-                tensors[key] = Matrix(shape: shape, buffer: buffer)
-            } else if shape.count == 3 {
-                print("WARN: tensor has too many dims. Loading anyway and hoping for the best. \(key) is \(shape)")
-                tensors[key] = Matrix3D(shape: shape, buffer: buffer)
-            } else {
-                print("WARN: tensor has too many dims, skipping load and hoping for the best. \(key) is \(shape)")
-            }
-            
-            if convertBF && dtype=="BF16" {
-                gpu.deploy("convertBF16", buffers:[tensors[key]! as! Bufferable<Float16>], threadCount: shape.reduce(1, *))
-            }
-            
-            
-            print(key, shape)
-            
-            }
-        
-    } catch {
-        print("An error occurred: \(error)")
-    }
-    
-    fileHandle.closeFile()
-    return tensors
-}
- */
 
 import Metal
 
@@ -366,7 +269,7 @@ func alignOffsetToPageSize(offset: off_t) -> (alignedOffset: off_t, offsetAdjust
 }
 
 
-func loadBinarySegment(named fileName: String, fromOffset offset: off_t, withShape shape: [Int], bytesPerEl: Int) -> (Int, MTLBuffer?) {
+func loadBinarySegment(named fileName: String, fromOffset offset: off_t, withShape shape: [Int], bytesPerEl: Int) -> MTLBuffer? {
     let device = gpu.device
     let fileURL = URL(fileURLWithPath: fileName)
 
@@ -394,23 +297,13 @@ func loadBinarySegment(named fileName: String, fromOffset offset: off_t, withSha
     // Adjust dataPointer by offsetAdjustment to get the actual start of your data
     let actualDataPointer = dataPointer.advanced(by: Int(offsetAdjustment))
     
-    
-    // Create MTLBuffer from the memory-mapped data without copying
-//    guard let buffer = device.makeBuffer(bytesNoCopy: actualDataPointer, length: expectedSize, options: .storageModeShared, deallocator: {
-    /*
-     
-     , deallocator: {
-         _, _ in
-         munmap(dataPointer, expectedSize)
-     }
-     */
     guard let buffer = device.makeBuffer(bytes: actualDataPointer, length: expectedSize, options: .storageModeShared) else {
         close(fileDescriptor)
         preconditionFailure("cannot load the buffer: \(offset), \(alignedOffset)")
     }
 
     close(fileDescriptor)
-    return (Int(offsetAdjustment), buffer)
+    return buffer
 }
 
 
