@@ -21,11 +21,11 @@ print("loading")
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
+let percentLoad = goQ8 ? 0x8 : 0x10 // 0xC works decent for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
-var numExperts = 1
+var numExperts = 8
 var numTokens = 100
 
 let goNoMuls = false
@@ -158,11 +158,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             if layer.ffnGate == nil {
                 let expIdx = ScalarFloat(value: 0)
-                bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                 
                 silu(x1, x3, out: x2)
-                bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], quant: quant)
+                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], quant: quant)
                 h.add(by: ffnOut[0])
             } else {
                 basicMul(v:fxn, by:layer.ffnGate!, out:gateOut)
