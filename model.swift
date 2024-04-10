@@ -427,7 +427,7 @@ class MatrixFloat: Bufferable<Float> {
     func rope(complexArray: VectorFloat) {
         assert(self.cols*2 == complexArray.rows, "Layer size must be twice the size of the complex array")
         let out = MatrixFloat(shape:self.shape)
-        gpu.deploy("rope_mx", buffers: [self, complexArray, out], ints:[self.cols/2], threadCount: [self.cols, self.rows])
+        gpu.deploy("rope_mx", buffers: [self, complexArray, out], ints:[self.cols], threadCount: [self.cols, self.rows])
         self.copyFrom(out)
 
     }

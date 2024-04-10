@@ -206,10 +206,10 @@ kernel void rope_mx(const device float* m [[buffer(0)]],
                     uint2 id [[thread_position_in_grid]]) {
     uint myOff = id.y * numEls + id.x;
     
-    if (id.x < numEls) {
-        out[myOff] = m[myOff] * comp[id.x].x - m[myOff + numEls] * comp[id.x].y;
+    if (id.x < numEls/2) {
+        out[myOff] = m[myOff] * comp[id.x].x - m[myOff + numEls/2] * comp[id.x].y;
     } else {
-        out[myOff] = m[myOff] * comp[id.x].x + m[myOff - numEls] * comp[id.x].y;
+        out[myOff] = m[myOff] * comp[id.x].x + m[myOff - numEls/2] * comp[id.x].y;
     }
 }
 
