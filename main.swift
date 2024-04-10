@@ -24,8 +24,8 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 10
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 var numTokens = 30
 
 let goNoMuls = false
@@ -235,7 +235,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 speedReport()
             }
 
-            testReport(thisToken >= 10)
+            testReport(thisToken >= 15)
+            if thisToken >= 15 && goVerify {
+                return
+            }
 
             let topToken = Int(topKVector.getInt(index: 0))
             let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
@@ -308,13 +311,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
 var runControl = false
 silent = true
-runNetwork(isTest: true, tokens: tokens, quant:1)
+//for _ in 0..<20 {
+runNetwork(isTest: false, tokens: tokens, quant:1)
+//}
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
 var quant: Double = 1.0 // 0.25
-var isTest = true
+var isTest = false
+numTokens = 500
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
     while true {

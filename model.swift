@@ -659,7 +659,7 @@ class Vector: Bufferable<Float16> {
  array funcs
  
  */
-
+/*
 
 func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
@@ -688,7 +688,33 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
      */
     return heads
 }
+*/
 
+func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
+    func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
+        assert(num>1)
+        let step = (end - start) / Double(num)
+        return (0..<num).map { pow(base, start + Double($0) * step) }
+    }
+
+    assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
+    let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-6)
+//    assert(freqs[2] == 0.7498942093324559)
+    let heads = MatrixFloat(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
+    for i in 0..<(2 * maxSeqLen) {
+        for j in 0..<freqs.count {
+            let freq = freqs[j]
+            let angle = Float(i) * Float(freq)
+            let realPart = cos(angle)
+            let imagPart = sin(angle)
+            heads[i][j*2] = realPart
+            heads[i][j*2+1] = imagPart
+        }
+    }
+  //  assert(heads[1][2]==0.6479058)
+  //  assert(heads[1][3]==0.7617204)
+    return heads
+}
 
 func calcScores2(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int, out scores: MatrixFloat) {
 //    let scores = MatrixFloat(shape: [numHeads, numTokens])

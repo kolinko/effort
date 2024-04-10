@@ -13,6 +13,8 @@ private let testVer = "1.0" + "-" + (goQ8 ? "Q8" : "FP16")
 private let testLoader = TensorLoader(path: "./", model: "tests-\(testVer)")
 private let testSaver = TensorSaver(path: "./", model: "tests-\(testVer)")
 
+//rivate
+
 func testVec(_ title: String, _ v: VectorFloat) {
     testCount += 1
     if goSaveTests {
@@ -37,7 +39,7 @@ func testVec32(_ title: String, _ v: VectorFloat) {
         let tt = testLoader[title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
         print(title, score)
-//        assert(score > 0.99, "Error in test \(testCount): \(title); \(score)")
+        assert(score > 0.99, "Error in test \(testCount): \(title); \(score)")
     }
 }
 
@@ -49,6 +51,6 @@ func testReport(_ cond: Bool) {
         exit(0)
     } else if goVerify {
         print("✅ tests completed: \(testCount)")
-        exit(0)
+       // exit(0)
     }
 }
