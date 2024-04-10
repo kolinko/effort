@@ -130,7 +130,7 @@ kernel void rmsNorm32fast(device float* input [[buffer(0)]],
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
     for (uint i = begin; i<end; i++) {
-        output[i] = input[i] / sqrt(float(full_sum)/float(numEls) + 1e-6);
+        output[i] = input[i] / sqrt(float(full_sum)/float(numEls) + 1e-5);
     }
 //    output[0] = 10+sum;
 }
@@ -317,6 +317,13 @@ kernel void round(device float* result [[buffer(0)]],
     
     result[0] = 1+(uint(result[0])/number) * number;
 
+}
+
+kernel void convertBF16X(device bfloat *src [[buffer(0)]],
+                        device half *dst [[buffer(1)]],
+                        uint id [[thread_position_in_grid]]) {
+    half x = half(src[id]);
+    dst[id] = x;
 }
 
 //gpu.deploy("fetchRow16to32", buffers: [rowNum, self, out], threadCount: self.rows)

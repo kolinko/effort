@@ -90,7 +90,7 @@ class Layer {
 
     let attnNorm: Vector
     let ffnNorm: Vector
-    let ffnGate: Matrix
+    let ffnGate: Matrix?
 
     
     let wo: Weights
@@ -113,7 +113,11 @@ class Layer {
         
         self.ffnNorm = Vector(fname: layerName+"ffn_norm.bin", shape: shapeDict[layerName+"ffn_norm"]!)
         self.attnNorm = Vector(fname: layerName+"attention_norm.bin", shape: shapeDict[layerName+"attention_norm"]!)
-        self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: [numExperts, stateDim])//shapeDict[layerName+"feed_forward.gate"]!)
+        if numExperts > 1 {
+            self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: [numExperts, stateDim])//shapeDict[layerName+"feed_forward.gate"]!)
+        } else {
+            self.ffnGate = nil
+        }
         
         self.wo = Weights(elName: layerName+"attention.wo")
         self.wk = Weights(elName: layerName+"attention.wk")
@@ -168,8 +172,9 @@ func readJson() -> [String: [Int]] {
 
     return dictionary
 }
-
-private let tLoader = TensorLoader(path:"./models/mixtral-new", model: "buckets-\(goQ8 ? "Q8" : "FP16")")
+let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
+let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
 func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
     let safeten = tLoader[fileName]

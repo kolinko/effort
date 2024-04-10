@@ -18,7 +18,10 @@ struct ConvertOptions: OptionSet {
 }
 
 func runConvert(_ options: ConvertOptions) {
+
     if options.contains(.mixtral) {
+        assertionFailure("don't touch for now")
+
         if options.contains(.fp16) {
             convertMixtral(goQ8: true)//goQ8: false)
         }
@@ -27,7 +30,104 @@ func runConvert(_ options: ConvertOptions) {
             convertMixtral(goQ8: true)//goQ8: true)
         }
     }
+
+    if options.contains(.mistral) {
+        if options.contains(.fp16) {
+            convertMistral(goQ8: false)//goQ8: false)
+        }
+        if options.contains(.q8) {
+            assertionFailure("not implemented yet")
+            convertMistral(goQ8: true)//goQ8: true)
+        }
+    }
+
+}
+
+
+func convertMistral(goQ8: Bool) {
+    let tensors = TensorLoader(path:"./models/mistral")
+    let saveTensors = TensorSaver(path:"./models/mistral", model: "buckets-\(goQ8 ? "Q8" : "FP16" )")
+
+    print("done loading.\n")
+
+    let numLayers = 32
+    for layerNo in 0..<numLayers {
+        let evalTime = Date()
+
+        print("converting Mistral's layer \(layerNo)")
+        var layerTensors = saveTensors[layerNo]
+        
+        if layerNo == 0 {
+            layerTensors["norm.bin"] = tensors["model.norm.weight"]
+            layerTensors["output.core.bin"] = tensors["lm_head.weight"] 
+            layerTensors["tok_embeddings.core.bin"] = tensors["model.embed_tokens.weight"]
+
+        }
+
+        do {
+            let prefix = "model.layers.\(layerNo)."
+            let newPrefix = "layers.\(layerNo)."
+            
+            layerTensors[newPrefix + "attention_norm.bin"] = tensors[prefix + "input_layernorm.weight"]
+            layerTensors[newPrefix + "ffn_norm.bin"] = tensors[prefix + "post_attention_layernorm.weight"]
+        }
+            
+        for s in ["k", "o", "q", "v"] {
+            let prefix = "model.layers.\(layerNo).self_attn.\(s)_proj.weight"
+            let newPrefix = "layers.\(layerNo).attention.w\(s)."
+            
+            layerTensors[newPrefix+"core"] = tensors[prefix]
+        }
+
+        do {
+            let prefix = "model.layers.\(layerNo).mlp."
+            let newPrefix = "layers.\(layerNo).feed_forward.experts.0."
+
+            layerTensors[newPrefix + "w1.core.bin"] = tensors[prefix + "gate_proj.weight"]
+            bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
+
+            layerTensors[newPrefix + "w2.core.bin"] = tensors[prefix + "down_proj.weight"]
+            bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
+
+            layerTensors[newPrefix + "w3.core.bin"] = tensors[prefix + "up_proj.weight"]
+            bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
+
+            
+        }
+        gpu.eval()
+        let repsLeft = numLayers-layerNo
+        let sumTime = Date().timeIntervalSince(evalTime)
+        let totalTime = sumTime * Double(repsLeft)
+
+        // Convert totalTime to minutes and seconds
+        let minutes = Int(totalTime) / 60
+        let seconds = Int(totalTime) % 60
+
+        print("speed \(Int(sumTime)) seconds.")
+        print("ETA: \(minutes) minutes and \(seconds) seconds.")
+
+        saveTensors[layerNo] = layerTensors
+
+        
+        
+        /*
+        let prefix = "model.layers.\(layerNo).mlp."
+        print("processing \(prefix)..")
+        
+        bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
+        gpu.eval()
+
+        bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
+        gpu.eval()
+
+        bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
+        gpu.eval()
+        
+        saveTensors[layerNo] = layerTensors*/
+    }
     
+    saveTensors.save()
+     
 }
 
 
@@ -36,7 +136,6 @@ func convertMixtral(goQ8: Bool) {
     let tCore = TensorLoader(path: "./model-mixtral/", model: "corefp16")
     let tBuckets = TensorLoader(path: "./model-mixtral/", model: "rawfp16")
 
-    
     let tensors = TensorMetaLoader([tBuckets, tCore])
     let saveTensors = TensorSaver(path:"./models/mixtral-new", model: "buckets-\(goQ8 ? "Q8" : "FP16")")
 
@@ -247,54 +346,3 @@ func findPercentile(v: Vector, perc: Double) -> Float {
     return tmpScalarFloat.val
 }
 
-
-func convertMistral(goQ8: Bool) {
-    /*
-    let tensors = TensorLoader(path:"./models/mistral")
-    let saveTensors = TensorSaver(path:"./models/mistral", model: "buckets-\(goQ8 ? "Q8" : "FP16" )")
-
-    print("done loading.\n")
-
-    let numLayers = 32
-    for layerNo in 0..<numLayers {
-        var layerTensors = saveTensors[layerNo]
-        
-        if layerNo == 0 {
-            for k in ["model.norm.weight", "lm_head.weight", "model.embed_tokens.weight"] {
-                layerTensors[k] = tensors[k]
-            }
-        }
-        
-        for k in ["input_layernorm.weight",
-                  "post_attention_layernorm.weight"] {
-            let prefix = "model.layers.\(layerNo)."
-
-            layerTensors[prefix+k] = tensors[prefix+k]
-        }
-        
-        
-        for s in ["k", "o", "q", "v"] {
-            let prefix = "model.layers.\(layerNo).self_attn.\(s)_proj."
-            bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: goQ8)
-            layerTensors[prefix+"weight"] = tensors[prefix+"weight"]
-
-        }
-        
-        let prefix = "model.layers.\(layerNo).mlp."
-        print("processing \(prefix)..")
-        
-        bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-
-        bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-
-        bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-        
-        saveTensors[layerNo] = layerTensors
-    }
-    
-    saveTensors.save()
-     */
-}

@@ -15,7 +15,7 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 print("loading")
 
-//runConvert([.mixtral, .q8])
+//runConvert([.mistral, .fp16])
 //exit(0)
 
 let stateDim = 4096
@@ -25,11 +25,14 @@ let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
-var numExperts = 8
+var numExperts = 1
 var numTokens = 100
+
 let goNoMuls = false
-let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls
+let goMistral = numExperts == 1
+let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
 let goSaveTests = false
+
 
 //modelRunTests()
 
@@ -39,7 +42,8 @@ let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad:
 let t = Tokeniser(modelData)
 
 //var tokens = [VectorFloat]()
-let tokens = t.embed([1, 1602, 460])
+let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
+                          16289, 28793])//[1, 1602, 460])
 
 os_signpost(.end, log: log, name: "Loading")
 
@@ -107,18 +111,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
-//            if thisToken == 25 {
-//                gpu.startCapture()}
-//            print(h._str(count:5000))
             let layer = modelData.layers[layerNo]!
             h.rmsNormFast(out: h_norm)
-            /*
-            let h_norm_tst = h_norm.copy()
-            h.rmsNormFast(out: h_norm_tst)
-
-            print(h_norm.str)
-            print(h_norm_tst.str)
-            exit(0)*/
             
             h_norm.mul(by:layer.attnNorm)
 
@@ -161,41 +155,52 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
-            basicMul(v:fxn, by:layer.ffnGate, out:gateOut)
-            mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
-            
-            gateVals.softmax()
-            
-            for i in 0..<2 {
-                let expIdx = gateIdxs.scalarAt(i)
-                if !goQ8 {
-                    if isTest {
-                        bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                        bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                        
-                        silu(x1, x3, out: x2)
-                        bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                        ffnOut[i].mul(by: gateVals.scalarAt(i))
+
+            if layer.ffnGate == nil {
+                let expIdx = ScalarFloat(value: 0)
+                bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                
+                silu(x1, x3, out: x2)
+                bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], quant: quant)
+                h.add(by: ffnOut[0])
+            } else {
+                basicMul(v:fxn, by:layer.ffnGate!, out:gateOut)
+                mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
+                
+                gateVals.softmax()
+
+                for i in 0..<2 {
+                    let expIdx = gateIdxs.scalarAt(i)
+                    if !goQ8 {
+                        if isTest {
+                            bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                            bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                            
+                            silu(x1, x3, out: x2)
+                            bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                            ffnOut[i].mul(by: gateVals.scalarAt(i))
+                        } else {
+                            expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                            expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                            
+                            silu(x1, x3, out: x2)
+                            expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                            ffnOut[i].mul(by: gateVals.scalarAt(i))
+                        }
                     } else {
-                        expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                        expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                        expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                        expertMulQ8(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                         
                         silu(x1, x3, out: x2)
-                        expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                        expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                         ffnOut[i].mul(by: gateVals.scalarAt(i))
                     }
-                } else {
-                    expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                    expertMulQ8(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                    
-                    silu(x1, x3, out: x2)
-                    expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                    ffnOut[i].mul(by: gateVals.scalarAt(i))
                 }
+                
+                h.add(by: ffnOut[0])
+                h.add(by: ffnOut[1])
             }
-            
-            h.add(by: ffnOut[0])
-            h.add(by: ffnOut[1])
             
           //  gpu.eval()
             gpu.stopCapture()
@@ -308,7 +313,7 @@ runNetwork(isTest: true, tokens: tokens, quant:1)
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
-var quant: Double = 0.25
+var quant: Double = 1.0 // 0.25
 var isTest = true
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
@@ -320,6 +325,11 @@ while true {
             } else if input == "t" {
                 isTest = !isTest
                 print("Test switched to " + (isTest ? "ON" : "OFF"))
+            } else if input == "w" {
+                let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
+                                          16289, 28793])
+                runNetwork(isTest: isTest, tokens: tokens, quant:quant)
+
             } else {
                 let tokens = t.embed("[INST]"+input+"[/INST]")
                 runNetwork(isTest: isTest, tokens: tokens, quant:quant)

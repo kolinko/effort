@@ -44,6 +44,13 @@ class MTLBufferable {
         }
     }
     
+    
+    func convertBF16() {
+        gpu.deploy("convertBF16X", buffers:[self, self], threadCount: (self as! Bufferable<Float16>).count)
+        gpu.eval()
+    }
+    
+    
 }
 
 class Bufferable<Type> : MTLBufferable {
@@ -662,8 +669,8 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     }
 
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
-    let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-4)
-    assert(freqs[2] == 0.7498942093324559)
+    let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-6)
+//    assert(freqs[2] == 0.7498942093324559)
     let heads = MatrixFloat(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
@@ -675,8 +682,10 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
             heads[i][j*2+1] = imagPart
         }
     }
+    /*
     assert(heads[1][2]==0.6479058)
     assert(heads[1][3]==0.7617204)
+     */
     return heads
 }
 

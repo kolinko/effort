@@ -125,6 +125,9 @@ class TensorLoader {
             keyname = String(_keyname.dropLast(17)) + ".stats"
 
         }
+        
+        precondition(self.index.keys.contains(keyname), "\(keyname) not found in the safetensors lib!")
+        
         fname = mergePaths(self.path, self.index[keyname]!)
         
         guard let fileHandle = FileHandle(forReadingAtPath: fname) else {
@@ -180,6 +183,11 @@ class TensorLoader {
             out = Matrix3D(shape: shape, buffer: buffer)
         } else {
             preconditionFailure("unknown error while loading tensors")
+        }
+        
+        if dtype == "BF16" {
+            out.convertBF16()
+            gpu.eval()
         }
         
         fileHandle.closeFile()
