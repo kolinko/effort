@@ -79,7 +79,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     let gateVals = VectorFloat(shape:[2])
     let outputVector = VectorFloat(shape:[modelData.output.outSize])
     let outNormed = VectorFloat(shape: [stateDim])
-
     
     // timers
     var output = ""
@@ -170,12 +169,21 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
                 if !goQ8 {
-                    bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                    bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                    
-                    silu(x1, x3, out: x2)
-                    bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                    ffnOut[i].mul(by: gateVals.scalarAt(i))
+                    if isTest {
+                        bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                        bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                        
+                        silu(x1, x3, out: x2)
+                        bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                        ffnOut[i].mul(by: gateVals.scalarAt(i))
+                    } else {
+                        expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                        expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                        
+                        silu(x1, x3, out: x2)
+                        expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                        ffnOut[i].mul(by: gateVals.scalarAt(i))
+                    }
                 } else {
                     expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
                     expertMulQ8(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
@@ -301,7 +309,7 @@ var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
 var quant: Double = 0.25
-
+var isTest = true
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
     while true {
@@ -309,9 +317,12 @@ while true {
         if let input = readLine() {
             if let number = Int(input), (0...100).contains(number) {
                 quant = Double(number)/100.0
+            } else if input == "t" {
+                isTest = !isTest
+                print("Test switched to " + (isTest ? "ON" : "OFF"))
             } else {
                 let tokens = t.embed("[INST]"+input+"[/INST]")
-                runNetwork(isTest: true, tokens: tokens, quant:quant)
+                runNetwork(isTest: isTest, tokens: tokens, quant:quant)
             }
         }
     }
