@@ -21,12 +21,12 @@ print("loading")
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0x10 // 0xC works decent for mixtral// from 0 to max binSize
+let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 32
-var numExperts = 8
-var numTokens = 100
+var numLayers = 10
+var numExperts = 2
+var numTokens = 30
 
 let goNoMuls = false
 let goMistral = numExperts == 1
@@ -42,8 +42,8 @@ let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad:
 let t = Tokeniser(modelData)
 
 //var tokens = [VectorFloat]()
-let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
-                          16289, 28793])//[1, 1602, 460])
+let tokens = t.embed([1, 1602, 460])//[    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
+//                          16289, 28793])//
 
 os_signpost(.end, log: log, name: "Loading")
 
