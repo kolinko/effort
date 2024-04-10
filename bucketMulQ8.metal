@@ -286,7 +286,7 @@ kernel void prepareExpertDispatchQ8(device const float* v[[buffer(0)]],
         half4 s = binStats[i];
         float val = v[i % rowsCount]; // int(s[0])
         float ucomp = float(s.z) * abs(val);
-        if (cutoff[0] < ucomp) {
+        if (true) {//cutoff[0] < ucomp) {
             if (counter == idxIncr) {
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;

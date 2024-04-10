@@ -25,7 +25,7 @@ let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max
 let bSize: Int
 
 var numLayers = 32
-var numExperts = 8
+var numExperts = 1
 var numTokens = 30
 
 let goNoMuls = false
@@ -42,8 +42,8 @@ let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad:
 let t = Tokeniser(modelData)
 
 //var tokens = [VectorFloat]()
-let tokens = t.embed([1, 1602, 460])//[    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
-//                          16289, 28793])//
+let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
+                          16289, 28793])//!!!! [1, 1602, 460])//
 
 os_signpost(.end, log: log, name: "Loading")
 
@@ -53,7 +53,7 @@ let numHeads = 32
 let kvRepeats : Int = numHeads/numHeadsKV
 let maxSeqLen = 2048
 let maxTokens = maxSeqLen
-let freqsCis = createFreqsCis(headDim: headDim, maxSeqLen: maxSeqLen)
+let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
 //modelProfile()
 
@@ -134,8 +134,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
             
             let fCis = freqsCis[thisToken]
-            xqHeads.mul(complexArray: fCis)
-            xkHeads.mul(complexArray: fCis)
+            xqHeads.rope(complexArray: fCis)
+            xkHeads.rope(complexArray: fCis)
             
             calcScores2(xq_heads: xqHeads, 
                         xkTokenHeads: xkTokenHeads,
@@ -337,7 +337,7 @@ while true {
                 runNetwork(isTest: isTest, tokens: tokens, quant:quant)
 
             } else {
-                let tokens = t.embed("[INST]"+input+"[/INST]")
+                let tokens = t.embed("<s>[INST]"+input+"[/INST]")
                 runNetwork(isTest: isTest, tokens: tokens, quant:quant)
             }
         }

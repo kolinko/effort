@@ -423,6 +423,14 @@ class MatrixFloat: Bufferable<Float> {
         assert(self.cols == complexArray.rows, "Layer size must be twice the size of the complex array")
         gpu.deploy("mulComplex32_mx", buffers: [self, complexArray], ints:[self.cols], threadCount: [self.cols / 2, self.rows])
     }
+    
+    func rope(complexArray: VectorFloat) {
+        assert(self.cols*2 == complexArray.rows, "Layer size must be twice the size of the complex array")
+        let out = MatrixFloat(shape:self.shape)
+        gpu.deploy("rope_mx", buffers: [self, complexArray, out], ints:[self.cols/2], threadCount: [self.cols, self.rows])
+        self.copyFrom(out)
+
+    }
 
 }
 
@@ -689,6 +697,32 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     return heads
 }
 */
+
+func createFreqsCis2(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
+    func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {
+        assert(num>1)
+        let step = (end - start) / Double(num)
+        return (0..<num).map { pow(base, start + Double($0) * step) }
+    }
+
+    assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
+    let freqs = logspace(start: 0, end: 1.0, num: headDim/2, base: 1e-6)
+//    assert(freqs[2] == 0.7498942093324559)
+    let heads = MatrixFloat(shape: [2*maxSeqLen, freqs.count*2*2]).asVectorList()
+    for i in 0..<(2 * maxSeqLen) {
+        for j in 0..<freqs.count*2 {
+            let freq = freqs[j % (freqs.count)]
+            let angle = Float(i) * Float(freq)
+            let realPart = cos(angle)
+            let imagPart = sin(angle)
+            heads[i][j*2] = realPart
+            heads[i][j*2+1] = imagPart
+        }
+    }
+  //  assert(heads[1][2]==0.6479058)
+  //  assert(heads[1][3]==0.7617204)
+    return heads
+}
 
 func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
     func logspace(start: Double, end: Double, num: Int, base: Double = 10.0) -> [Double] {

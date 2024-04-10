@@ -196,6 +196,23 @@ kernel void softmax_add32(device float* vec [[buffer(0)]],
     vec[id] = exp(vec[id]) / sum[0];
 }
 
+
+// modelling_mixtral.py from transformers, def rotate_half & apply_rotary_pos_emb
+kernel void rope_mx(const device float* m [[buffer(0)]],
+                    const device float2* comp [[buffer(1)]],
+                    device float* out [[buffer(2)]],
+
+                    const device uint &numEls [[buffer(3)]],
+                    uint2 id [[thread_position_in_grid]]) {
+    uint myOff = id.y * numEls + id.x;
+    
+    if (id.x < numEls) {
+        out[myOff] = m[myOff] * comp[id.x].x - m[myOff + numEls] * comp[id.x].y;
+    } else {
+        out[myOff] = m[myOff] * comp[id.x].x + m[myOff - numEls] * comp[id.x].y;
+    }
+}
+
 kernel void mulComplex32_mx(device float2* m [[buffer(0)]],
                         const device float2* comp [[buffer(1)]],
                         const device uint &numCols [[buffer(2)]],
