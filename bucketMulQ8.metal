@@ -244,7 +244,7 @@ kernel void bucketMulQ8v4(
     }
                           
 }
-
+/*
 #define tmpMulVecMaxSize = 16384
 kernel void bucketIntegrate(device const float* tmpMulVec[[buffer(0)]],
                             device float* out[[buffer(1)]],
@@ -258,7 +258,7 @@ kernel void bucketIntegrate(device const float* tmpMulVec[[buffer(0)]],
         out[id.y] = sum;
     }
     
-}
+}*/
 
 
 // same as regular, but appends slice encoding.

@@ -1,11 +1,11 @@
 
 func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     if goNoMuls {return;}
-    out.zero()
+  //  out.zero()
     let bm = BucketMulFast.shared
-    bm.dispatch.zero()
+   // bm.dispatch.zero()
     bm.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
-    gpu.deploy("round", buffers:[bm.dispatch.size], ints:[4096], threadCount: 1) // tofix
+    gpu.deploy("round", buffers:[bm.dispatch.size], ints:[2096], threadCount: 1) // tofix
     bm.mul(by: by, out: out)
 }
 
@@ -34,28 +34,38 @@ class BucketMulFast {
 
         gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
-        let chunkSize = 16//w.stats.rows//16
+        let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
     
     
+    private let mulGroups = 32
+    private let tmpMulVec = MatrixFloat(shape:[32, 16384])
     
-       func mul(by: ExpertWeights, out: VectorFloat) {
-           let weightBuckets = by.buckets
-           
-           let bucketSize = 16
-           let numBuckets = out.rows / bucketSize
-           
-           assert(numBuckets % 4 == 0)
+   func mul(by: ExpertWeights, out: VectorFloat) {
+       let weightBuckets = by.buckets
+       
+       let bucketSize = 16
+       let numBuckets = out.rows / bucketSize
+       
+       assert(numBuckets % 4 == 0)
 
-           let groups = 32
-           gpu.deploy("bucketMulFast", buffers: [weightBuckets, dispatch, out, dispatch.size],
-                                   ints: [weightBuckets.cols, groups],
-                                   threadCount: [weightBuckets.cols, groups])
-       }
+       //let groups = 32
+       gpu.deploy("bucketMulFast", buffers: [weightBuckets, dispatch, tmpMulVec, dispatch.size],
+                               ints: [weightBuckets.cols, mulGroups],
+                               threadCount: [weightBuckets.cols, mulGroups])
+       
+       
+       let simdSize = 32
+       gpu.deploy("bucketIntegrate", buffers: [tmpMulVec, out],
+                  threadCount: [simdSize, out.rows/4, 1],
+                  threadGroupSize: [simdSize, 1, 1])
+        
 
-    
+   }
+
+        /*
     func mul3(by: ExpertWeights, out: VectorFloat) {
         let weightBuckets = by.buckets
         
@@ -70,7 +80,7 @@ class BucketMulFast {
                                 ints: [weightBuckets.cols, groups],
                                 threadCount: [weightBuckets.cols, groups, 1],
                                 threadGroupSize: [128,1,1])
-    }
+    }*/
 
     /*
      

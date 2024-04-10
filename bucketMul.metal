@@ -75,10 +75,75 @@ kernel void bucketMulFast(
             
         }
     }
-                      
+
+    uint myOff = (id.y*16384);
     for (int i = 0; i<16; i++) {
-        result[id.x*16+i] += myVal[i];
+        result[myOff + id.x*16 + i] = myVal[i];
       //  atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
     }
                           
 }
+
+
+#define INTSTEPS  4
+#define tmpMulVecMaxSize = 16384
+kernel void bucketIntegrate(device const float* tmpMulVec[[buffer(0)]],
+                            device float* out[[buffer(1)]],
+                            uint2 id [[thread_position_in_grid]],
+                            uint tiisg [[thread_index_in_simdgroup]]
+                            ) {
+    uint begin = INTSTEPS * id.y;
+    uint end = begin + INTSTEPS;
+    for (uint i=begin; i<end; i++){
+        float sum = tmpMulVec[i+(tiisg*16384)];// + tmpMulVec[id.y+(tiisg*2+1)*16384];
+        sum = simd_sum(sum);
+        if (tiisg == 0) {
+            out[i] = sum;
+        }
+    }
+        
+}
+
+/*
+
+kernel void bucketMulWild(
+                        device const half *weights [[buffer(0)]],
+                        device const float2 *dispatch [[buffer(1)]],
+                        device float *result [[buffer(2)]],
+                        constant float *dispatchSize [[buffer(3)]],
+                        constant uint &cols [[buffer(4)]],
+                        constant int &groups [[buffer(5)]],
+                        uint id [[thread_position_in_grid]],
+                        uint tpitg [[thread_position_in_threadgroup]],
+                        uint tgpig [[threadgroup_position_in_grid]],
+                        uint tiisg [[thread_index_in_simdgroup]],
+                        uint sgiitg [[simdgroup_index_in_threadgroup]]) {
+                            
+    if (true) { // stupid autoformatter
+        float2 myCounter = 0;
+        const ushort myPos = tiisg % 16;
+        const ushort myOff = sgiitg*2;
+
+        for(uint row = 0; row < uint(dispatchSize[0]); row++){
+            threadgroup half w[64];
+            threadgroup float2 d;
+            simdgroup_half8x8 tmp_w;
+            if (sgiitg==0) {
+                d = dispatch[row];
+                simdgroup_load(tmp_w, &weights[uint(d[0])]);
+                simdgroup_store(tmp_w, w);
+            }
+            
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            
+            const half2 myW = {w[myOff], w[myOff+1]};
+            const bool isMine = (as_type<ushort>(myW.x) & 15) == myPos;
+            myCounter.x += isMine ? myW.x : 0;
+            const bool isMine2 = (as_type<ushort>(myW.y) & 15) == myPos;
+            myCounter.y += isMine ? myW.y : 0;
+        }
+        
+    }
+  }
+
+*/

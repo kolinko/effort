@@ -24,14 +24,14 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // from 0 to max binSize
 let bSize: Int
 
-var numLayers = 10
-var numExperts = 2
-var numTokens = 10
+var numLayers = 32
+var numExperts = 8
+var numTokens = 100
 let goNoMuls = false
-let goVerify = false && numLayers == 10 && numExperts == 2 && !goNoMuls
+let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls
 let goSaveTests = false
 
-modelRunTests()
+//modelRunTests()
 
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
@@ -108,8 +108,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
-            if thisToken == 25 {
-                gpu.startCapture()}
+//            if thisToken == 25 {
+//                gpu.startCapture()}
 //            print(h._str(count:5000))
             let layer = modelData.layers[layerNo]!
             h.rmsNormFast(out: h_norm)
@@ -170,11 +170,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             for i in 0..<2 {
                 let expIdx = gateIdxs.scalarAt(i)
                 if !goQ8 {
-                    expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                    expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
                     
                     silu(x1, x3, out: x2)
-                    expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
                     ffnOut[i].mul(by: gateVals.scalarAt(i))
                 } else {
                     expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)

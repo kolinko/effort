@@ -20,6 +20,7 @@
 		A43361652BC43E8C006C12E9 /* bucketMulQ8.metal in Sources */ = {isa = PBXBuildFile; fileRef = A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */; };
 		A43361672BC54BE5006C12E9 /* bucketMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43361662BC54BE5006C12E9 /* bucketMul.swift */; };
 		A43361692BC58FB5006C12E9 /* bucketMul.metal in Sources */ = {isa = PBXBuildFile; fileRef = A43361682BC58FB5006C12E9 /* bucketMul.metal */; };
+		A433616B2BC5EA47006C12E9 /* wild.metal in Sources */ = {isa = PBXBuildFile; fileRef = A433616A2BC5EA47006C12E9 /* wild.metal */; };
 		A43F8F962B63E85D00578E56 /* test_profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F952B63E85D00578E56 /* test_profiling.swift */; };
 		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
 		A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A445AABE2BAF5B63003AD4E7 /* archive.swift */; };
@@ -60,6 +61,7 @@
 		A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulQ8.metal; sourceTree = "<group>"; };
 		A43361662BC54BE5006C12E9 /* bucketMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bucketMul.swift; sourceTree = "<group>"; };
 		A43361682BC58FB5006C12E9 /* bucketMul.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMul.metal; sourceTree = "<group>"; };
+		A433616A2BC5EA47006C12E9 /* wild.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = wild.metal; sourceTree = "<group>"; };
 		A43F8F952B63E85D00578E56 /* test_profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test_profiling.swift; sourceTree = "<group>"; };
 		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
 		A445AABE2BAF5B63003AD4E7 /* archive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = archive.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A433616A2BC5EA47006C12E9 /* wild.metal */,
 				A43361682BC58FB5006C12E9 /* bucketMul.metal */,
 				A43361662BC54BE5006C12E9 /* bucketMul.swift */,
 				A43361622BC43E7E006C12E9 /* bucketMulQ8.swift */,
@@ -212,6 +215,7 @@
 				A433615D2BC41357006C12E9 /* tester.swift in Sources */,
 				A45D52FE2BC3DD87007E484D /* safetensors.swift in Sources */,
 				A4260AEF2BB1B16F00DB76DA /* tokeniser.swift in Sources */,
+				A433616B2BC5EA47006C12E9 /* wild.metal in Sources */,
 				A43361632BC43E7E006C12E9 /* bucketMulQ8.swift in Sources */,
 				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
 				A43361612BC4203E006C12E9 /* convert.metal in Sources */,
