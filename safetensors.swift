@@ -104,6 +104,19 @@ class TensorLoader {
         self.index = (try! JSONSerialization.jsonObject(with: data, options: []) as! [String:Any])["weight_map"]! as! [String: String]
     }
     
+    func vector(_ index: String, assertShape: [Int]? = nil) -> Vector {
+        let out = self[index] as! Vector
+        assert(assertShape == nil || out.shape == assertShape, "wrong shape loaded! \(index) has shape \(out.shape), should be \(assertShape!)")
+        return out
+    }
+
+    func matrix(_ index: String, assertShape: [Int]? = nil) -> Matrix {
+        let out = self[index] as! Matrix
+        assert(assertShape == nil || out.shape == assertShape, "wrong shape loaded! \(index) has shape \(out.shape), should be \(assertShape!)")
+        return out
+    }
+
+    
     subscript(index: String) -> MTLBufferable {
             get {
                return fetchTensor(keyname: index)

@@ -27,14 +27,11 @@ class Weights {
     
     init(elName: String) {
         let shape = shapeDict[elName]!
-        self.core = tLoader[elName+".core.bin"] as! Matrix
-        assert (self.core.shape == shape)
-
+        self.core = tLoader.matrix(elName+".core.bin", assertShape: shape)
     }
     
     init(fromFile: String, shape: [Int]) {
-        self.core = tLoader[fromFile+".core.bin"] as! Matrix
-        assert(self.core.shape == shape)
+        self.core = tLoader.matrix(fromFile+".core.bin", assertShape: shape)
     }
     
 }
@@ -118,13 +115,11 @@ class Layer {
     init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
         let layerName = "layers.\(layerNo)."
         
-        self.ffnNorm = tLoader[layerName+"ffn_norm.bin"] as! Vector
-        assert(self.ffnNorm.shape == shapeDict[layerName+"ffn_norm"]!)
-        self.attnNorm = tLoader[layerName+"attention_norm.bin"] as! Vector
-        assert(self.attnNorm.shape == shapeDict[layerName+"attention_norm"]!)
+        self.ffnNorm = tLoader.vector(layerName+"ffn_norm.bin", assertShape:shapeDict[layerName+"ffn_norm"]!)
+        self.attnNorm = tLoader.vector(layerName+"attention_norm.bin", assertShape: shapeDict[layerName+"attention_norm"]!)
+
         if numExperts > 1 {
-            self.ffnGate = tLoader[layerName+"feed_forward.gate.bin"] as? Matrix
-            assert(self.ffnGate!.shape == [numExperts, stateDim])
+            self.ffnGate = tLoader.matrix(layerName+"feed_forward.gate.bin", assertShape: [numExperts, stateDim])
         } else {
             self.ffnGate = nil
         }
@@ -139,7 +134,6 @@ class Layer {
         
         self.w1 = ExpertWeights("w1", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
         self.w3 = ExpertWeights("w3", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
-
         self.w2 = ExpertWeights("w2", inDim: hiddenDim, outDim: stateDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
     }
 
@@ -155,12 +149,9 @@ class Model {
     //numLayers: 32, numExperts: 8, percentLoad: 0xA
     init(numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
-        self.norm = tLoader["norm.bin"] as! Vector
-        assert (self.norm.shape == shapeDict["norm"]!)
+        self.norm = tLoader.vector("norm.bin", assertShape: shapeDict["norm"]!)
         self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
-        self.tokEmbeddings = tLoader["tok_embeddings.core.bin"] as! Matrix
-        assert (self.tokEmbeddings.shape == shapeDict["tok_embeddings"]!)
-//        loadBinaryMatrix(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
+        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core.bin", assertShape: shapeDict["tok_embeddings"]!)
 
         print("loading weights")
         var layers = [Int: Layer]()
