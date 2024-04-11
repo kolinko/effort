@@ -15,42 +15,18 @@ extension String.StringInterpolation {
 }
 
 class MTLBufferable {
-    private var _buffer: MTLBuffer? = nil
-    private let _fname: String?
-    private let _expectedShape: [Int]?
-    
+    var buffer: MTLBuffer
     let offsetBytes: Int
     
     init(buffer: MTLBuffer, offsetBytes: Int = 0) {
-        self._buffer = buffer
+        self.buffer = buffer
         self.offsetBytes = offsetBytes
-        self._fname = nil
-        self._expectedShape = nil
     }
-    
-    init(fname: String, shape: [Int]) {
-        self.offsetBytes = 0
-        self._fname = fname
-        self._expectedShape = shape
-    }
-    
-    var buffer: MTLBuffer {
-        if self._buffer != nil {
-            return self._buffer!
-        } else {
-            assert(_fname != nil)
-            self._buffer = loadBuffer(named: _fname!)
-            return self._buffer!
-        }
-    }
-    
     
     func convertBF16() {
         gpu.deploy("convertBF16X", buffers:[self, self], threadCount: (self as! Bufferable<Float16>).count)
         gpu.eval()
     }
-    
-    
 }
 
 class Bufferable<Type> : MTLBufferable {
@@ -72,7 +48,7 @@ class Bufferable<Type> : MTLBufferable {
     var count : Int {
         return self.shape.reduce(1, *)
     }
-
+/*
     override init(fname: String, shape: [Int]) {
         assert(shape.count > 0)
         assert(shape.reduce(1, *) > 0)
@@ -81,7 +57,7 @@ class Bufferable<Type> : MTLBufferable {
         assert((byteSize == 4) || (byteSize == 2), "untested for others")
         self.shape = shape
         super.init(fname: fname, shape: shape)
-    }
+    }*/
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
         assert(shape.count > 0)

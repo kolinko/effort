@@ -28,7 +28,6 @@ private func testTest(_ title: String, _ score: Float) {
             for i in max(0, testLog.count-20)..<testLog.count {
                 print(testLog[i])
             }
-
             assertionFailure("❌ error in \(testCount): \(title); \(score)")
         }
     }

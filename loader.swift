@@ -10,6 +10,12 @@ let shapeDict = readJson()
 
 private let bam = BufferActivityManager()
 
+let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
+let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+
+private let tLoader = TensorLoader(path: modelPath, model: modelName)
+
+
 class Weights {
     let core: Matrix
     var outSize: Int { return core.rows }
@@ -21,15 +27,14 @@ class Weights {
     
     init(elName: String) {
         let shape = shapeDict[elName]!
-        self.core = Matrix(fname: elName+".core.bin", shape: shape)
+        self.core = tLoader[elName+".core.bin"] as! Matrix
+        assert (self.core.shape == shape)
 
     }
-    
     
     init(fromFile: String, shape: [Int]) {
         self.core = tLoader[fromFile+".core.bin"] as! Matrix
         assert(self.core.shape == shape)
-//        loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
     }
     
 }
@@ -67,7 +72,7 @@ class ExpertWeights {
         var sliceStatsList: [MatrixFloat]?
         
         if goQ8 {
-            self.sliceStats = Matrix3DFloat(shape: [numExperts, 8 , 2])//inDim*percentLoad, 1])
+            self.sliceStats = Matrix3DFloat(shape: [numExperts, 8 , 2])
             sliceStatsList = self.sliceStats!.asMatrixList()
         } else {
             self.sliceStats = nil
@@ -113,10 +118,13 @@ class Layer {
     init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
         let layerName = "layers.\(layerNo)."
         
-        self.ffnNorm = Vector(fname: layerName+"ffn_norm.bin", shape: shapeDict[layerName+"ffn_norm"]!)
-        self.attnNorm = Vector(fname: layerName+"attention_norm.bin", shape: shapeDict[layerName+"attention_norm"]!)
+        self.ffnNorm = tLoader[layerName+"ffn_norm.bin"] as! Vector
+        assert(self.ffnNorm.shape == shapeDict[layerName+"ffn_norm"]!)
+        self.attnNorm = tLoader[layerName+"attention_norm.bin"] as! Vector
+        assert(self.attnNorm.shape == shapeDict[layerName+"attention_norm"]!)
         if numExperts > 1 {
-            self.ffnGate = Matrix(fname: layerName+"feed_forward.gate.bin", shape: [numExperts, stateDim])//shapeDict[layerName+"feed_forward.gate"]!)
+            self.ffnGate = tLoader[layerName+"feed_forward.gate.bin"] as? Matrix
+            assert(self.ffnGate!.shape == [numExperts, stateDim])
         } else {
             self.ffnGate = nil
         }
@@ -176,23 +184,4 @@ func readJson() -> [String: [Int]] {
 
     return dictionary
 }
-let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
-let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
-private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
-func loadBuffer(named fileName: String) -> MTLBuffer {
-   return tLoader[fileName].buffer
-}
-/*
-func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
-    return Matrix(shape: shape, buffer: tLoader[fileName].buffer)
-}
-
-func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat {
-    return MatrixFloat(shape: shape, buffer: tLoader[fileName].buffer)
-}
-
-func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
-    return Vector(shape: shape, buffer: tLoader[fileName].buffer)
-}
-*/
