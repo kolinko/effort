@@ -15,7 +15,7 @@ let log = OSLog(subsystem: "com.kolinko", category: "Performance")
 let gpu = Gpu()
 print("loading")
 
-//runConvert([.mistral, .fp16])
+//runConvert([.mixtral, .fp16])
 //exit(0)
 
 let stateDim = 4096
@@ -24,13 +24,13 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xD // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 32
+var numLayers = 10
 var numExperts = 1
 var numTokens = 30
 
 let goNoMuls = false
 let goMistral = numExperts == 1
-let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
+let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
 
 
@@ -199,7 +199,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             gpu.stopCapture()
             
-        //    testVec("h-out:\(thisToken):\(layerNo)", h)
+            testVec("h-out:\(thisToken):\(layerNo)", h)
         }
         
         
@@ -222,9 +222,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
 
-        if goVerify && !goSaveTests {
-            outputVector.copyFrom(getVec("ovector:\(thisToken)"))
-        }
+//        if goVerify && !goSaveTests {
+//            outputVector.copyFrom(getVec("ovector:\(thisToken)"))
+//        }
 
         let topKVector = mpsTopK(v: outputVector)
 
@@ -237,9 +237,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 speedReport()
             }
 
-            testReport(thisToken >= 30)
-            if thisToken >= 30 && goVerify {
-                return
+            testReport(thisToken >= 10)
+            if thisToken >= 10 && goVerify {
+                exit(0)
             }
 
             let topToken = Int(topKVector.getInt(index: 0))

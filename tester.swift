@@ -25,7 +25,7 @@ private func testTest(_ title: String, _ score: Float) {
             driftCount += 1
 //            exit(1)
         } else {
-            for i in min(0, testLog.count-20)..<testLog.count {
+            for i in max(0, testLog.count-20)..<testLog.count {
                 print(testLog[i])
             }
 

@@ -20,7 +20,7 @@ struct ConvertOptions: OptionSet {
 func runConvert(_ options: ConvertOptions) {
 
     if options.contains(.mixtral) {
-        assertionFailure("don't touch for now")
+//        assertionFailure("don't touch for now")
 
         if options.contains(.fp16) {
             convertMixtral(goQ8: true)//goQ8: false)
@@ -163,10 +163,11 @@ func convertMixtral(goQ8: Bool) {
         
         for s in ["k", "o", "q", "v"] {
             let prefix = "layers.\(layerNo).attention.w\(s).core.bin"
+            let newPrefix = "layers.\(layerNo).attention.w\(s)."
 //            gpu.startCapture()
             layerTensors[prefix] = tensors[prefix]
 
-         //   bucketize(tensors[prefix+"weight"] as! Matrix, outTensorsPref: prefix, tensors: &layerTensors, goQ8: goQ8)
+            bucketize(tensors[prefix] as! Matrix, outTensorsPref: newPrefix, tensors: &layerTensors, goQ8: goQ8)
         }
         
         for expertNo in 0..<numExperts {

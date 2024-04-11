@@ -39,7 +39,7 @@ class MTLBufferable {
             return self._buffer!
         } else {
             assert(_fname != nil)
-            self._buffer = loadBinaryFile(named: _fname!, shape: _expectedShape!)
+            self._buffer = loadBuffer(named: _fname!)
             return self._buffer!
         }
     }
@@ -138,6 +138,13 @@ class Bufferable<Type> : MTLBufferable {
         gpu.deploy("add\(bitSize)", buffers:[self, buf, self], threadCount: self.count)
     }
 
+    
+
+    func copyFrom(_ src: MTLBufferable, mySize: Bool = false) {
+        assert(mySize == true, "no safety checks on buffer sizes, change mySize to true to acknowledge")
+        gpu.copyBuffer(src: src, dst: self, size:self.countBytes)
+    }
+    
     func copyFrom(_ src: Bufferable<Float16>, smallerSize: Bool = false) {
         if !smallerSize {
             assert(src.countBytes == self.countBytes)

@@ -73,12 +73,22 @@ class ExpertWeights {
         
         for eNo in 0..<numExperts {
             let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
-            probesList[eNo].copyFrom(loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
-            bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
-            statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
+            probesList[eNo].copyFrom(tLoader[fName+"probes.bin"], mySize: true)
+            bucketList[eNo].copyFrom(tLoader[fName+"buckets.bin"], mySize: true)
+            statList[eNo].copyFrom(tLoader[fName+"bucket.stats.bin"], mySize: true)
             if goQ8 {
-                sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
+                sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats.bin"], mySize: true)
+//                    loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
             }
+            /*
+             //                loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
+                         bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
+                         statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
+                         if goQ8 {
+                             sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
+                         }
+
+             */
         }
     }
 }
@@ -176,19 +186,18 @@ let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
 let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
-func loadBinaryFile(named fileName: String, shape: [Int]) -> MTLBuffer {
-    let safeten = tLoader[fileName]
-    return safeten.buffer
+func loadBuffer(named fileName: String) -> MTLBuffer {
+   return tLoader[fileName].buffer
 }
-
 
 func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
-    return Matrix(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+    return Matrix(shape: shape, buffer: tLoader[fileName].buffer)
 }
+
 func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat {
-    return MatrixFloat(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+    return MatrixFloat(shape: shape, buffer: tLoader[fileName].buffer)
 }
 
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
-    return Vector(shape: shape, buffer: loadBinaryFile(named: fileName, shape: shape))
+    return Vector(shape: shape, buffer: tLoader[fileName].buffer)
 }
