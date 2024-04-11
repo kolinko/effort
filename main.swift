@@ -25,7 +25,7 @@ let percentLoad = goQ8 ? 0x8 : 0xD // works decently for mixtral// from 0 to max
 let bSize: Int
 
 var numLayers = 32
-var numExperts = 8
+var numExperts = 1
 var numTokens = 30
 
 let goNoMuls = false
