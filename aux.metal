@@ -187,6 +187,7 @@ kernel void sum_of_exps32(const device float* input [[buffer(0)]],
                           uint id [[thread_position_in_grid]]) {
 //    atomic_max_explicit(sum, input[id], memory_order_relaxed);
     atomic_fetch_add_explicit(sum, exp(input[id]), memory_order_relaxed);
+//    atomic_fetch_max_explicit(sum, exp(input[id]), memory_order_relaxed);
 }
 
 kernel void softmax_add32(device float* vec [[buffer(0)]],

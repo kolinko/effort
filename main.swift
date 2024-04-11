@@ -226,7 +226,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         outNormed.mul(by: modelData.norm.asVector())
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
-        
+        testVec32("token:\(thisToken)", h)
+        testVec32("ovector:\(thisToken)", outputVector)
+        if goVerify {
+            outputVector.copyFrom(getVec("ovector:\(thisToken)"))
+        }
+
         let topKVector = mpsTopK(v: outputVector)
         
         gpu.warnOfEvals = false
@@ -236,9 +241,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         gpu.eval()
         sumEvalTime += Date().timeIntervalSince(evalTime)
         evalTime = Date()
-        testVec32("token:\(thisToken)", h)
-        testVec32("ovector:\(thisToken)", outputVector)
-
+        
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
@@ -326,7 +329,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = true
 //for _ in 0..<20 {
-runNetwork(isTest: false, tokens: tokens, quant:1)
+runNetwork(isTest: false, tokens: tokens, quant:0.35)
 //}
 
 var storedIntegers: [Int] = []
