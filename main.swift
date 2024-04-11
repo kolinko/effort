@@ -34,8 +34,8 @@ let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
 let goSaveTests = false
 
 
-//modelRunTests()
-
+modelRunTests()
+exit(0)
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 

@@ -14,7 +14,6 @@ private let testVer = "5.3" + "-" + (goQ8 ? "Q8" : "FP16") + (goMistral ? "mistr
 private let testLoader = goSaveTests ? nil : TensorLoader(path: "./", model: "tests-\(testVer)")
 private let testSaver = TensorSaver(path: "./", model: "tests-\(testVer)")
 
-//rivate
 
 private var testLog = [String]()
 
@@ -30,7 +29,7 @@ private func testTest(_ title: String, _ score: Float) {
                 print(testLog[i])
             }
 
-//            assertionFailure("❌ error in \(testCount): \(title); \(score)")
+            assertionFailure("❌ error in \(testCount): \(title); \(score)")
         }
     }
 }

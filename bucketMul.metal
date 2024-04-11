@@ -7,10 +7,29 @@
 
 #include <metal_stdlib>
 using namespace metal;
+//gpu.deploy("zeroRange32", buffers: [bm.dispatch, prevSize, bm.dispatch.size], threadCount: 2024 )
 
+kernel void zeroRange32(device float2* dispatch [[buffer(0)]],
+                        device uint* begin [[buffer(1)]],
+                        device uint* end [[buffer(2)]],
+                        uint id [[thread_position_in_grid]]) {
+    
+    uint myPos = *begin + id;
+    if (myPos < *end) {
+        dispatch[myPos] = {0, 0};
+    }
+}
 
+kernel void roundUp(device float* result [[buffer(0)]],
+                  device float* prevResult [[buffer(1)]],
+                  device const uint& number [[buffer(2)]],
 
+                     uint id [[thread_position_in_grid]]) {
+    
+    prevResult[0] = result[0];
+    result[0] = (1+(uint(result[0])/number)) * number;
 
+}
 
 kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
                                   device const half4* binStats[[buffer(1)]],

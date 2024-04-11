@@ -31,16 +31,21 @@ func modelRunTests() {
 
     timeIt(repeats:1000) { i in
         let ew = modelData.layers[i % 3]!.w1
-        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 0.15)
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
     }
-//    gpu.startCapture()
+    timeIt(repeats:1000) { i in
+        let ew = modelData.layers[i % 3]!.w1
+        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    }
+
+    //    gpu.startCapture()
 
     bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
     gpu.stopCapture()
 
     print()
     let score = test.cosineSimilarityTo(control)
-    print("\(Double(score), precision:2)", score>0.99 ? "✓" : "✗")
+    print("\(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
     print()
 
     

@@ -31,8 +31,8 @@ func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) ->
     print("eval per loop \(epl, precision: 2) ms")
     print("persec \(Double(repeats) / Date().timeIntervalSince(goTime), precision: 2) runs")
     print()
-    print("tpt \(epl*2*4*32, precision: 2) ms")
-    print("spd \(1000/(epl*2*4*32), precision: 2) tps")
+    print("tpt \(epl*1*4*32, precision: 2) ms")
+    print("spd \(1000/(epl*1*4*32), precision: 2) tps")
 
 }
 

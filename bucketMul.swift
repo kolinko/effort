@@ -1,11 +1,14 @@
 
+private let prevSize = ScalarFloat(value: 0)
+
 func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     if goNoMuls {return;}
   //  out.zero()
     let bm = BucketMulFast.shared
    // bm.dispatch.zero()
     bm.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
-    gpu.deploy("round", buffers:[bm.dispatch.size], ints:[2096], threadCount: 1) // tofix
+    gpu.deploy("roundUp", buffers:[bm.dispatch.size, prevSize], ints:[2096], threadCount: 1) // tofix
+    gpu.deploy("zeroRange32", buffers: [bm.dispatch, prevSize, bm.dispatch.size], threadCount: 2024 )
     bm.mul(by: by, out: out)
 }
 

@@ -328,15 +328,6 @@ kernel void setVal(device uint* result [[buffer(0)]],
 
 }
 
-kernel void round(device float* result [[buffer(0)]],
-                        device const uint& number [[buffer(1)]],
-
-                     uint id [[thread_position_in_grid]]) {
-    
-    result[0] = 1+(uint(result[0])/number) * number;
-
-}
-
 kernel void convertBF16X(device bfloat *src [[buffer(0)]],
                         device half *dst [[buffer(1)]],
                         uint id [[thread_position_in_grid]]) {

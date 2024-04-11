@@ -39,7 +39,7 @@ class Gpu {
                              "softmax_add32", "sumScores32", "add32", "floatToHalf", "probeExpert",
                              "basicBitonicSort", "getVal", "prepareExpertDispatch", "bucketMul",
                              "silu32", "mulScalar32x32", "memcpy16", "memcpyBig16", "touch",
-                             "dotSetScore2", "findCutoff", "round", "setVal", "bucketMul3",
+                             "dotSetScore2", "findCutoff", "roundUp", "setVal", "bucketMul3",
                             "cosinePrecalc32", "cosineCalc32"]
         
         
