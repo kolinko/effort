@@ -21,11 +21,11 @@ print("loading")
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max binSize
+let percentLoad = goQ8 ? 0x8 : 0xD // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 10
-var numExperts = 2
+var numLayers = 32
+var numExperts = 8
 var numTokens = 30
 
 let goNoMuls = false
@@ -105,7 +105,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
-            gpu.warnOfEvals = false
+            gpu.warnOfEvals = true
         }
         
         h = tokens[thisToken].copy()
@@ -207,21 +207,27 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         outNormed.mul(by: modelData.norm.asVector())
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
+
+        gpu.warnOfEvals = false
+        
+        sumPrepTime += Date().timeIntervalSince(evalTime)
+        let ptime = Date().timeIntervalSince(evalTime)*1000
+        evalTime = Date()
+        
+        gpu.eval()
+        
+        sumEvalTime += Date().timeIntervalSince(evalTime)
+        evalTime = Date()
+
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
+
         if goVerify && !goSaveTests {
             outputVector.copyFrom(getVec("ovector:\(thisToken)"))
         }
 
         let topKVector = mpsTopK(v: outputVector)
-        
-        gpu.warnOfEvals = false
-        sumPrepTime += Date().timeIntervalSince(evalTime)
-        let ptime = Date().timeIntervalSince(evalTime)*1000
-        evalTime = Date()
-        gpu.eval()
-        sumEvalTime += Date().timeIntervalSince(evalTime)
-        evalTime = Date()
+
         
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
@@ -254,12 +260,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
+        gpu.warnOfEvals = true
+
         
     }
     
     evalTime = Date()
-    gpu.eval()
-    gpu.stopCapture()
+//    gpu.eval()
+//    gpu.stopCapture()
     
     if let range = output.range(of: "</s>") {
         output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
@@ -301,7 +309,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         let sumTps = Double(tokens.count-2)/(_sumEvalTime+_sumPrepTime)
         let evalTps = Double(tokens.count-2)/(_sumEvalTime)
         
-        print("\(quant*100, precision: 2)%: \(_prepTime, precision: 2)ms + \(_evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
+        print("\(quant*100, precision: 2)%: prep: \(_prepTime, precision: 2)ms ; eval: \(_evalTime, precision: 2)ms (\(evalTps, precision: 2) » \(sumTps, precision: 2)tps)")
         print("")
     }
     
@@ -318,7 +326,7 @@ var storedStrings: [String] = []
 
 var quant: Double = 1.0 // 0.25
 var isTest = false
-numTokens = 500
+numTokens = 100
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
     while true {
