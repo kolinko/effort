@@ -12,6 +12,7 @@ private let bam = BufferActivityManager()
 
 let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
 let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+let jsonPath = "/Users/kolinko/mul_col/model-mixtral/"
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
@@ -21,19 +22,9 @@ class Weights {
     var outSize: Int { return core.rows }
     var inSize: Int { return core.cols }
     
-    init(core: Matrix, buckets:Matrix, stats:Matrix, probes: Vector) {
-        self.core = core
+    init(elName: String, shape: [Int]? = nil) {
+        self.core = tLoader.matrix(elName+".core", assertShape: (shape != nil) ? shape : shapeDict[elName]!)
     }
-    
-    init(elName: String) {
-        let shape = shapeDict[elName]!
-        self.core = tLoader.matrix(elName+".core.bin", assertShape: shape)
-    }
-    
-    init(fromFile: String, shape: [Int]) {
-        self.core = tLoader.matrix(fromFile+".core.bin", assertShape: shape)
-    }
-    
 }
 
 
@@ -48,7 +39,7 @@ class ExpertWeights {
     let probes: Matrix
     let sliceStats: Matrix3DFloat?
     
-    init(_ wId: String, inDim: Int, outDim: Int, layerNo: Int, numExperts: Int, percentLoad: Int) {//}, Q8: Bool = false) {
+    init(_ prefix: String, _ wId: String? = nil, inDim: Int, outDim: Int, numExperts: Int, percentLoad: Int) {
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
@@ -76,12 +67,12 @@ class ExpertWeights {
         }
         
         for eNo in 0..<numExperts {
-            let fName = "layers.\(layerNo).feed_forward.experts.\(eNo).\(wId)."
-            probesList[eNo].copyFrom(tLoader[fName+"probes.bin"], mySize: true)
-            bucketList[eNo].copyFrom(tLoader[fName+"buckets.bin"], mySize: true)
-            statList[eNo].copyFrom(tLoader[fName+"bucket.stats.bin"], mySize: true)
+            let fName = prefix + (wId != nil ? "\(eNo).\(wId!)." : "")
+            probesList[eNo].copyFrom(tLoader[fName+"probes"], mySize: true)
+            bucketList[eNo].copyFrom(tLoader[fName+"buckets"], mySize: true)
+            statList[eNo].copyFrom(tLoader[fName+"bucket.stats"], mySize: true)
             if goQ8 {
-                sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats.bin"], mySize: true)
+                sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats"], mySize: true)
             }
         }
     }
@@ -96,7 +87,6 @@ class Layer {
     let ffnNorm: Vector
     let ffnGate: Matrix?
 
-    
     let wo: Weights
     let wq: Weights
     let wk: Weights
@@ -105,7 +95,6 @@ class Layer {
     let w1: ExpertWeights
     let w2: ExpertWeights
     let w3: ExpertWeights
-
     
     subscript(index: String) -> Matrix {
         get { data[index]! }
@@ -115,11 +104,11 @@ class Layer {
     init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
         let layerName = "layers.\(layerNo)."
         
-        self.ffnNorm = tLoader.vector(layerName+"ffn_norm.bin", assertShape:shapeDict[layerName+"ffn_norm"]!)
-        self.attnNorm = tLoader.vector(layerName+"attention_norm.bin", assertShape: shapeDict[layerName+"attention_norm"]!)
+        self.ffnNorm = tLoader.vector(layerName+"ffn_norm", assertShape:shapeDict[layerName+"ffn_norm"]!)
+        self.attnNorm = tLoader.vector(layerName+"attention_norm", assertShape: shapeDict[layerName+"attention_norm"]!)
 
         if numExperts > 1 {
-            self.ffnGate = tLoader.matrix(layerName+"feed_forward.gate.bin", assertShape: [numExperts, stateDim])
+            self.ffnGate = tLoader.matrix(layerName+"feed_forward.gate", assertShape: [numExperts, stateDim])
         } else {
             self.ffnGate = nil
         }
@@ -132,26 +121,26 @@ class Layer {
         self.numExperts = numExperts
         self.percentLoad = percentLoad
         
-        self.w1 = ExpertWeights("w1", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
-        self.w3 = ExpertWeights("w3", inDim: stateDim, outDim: hiddenDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
-        self.w2 = ExpertWeights("w2", inDim: hiddenDim, outDim: stateDim, layerNo: layerNo, numExperts: numExperts, percentLoad: percentLoad)
+        let prefix = "layers.\(layerNo).feed_forward.experts."
+        self.w1 = ExpertWeights(prefix, "w1", inDim: stateDim, outDim: hiddenDim, numExperts: numExperts, percentLoad: percentLoad)
+        self.w3 = ExpertWeights(prefix, "w3", inDim: stateDim, outDim: hiddenDim, numExperts: numExperts, percentLoad: percentLoad)
+        self.w2 = ExpertWeights(prefix, "w2", inDim: hiddenDim, outDim: stateDim, numExperts: numExperts, percentLoad: percentLoad)
     }
 
 }
 
-let absolutePath = "/Users/kolinko/mul_col/model-mixtral/"
+
 class Model {
     let norm: Vector
     let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    //numLayers: 32, numExperts: 8, percentLoad: 0xA
     init(numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
-        self.norm = tLoader.vector("norm.bin", assertShape: shapeDict["norm"]!)
-        self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
-        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core.bin", assertShape: shapeDict["tok_embeddings"]!)
+        self.norm = tLoader.vector("model.norm", assertShape: shapeDict["norm"]!)
+        self.output = Weights(elName: "output", shape: shapeDict["output"]!)
+        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core", assertShape: shapeDict["tok_embeddings"]!)
 
         print("loading weights")
         var layers = [Int: Layer]()
@@ -169,7 +158,7 @@ class Model {
 
 
 func readJson() -> [String: [Int]] {
-    let fileUrl = URL(fileURLWithPath: absolutePath + "index.json")
+    let fileUrl = URL(fileURLWithPath: jsonPath + "index.json")
     let data = try! Data(contentsOf: fileUrl)
     let dictionary = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: [Int]]
 

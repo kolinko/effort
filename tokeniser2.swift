@@ -55,7 +55,7 @@ class MistralTokenizer {
     init() {
         print("init!")
         // Load and decode JSON
-        let fileUrl = URL(fileURLWithPath: absolutePath + "tokenizer.json")
+        let fileUrl = URL(fileURLWithPath: jsonPath + "tokenizer.json")
         let data = try! Data(contentsOf: fileUrl)
         let decoder = JSONDecoder()
         let decodedData = try! decoder.decode(TokenizerData.self, from: data)

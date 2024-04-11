@@ -58,18 +58,17 @@ func convertMistral(goQ8: Bool) {
         var layerTensors = saveTensors[layerNo]
         
         if layerNo == 0 {
-            layerTensors["norm.bin"] = tensors["model.norm.weight"]
-            layerTensors["output.core.bin"] = tensors["lm_head.weight"] 
-            layerTensors["tok_embeddings.core.bin"] = tensors["model.embed_tokens.weight"]
-
+            layerTensors["model.norm"] = tensors["model.norm.weight"]
+            layerTensors["output.core"] = tensors["lm_head.weight"]
+            layerTensors["tok_embeddings.core"] = tensors["model.embed_tokens.weight"]
         }
 
         do {
             let prefix = "model.layers.\(layerNo)."
             let newPrefix = "layers.\(layerNo)."
             
-            layerTensors[newPrefix + "attention_norm.bin"] = tensors[prefix + "input_layernorm.weight"]
-            layerTensors[newPrefix + "ffn_norm.bin"] = tensors[prefix + "post_attention_layernorm.weight"]
+            layerTensors[newPrefix + "attention_norm"] = tensors[prefix + "input_layernorm.weight"]
+            layerTensors[newPrefix + "ffn_norm"] = tensors[prefix + "post_attention_layernorm.weight"]
         }
             
         for s in ["k", "o", "q", "v"] {
@@ -84,13 +83,13 @@ func convertMistral(goQ8: Bool) {
             let prefix = "model.layers.\(layerNo).mlp."
             let newPrefix = "layers.\(layerNo).feed_forward.experts.0."
 
-            layerTensors[newPrefix + "w1.core.bin"] = tensors[prefix + "gate_proj.weight"]
+            layerTensors[newPrefix + "w1.core"] = tensors[prefix + "gate_proj.weight"]
             bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
 
-            layerTensors[newPrefix + "w2.core.bin"] = tensors[prefix + "down_proj.weight"]
+            layerTensors[newPrefix + "w2.core"] = tensors[prefix + "down_proj.weight"]
             bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
 
-            layerTensors[newPrefix + "w3.core.bin"] = tensors[prefix + "up_proj.weight"]
+            layerTensors[newPrefix + "w3.core"] = tensors[prefix + "up_proj.weight"]
             bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
 
             
@@ -109,22 +108,6 @@ func convertMistral(goQ8: Bool) {
 
         saveTensors[layerNo] = layerTensors
 
-        
-        
-        /*
-        let prefix = "model.layers.\(layerNo).mlp."
-        print("processing \(prefix)..")
-        
-        bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: prefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-
-        bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: prefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-
-        bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: prefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
-        gpu.eval()
-        
-        saveTensors[layerNo] = layerTensors*/
     }
     
     saveTensors.save()
@@ -148,26 +131,27 @@ func convertMixtral(goQ8: Bool) {
         var layerTensors = saveTensors[layerNo]
         
         if layerNo == 0 {
-            for k in ["norm.bin", "output.core.bin", "tok_embeddings.core.bin"] {
-                layerTensors[k] = tensors[k]
+            layerTensors["model.norm"] = tensors["norm.bin"]
+
+            for k in ["output.core", "tok_embeddings.core"] {
+                layerTensors[k] = tensors[k+".bin"]
             }
         }
         
-        for k in ["feed_forward.gate.bin",
-                  "attention_norm.bin",
-                  "ffn_norm.bin"] {
+        for k in ["feed_forward.gate",
+                  "attention_norm",
+                  "ffn_norm"] {
             let prefix = "layers.\(layerNo).\(k)"
-            layerTensors[prefix] = tensors[prefix]
+            layerTensors[prefix] = tensors[prefix+".bin"]
         }
         
         
         for s in ["k", "o", "q", "v"] {
-            let prefix = "layers.\(layerNo).attention.w\(s).core.bin"
+            let prefix = "layers.\(layerNo).attention.w\(s).core"
             let newPrefix = "layers.\(layerNo).attention.w\(s)."
-//            gpu.startCapture()
-            layerTensors[prefix] = tensors[prefix]
+            layerTensors[prefix] = tensors[prefix+".bin"]
 
-            bucketize(tensors[prefix] as! Matrix, outTensorsPref: newPrefix, tensors: &layerTensors, goQ8: goQ8)
+            bucketize(tensors[prefix+".bin"] as! Matrix, outTensorsPref: newPrefix, tensors: &layerTensors, goQ8: goQ8)
         }
         
         for expertNo in 0..<numExperts {
@@ -255,7 +239,7 @@ func bucketize(_ w: Matrix, outTensorsPref: String, tensors: inout [String: MTLB
     gpu.deploy("makeStats", buffers: [buckets, stats], ints:[buckets.cols], threadCount: buckets.rows)
     gpu.stopCapture()
     
-    tensors[outTensorsPref+"stats"] = stats
+    tensors[outTensorsPref+"bucket.stats"] = stats
     tensors[outTensorsPref+"probes"] = probes
     
     if !goQ8 {

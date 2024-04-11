@@ -10,6 +10,11 @@ import Metal
 import simd
 print("starting up")
 
+/*
+print(NSUserName())
+print(NSFullUserName())
+ */
+
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
 let gpu = Gpu()
@@ -24,7 +29,7 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xD // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 10
+var numLayers = 32
 var numExperts = 1
 var numTokens = 30
 
@@ -319,7 +324,11 @@ var runControl = false
 silent = true
 //for _ in 0..<20 {
 runNetwork(isTest: false, tokens: tokens, quant:1)
+//numTokens = 150
+//runNetwork(isTest: false, tokens: t.embed("<s>[INST]User's name is \(NSFullUserName()), datetime is 17:01, 11 Apr 2024 - write some neat like 'Good morning professor XXX, how are we doing this morning.'. And a nice quote for the day.[/INST]"), quant: 0.25)
 //}
+
+numTokens = 150
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []

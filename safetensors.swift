@@ -134,10 +134,10 @@ class TensorLoader {
             keyname = String(_keyname.dropLast(4))
         }
         
-        if keyname.contains(".bucket.stats") {
-            keyname = String(_keyname.dropLast(17)) + ".stats"
+//        if keyname.contains(".bucket.stats") {
+//            keyname = String(_keyname.dropLast(17)) + ".stats"
 
-        }
+//        }
         
         precondition(self.index.keys.contains(keyname), "\(keyname) not found in the safetensors lib!")
         

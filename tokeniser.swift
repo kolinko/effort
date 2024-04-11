@@ -28,7 +28,7 @@ class Tokeniser {
     }
     
     init(_ modelData: Model) {
-        let fileUrl = URL(fileURLWithPath: absolutePath + "swift-tokeniser.json")
+        let fileUrl = URL(fileURLWithPath: jsonPath + "swift-tokeniser.json")
         let data = try! Data(contentsOf: fileUrl)
         self.data = try! JSONSerialization.jsonObject(with: data, options: []) as! [String:String]
         self.tokEmbeddings = modelData.tokEmbeddings.asVectorList()
