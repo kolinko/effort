@@ -31,7 +31,7 @@ var numTokens = 30
 let goNoMuls = false
 let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
-let goSaveTests = true
+let goSaveTests = false
 
 
 //modelRunTests()
