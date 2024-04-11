@@ -20,8 +20,8 @@ kernel void zeroRange32(device float2* dispatch [[buffer(0)]],
     }
 }
 
-kernel void roundUp(device float* result [[buffer(0)]],
-                  device float* prevResult [[buffer(1)]],
+kernel void roundUp(device uint* result [[buffer(0)]],
+                  device uint* prevResult [[buffer(1)]],
                   device const uint& number [[buffer(2)]],
 
                      uint id [[thread_position_in_grid]]) {
@@ -36,7 +36,7 @@ kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
                                   device const int* expertNo[[buffer(2)]],
                                   device const half* cutoff[[buffer(3)]],
                                   device float2* dispatch[[buffer(4)]],
-                                  device atomic_float* dispatchCount[[buffer(5)]],
+                                  device atomic_uint* dispatchCount[[buffer(5)]],
                                   device const int& chunkSize [[buffer(6)]],
                                   device const uint& rowsCount [[buffer(7)]],
                                   device const uint& colsCount [[buffer(8)]],
@@ -71,15 +71,15 @@ kernel void bucketMulFast(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
                    device float *result [[buffer(2)]],
-                   constant float *dispatchSize [[buffer(3)]],
+                   constant uint *dispatchSize [[buffer(3)]],
                    constant uint &cols [[buffer(4)]],
-                   constant int &groups [[buffer(5)]],
+                   constant uint &groups [[buffer(5)]],
                    uint2 id [[thread_position_in_grid]]) {
                       
     float myVal[16] = {0};
       
     const uint rowOffset = id.y*dispatchSize[0]/groups;
-    for (int r=0; r<dispatchSize[0]/groups; r+=STEP) {
+    for (uint r=0; r<dispatchSize[0]/groups; r+=STEP) {
 //        threadgroup_barrier(mem_flags::mem_threadgroup);
 
         for (int s=0; s<STEP; s++) { // for better optimisation
