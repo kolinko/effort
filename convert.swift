@@ -76,6 +76,7 @@ func convertMistral(goQ8: Bool) {
             let prefix = "model.layers.\(layerNo).self_attn.\(s)_proj.weight"
             let newPrefix = "layers.\(layerNo).attention.w\(s)."
             
+            bucketize(tensors[prefix] as! Matrix, outTensorsPref: newPrefix, tensors: &layerTensors, goQ8: goQ8)
             layerTensors[newPrefix+"core"] = tensors[prefix]
         }
 
