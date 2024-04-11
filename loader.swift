@@ -38,14 +38,53 @@ class ExpertWeights {
     let stats: Matrix3D
     let probes: Matrix
     let sliceStats: Matrix3DFloat?
+    let core: Matrix?
+    
+    init(elName: String) {
+        self.core = tLoader.matrix(elName+".core")
+        self.inSize = core!.cols
+        self.outSize = core!.rows
+        self.percentLoad = goQ8 ? 8 : 16
+        
+        let probesCount = 4096
+        self.probes = Matrix(shape: [1, probesCount])
+        let probesList: [Vector] = probes.asVectorList()
+        
+        self.buckets = Matrix3D(shape: [1, inSize*percentLoad, outSize/16])
+        let bucketList: [Matrix] = self.buckets.asMatrixList()
+        bam.addBuffer(self.buckets)
+        
+        self.stats = Matrix3D(shape: [1, inSize*percentLoad, 4])
+        let statList: [Matrix] = self.stats.asMatrixList()
+        bam.addBuffer(self.stats)
+
+        var sliceStatsList: [MatrixFloat]?
+        
+        if goQ8 {
+            self.sliceStats = Matrix3DFloat(shape: [1, 8 , 2])
+            sliceStatsList = self.sliceStats!.asMatrixList()
+        } else {
+            self.sliceStats = nil
+        }
+        
+        probesList[0].copyFrom(tLoader.vector(elName+".probes"))//, mySize: true)
+        bucketList[0].copyFrom(tLoader.matrix(elName+".buckets"))//, mySize: true)
+        statList[0].copyFrom(tLoader.matrix(elName+".bucket.stats"))//, mySize: true)
+        if goQ8 {
+            sliceStatsList![0].copyFrom(tLoader.matrix(elName+".sliceStats"))//, mySize: true)
+        }
+
+    }
+
     
     init(_ prefix: String, _ wId: String? = nil, inDim: Int, outDim: Int, numExperts: Int, percentLoad: Int) {
+        self.core = nil
+        
         self.inSize = inDim
         self.outSize = outDim
         self.percentLoad = percentLoad
         
         let probesCount = 4096
-
         self.probes = Matrix(shape: [numExperts, probesCount])
         let probesList: [Vector] = probes.asVectorList()
         
@@ -87,10 +126,10 @@ class Layer {
     let ffnNorm: Vector
     let ffnGate: Matrix?
 
-    let wo: Weights
-    let wq: Weights
-    let wk: Weights
-    let wv: Weights
+    let wo: ExpertWeights
+    let wq: ExpertWeights
+    let wk: ExpertWeights
+    let wv: ExpertWeights
 
     let w1: ExpertWeights
     let w2: ExpertWeights
@@ -113,10 +152,10 @@ class Layer {
             self.ffnGate = nil
         }
         
-        self.wo = Weights(elName: layerName+"attention.wo")
-        self.wk = Weights(elName: layerName+"attention.wk")
-        self.wq = Weights(elName: layerName+"attention.wq")
-        self.wv = Weights(elName: layerName+"attention.wv")
+        self.wo = ExpertWeights(elName: layerName+"attention.wo")
+        self.wk = ExpertWeights(elName: layerName+"attention.wk")
+        self.wq = ExpertWeights(elName: layerName+"attention.wq")
+        self.wv = ExpertWeights(elName: layerName+"attention.wv")
 
         self.numExperts = numExperts
         self.percentLoad = percentLoad

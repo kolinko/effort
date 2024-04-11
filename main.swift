@@ -126,13 +126,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
+            let QQ = quant
+            expertMul(v: h_norm, by: layer.wq, out: xq, quant: QQ)
             
-            basicMul(v: h_norm, by: layer.wq.core, out: xq)
-            
-            basicMul(v: h_norm, by: layer.wk.core, out: xk_temp)
+//            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ)
+            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)//, quant: QQ)
+
             xk_temp.repeated(kvRepeats, into:xk)
                         
-            basicMul(v: h_norm, by: layer.wv.core, out: xv_temp)
+            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ)
+            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)//, quant: QQ)
+
+//            basicMul(v: h_norm, by: layer.wv.core!, out: xk_temp, quant: QQ)
+
             xv_temp.repeated(kvRepeats, into: xv)
             
             let xqHeads = xq.asMatrix(newCols: headDim)
@@ -163,8 +169,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                       numTokens: thisToken+1,
                       out: attnOutput)
             
-            basicMul(v: attnOutput, by: layer.wo.core, out: attnFfnOut)
+//            expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, quant: QQ)
+            basicMul(v: attnOutput, by: layer.wo.core!, out: attnFfnOut)
 
+            
             testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
 
             h.add(by: attnFfnOut)
@@ -249,7 +257,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             let topToken = Int(topKVector.getInt(index: 0))
             let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
-            output += newS
+            output += newS.replacingOccurrences(of: "<0x0A>", with: "↩")
             if (silent) {
                 print(newS, terminator: goVerify ? "\n" : "")
                 fflush(stdout)
