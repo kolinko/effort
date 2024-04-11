@@ -31,7 +31,7 @@ var numTokens = 30
 let goNoMuls = false
 let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
-let goSaveTests = false
+let goSaveTests = true
 
 
 //modelRunTests()
@@ -228,7 +228,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
-        if goVerify {
+        if goVerify && !goSaveTests {
             outputVector.copyFrom(getVec("ovector:\(thisToken)"))
         }
 

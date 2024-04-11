@@ -9,9 +9,9 @@ import Foundation
 
 private var testCount = 0
 private var driftCount = 0
-private let testVer = "5.1.1" + "-" + (goQ8 ? "Q8" : "FP16") + (goMistral ? "mistral" : "mixtral") + ("-noLay\(numLayers)")
+private let testVer = "5.3" + "-" + (goQ8 ? "Q8" : "FP16") + (goMistral ? "mistral" : "mixtral") + ("-noLay\(numLayers)")
 
-private let testLoader = TensorLoader(path: "./", model: "tests-\(testVer)")
+private let testLoader = goSaveTests ? nil : TensorLoader(path: "./", model: "tests-\(testVer)")
 private let testSaver = TensorSaver(path: "./", model: "tests-\(testVer)")
 
 //rivate
@@ -36,7 +36,7 @@ private func testTest(_ title: String, _ score: Float) {
 }
 //expr let x = ( testLoader["ovector:4"] as! VectorFloat); (0..<4096).map { ( x[$0], outputVector[$0] ) }
 func getVec(_ title: String) -> VectorFloat {
-    return testLoader[title] as! VectorFloat
+    return testLoader![title] as! VectorFloat
 }
 
 func testVec(_ title: String, _ v: VectorFloat) {
@@ -46,20 +46,20 @@ func testVec(_ title: String, _ v: VectorFloat) {
         gpu.eval()
         testSaver[0][title] = hh
     } else if goVerify {
-        let tt = testLoader[title] as! VectorFloat
+        let tt = testLoader![title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
         testTest(title, score)
     }
 }
 
 func cosVec(_ title: String, _ v: VectorFloat) -> Float {
-    let tt = testLoader[title] as! VectorFloat
+    let tt = testLoader![title] as! VectorFloat
     let score = tt.cosineSimilarityTo(v)
     return score
 }
 
 func tv(_ title: String) -> VectorFloat {
-    return testLoader["ovector:4"] as! VectorFloat
+    return testLoader![title] as! VectorFloat
 }
 
 func testVec32(_ title: String, _ v: VectorFloat) {
@@ -69,7 +69,7 @@ func testVec32(_ title: String, _ v: VectorFloat) {
         gpu.eval()
         testSaver[0][title] = hh
     } else if goVerify {
-        let tt = testLoader[title] as! VectorFloat
+        let tt = testLoader![title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
         print(title, score)
         testTest(title, score)
