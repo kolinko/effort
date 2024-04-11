@@ -329,7 +329,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 var runControl = false
 silent = true
 //for _ in 0..<20 {
-runNetwork(isTest: false, tokens: tokens, quant:0.35)
+runNetwork(isTest: false, tokens: tokens, quant:1)
 //}
 
 var storedIntegers: [Int] = []
