@@ -8,13 +8,25 @@
 import Foundation
 
 private var testCount = 0
-private let testVer = "1.0" + "-" + (goQ8 ? "Q8" : "FP16")
+private let testVer = "5.1" + "-" + (goQ8 ? "Q8" : "FP16") + (goMistral ? "mistral" : "mixtral") + ("-noLay\(numLayers)")
 
 private let testLoader = TensorLoader(path: "./", model: "tests-\(testVer)")
 private let testSaver = TensorSaver(path: "./", model: "tests-\(testVer)")
 
 //rivate
 
+private var testLog = [String]()
+
+private func testTest(_ title: String, _ score: Float) {
+    testLog.append("[\(testCount)] \(title); \(score)")
+    if score < 0.99 {
+        for i in min(0, testLog.count-20)..<testLog.count {
+            print(testLog[i])
+        }
+        assertionFailure("Error in test \(testCount): \(title); \(score)")
+    }
+}
+//expr let x = ( testLoader["ovector:4"] as! VectorFloat); (0..<4096).map { ( x[$0], outputVector[$0] ) }
 func testVec(_ title: String, _ v: VectorFloat) {
     testCount += 1
     if goSaveTests {
@@ -24,10 +36,19 @@ func testVec(_ title: String, _ v: VectorFloat) {
     } else if goVerify {
         let tt = testLoader[title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
-     //   assert(score > 0.99, "Error in test \(testCount): \(title); \(score)")
+        testTest(title, score)
     }
 }
 
+func cosVec(_ title: String, _ v: VectorFloat) -> Float {
+    let tt = testLoader[title] as! VectorFloat
+    let score = tt.cosineSimilarityTo(v)
+    return score
+}
+
+func tv(_ title: String) -> VectorFloat {
+    return testLoader["ovector:4"] as! VectorFloat
+}
 
 func testVec32(_ title: String, _ v: VectorFloat) {
     testCount += 1
@@ -39,7 +60,7 @@ func testVec32(_ title: String, _ v: VectorFloat) {
         let tt = testLoader[title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
         print(title, score)
-        assert(score > 0.99, "Error in test \(testCount): \(title); \(score)")
+        testTest(title, score)
     }
 }
 

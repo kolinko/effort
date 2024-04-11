@@ -24,8 +24,8 @@ let goQ8 = false
 let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
-var numLayers = 32
-var numExperts = 1
+var numLayers = 10
+var numExperts = 2
 var numTokens = 30
 
 let goNoMuls = false
@@ -42,8 +42,8 @@ let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad:
 let t = Tokeniser(modelData)
 
 //var tokens = [VectorFloat]()
-let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
-                          16289, 28793])//!!!! [1, 1602, 460])//
+let tokens = t.embed([1, 1602, 460])//[    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
+//                          16289, 28793])//!!!! [1, 1602, 460])//
 
 os_signpost(.end, log: log, name: "Loading")
 
@@ -105,16 +105,19 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             gpu.eval()
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
-            gpu.warnOfEvals = true
+            gpu.warnOfEvals = false
         }
         
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
             let layer = modelData.layers[layerNo]!
+            testVec("h_in:\(thisToken):\(layerNo)", h)
+
             h.rmsNormFast(out: h_norm)
-            
+            testVec("h_norm_rms:\(thisToken):\(layerNo)", h_norm)
             h_norm.mul(by:layer.attnNorm)
+            testVec("h_norm_mul:\(thisToken):\(layerNo)", h_norm)
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
@@ -134,15 +137,21 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xvToken = xvLayerToken[layerNo]
             
             let fCis = freqsCis[thisToken]
+            testVec("xqHeads:\(thisToken):\(layerNo)", xqHeads.asVector())
             xqHeads.rope(complexArray: fCis)
             xkHeads.rope(complexArray: fCis)
+            testVec("xqHeadsROPE:\(thisToken):\(layerNo)", xqHeads.asVector())
             
+
             calcScores2(xq_heads: xqHeads, 
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
                         out: scores)
 
+            testVec("scores:\(thisToken):\(layerNo)", scores.asVector())
+
             scores.softmax()
+            testVec("scoresSM:\(thisToken):\(layerNo)", scores.asVector())
 
             sumScores(scores: scores,
                       xvToken: xvToken,
@@ -150,12 +159,17 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                       out: attnOutput)
             
             basicMul(v: attnOutput, by: layer.wo.core, out: attnFfnOut)
-            
+
+            testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
+
             h.add(by: attnFfnOut)
             h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
 
+            testVec("fxn:\(thisToken):\(layerNo)", fxn)
+
+            
             if layer.ffnGate == nil {
                 let expIdx = ScalarFloat(value: 0)
                 expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
@@ -202,10 +216,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 h.add(by: ffnOut[1])
             }
             
-          //  gpu.eval()
             gpu.stopCapture()
             
-          //  testVec("h-out:\(thisToken):\(layerNo)", h)
+            testVec("h-out:\(thisToken):\(layerNo)", h)
         }
         
         
@@ -230,13 +243,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
 
-
-            if thisToken >= 10 && goVerify {
+            if thisToken >= 30 && goVerify {
                 speedReport()
             }
 
-            testReport(thisToken >= 15)
-            if thisToken >= 15 && goVerify {
+            testReport(thisToken >= 30)
+            if thisToken >= 30 && goVerify {
                 return
             }
 
@@ -252,7 +264,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
         }
         
-        gpu.warnOfEvals = true
+        gpu.warnOfEvals = false
         
         if !silent {
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
@@ -290,20 +302,22 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
     
     func speedReport() {
         print("\n")
-        var evalTime = sumEvalTime*1000/Double(tokens.count-2)
-        var prepTime = sumPrepTime*1000/Double(tokens.count-2)
+        var _sumEvalTime = sumEvalTime
+        var _sumPrepTime = sumPrepTime
+        var _evalTime = _sumEvalTime*1000/Double(tokens.count-2)
+        var _prepTime = _sumPrepTime*1000/Double(tokens.count-2)
         
-        evalTime /= Double(numLayers) / 32.0
-        prepTime /= Double(numLayers) / 32.0
-
-        sumEvalTime /= Double(numLayers) / 32.0
-        sumPrepTime /= Double(numLayers) / 32.0
-
+        _evalTime /= Double(numLayers) / 32.0
+        _prepTime /= Double(numLayers) / 32.0
         
-        let sumTps = Double(tokens.count-2)/(sumEvalTime+sumPrepTime)
-        let evalTps = Double(tokens.count-2)/(sumEvalTime)
+        _sumEvalTime /= Double(numLayers) / 32.0
+        _sumPrepTime /= Double(numLayers) / 32.0
         
-        print("\(quant*100, precision: 2)%: \(prepTime, precision: 2)ms + \(evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
+        
+        let sumTps = Double(tokens.count-2)/(_sumEvalTime+_sumPrepTime)
+        let evalTps = Double(tokens.count-2)/(_sumEvalTime)
+        
+        print("\(quant*100, precision: 2)%: \(_prepTime, precision: 2)ms + \(_evalTime, precision: 2)ms (\(evalTps, precision: 2)/\(sumTps, precision: 2)tps)")
         print("")
     }
     

@@ -220,6 +220,14 @@ class Bufferable<Type> : MTLBufferable {
         return intStorage
     }
     
+    func zip(_ x: Bufferable<Type>) -> [(Type, Type)] {
+        (0..<min(self.count, x.count)).map { (self[$0], x[$0]) }
+    }
+    
+    func zip(_ x: MTLBufferable) -> [(Type, Type)] {
+        return zip(x as! Bufferable<Type>)
+    }
+    
     subscript(index: Int) -> Type {
             get {
                 let bufferPointer = self.bufferPointer
