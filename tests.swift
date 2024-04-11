@@ -31,11 +31,12 @@ func modelRunTests() {
 
     timeIt(repeats:1000) { i in
         let ew = modelData.layers[i % 3]!.w1
-        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
     }
+    print()
     timeIt(repeats:1000) { i in
         let ew = modelData.layers[i % 3]!.w1
-        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
     }
 
     //    gpu.startCapture()

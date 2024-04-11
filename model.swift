@@ -837,7 +837,7 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 }
 
 
-func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+func expertMulSlow(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     if goNoMuls {return;}
     out.zero()
     BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)

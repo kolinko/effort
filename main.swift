@@ -34,8 +34,8 @@ let goVerify = numLayers == 10 && numExperts == 2 && !goNoMuls && !goMistral
 let goSaveTests = false
 
 
-modelRunTests()
-exit(0)
+//modelRunTests()
+//exit(0)
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
@@ -183,33 +183,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 mpsTopK(v: gateOut, topK: 2, outIndexes: gateIdxs, outValues: gateVals)
                 
                 gateVals.softmax()
-
                 for i in 0..<2 {
                     let expIdx = gateIdxs.scalarAt(i)
-                    if !goQ8 {
-                        if isTest {
-                            bucketMulFast(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                            bucketMulFast(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                            
-                            silu(x1, x3, out: x2)
-                            bucketMulFast(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                            ffnOut[i].mul(by: gateVals.scalarAt(i))
-                        } else {
-                            expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                            expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                            
-                            silu(x1, x3, out: x2)
-                            expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                            ffnOut[i].mul(by: gateVals.scalarAt(i))
-                        }
-                    } else {
-                        expertMulQ8(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                        expertMulQ8(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                        
-                        silu(x1, x3, out: x2)
-                        expertMulQ8(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
-                        ffnOut[i].mul(by: gateVals.scalarAt(i))
-                    }
+                    expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
+                    expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
+                    
+                    silu(x1, x3, out: x2)
+                    expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[i], quant: quant)
+                    ffnOut[i].mul(by: gateVals.scalarAt(i))
                 }
                 
                 h.add(by: ffnOut[0])
@@ -218,7 +199,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             gpu.stopCapture()
             
-            testVec("h-out:\(thisToken):\(layerNo)", h)
+        //    testVec("h-out:\(thisToken):\(layerNo)", h)
         }
         
         
