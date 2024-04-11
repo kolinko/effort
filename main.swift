@@ -204,7 +204,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         
         
         h.rmsNormFast(out: outNormed)
-        outNormed.mul(by: modelData.norm.asVector())
+        outNormed.mul(by: modelData.norm)
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
 

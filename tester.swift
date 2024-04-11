@@ -39,7 +39,7 @@ func getVec(_ title: String) -> VectorFloat {
 }
 
 func testVec(_ title: String, _ v: VectorFloat) {
-    return
+    return ()
     testCount += 1
     if goSaveTests {
         let hh = v.copy()

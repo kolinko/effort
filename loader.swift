@@ -27,7 +27,9 @@ class Weights {
     
     
     init(fromFile: String, shape: [Int]) {
-        self.core = loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
+        self.core = tLoader[fromFile+".core.bin"] as! Matrix
+        assert(self.core.shape == shape)
+//        loadBinaryMatrix(named: fromFile+".core.bin", shape: shape)
     }
     
 }
@@ -78,17 +80,7 @@ class ExpertWeights {
             statList[eNo].copyFrom(tLoader[fName+"bucket.stats.bin"], mySize: true)
             if goQ8 {
                 sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats.bin"], mySize: true)
-//                    loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
             }
-            /*
-             //                loadBinaryVector(named: fName+"probes.bin", shape: [probesCount]))
-                         bucketList[eNo].copyFrom(loadBinaryMatrix(named: fName+"buckets.bin", shape: bucketList[eNo].shape))
-                         statList[eNo].copyFrom(loadBinaryMatrix(named: fName+"bucket.stats.bin", shape: statList[eNo].shape))
-                         if goQ8 {
-                             sliceStatsList![eNo].copyFrom(loadBinaryMatrixFloat(named: fName+"sliceStats.bin", shape: sliceStatsList![eNo].shape))
-                         }
-
-             */
         }
     }
 }
@@ -147,7 +139,7 @@ class Layer {
 
 let absolutePath = "/Users/kolinko/mul_col/model-mixtral/"
 class Model {
-    let norm: Matrix
+    let norm: Vector
     let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
@@ -155,10 +147,12 @@ class Model {
     //numLayers: 32, numExperts: 8, percentLoad: 0xA
     init(numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
-
-        self.norm = loadBinaryMatrix(named: "norm.bin", shape: shapeDict["norm"]!)
+        self.norm = tLoader["norm.bin"] as! Vector
+        assert (self.norm.shape == shapeDict["norm"]!)
         self.output = Weights(fromFile: "output", shape: shapeDict["output"]!)
-        self.tokEmbeddings = loadBinaryMatrix(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
+        self.tokEmbeddings = tLoader["tok_embeddings.core.bin"] as! Matrix
+        assert (self.tokEmbeddings.shape == shapeDict["tok_embeddings"]!)
+//        loadBinaryMatrix(named: "tok_embeddings.core.bin", shape: shapeDict["tok_embeddings"]!)
 
         print("loading weights")
         var layers = [Int: Layer]()
@@ -189,7 +183,7 @@ private let tLoader = TensorLoader(path: modelPath, model: modelName)
 func loadBuffer(named fileName: String) -> MTLBuffer {
    return tLoader[fileName].buffer
 }
-
+/*
 func loadBinaryMatrix(named fileName: String, shape: [Int]) -> Matrix {
     return Matrix(shape: shape, buffer: tLoader[fileName].buffer)
 }
@@ -201,3 +195,4 @@ func loadBinaryMatrixFloat(named fileName: String, shape: [Int]) -> MatrixFloat 
 func loadBinaryVector(named fileName: String, shape: [Int]) -> Vector {
     return Vector(shape: shape, buffer: tLoader[fileName].buffer)
 }
+*/
