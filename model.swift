@@ -29,6 +29,8 @@ class MTLBufferable {
     }
 }
 
+private let tmpScalar = ScalarFloat(value: 0)
+
 class Bufferable<Type> : MTLBufferable {
     var bufferPointer: UnsafeMutablePointer<Type> {
         if self._bufferPointer == nil {
@@ -48,16 +50,6 @@ class Bufferable<Type> : MTLBufferable {
     var count : Int {
         return self.shape.reduce(1, *)
     }
-/*
-    override init(fname: String, shape: [Int]) {
-        assert(shape.count > 0)
-        assert(shape.reduce(1, *) > 0)
-        self.byteSize = MemoryLayout<Type>.size
-        self.bitSize = byteSize * 8
-        assert((byteSize == 4) || (byteSize == 2), "untested for others")
-        self.shape = shape
-        super.init(fname: fname, shape: shape)
-    }*/
     
     init(shape: [Int], buffer: MTLBuffer, offset: Int = 0) {
         assert(shape.count > 0)
@@ -90,6 +82,19 @@ class Bufferable<Type> : MTLBufferable {
         for i in 0..<self.count {
             self[i] = with
         }
+    }
+        
+    var hasNan : Bool {
+        tmpScalar.zero()
+        gpu.deploy("hasNan\(bitSize)", buffers: [self, tmpScalar], threadCount: self.count)
+        gpu.eval()
+        return tmpScalar.val > 0
+    }
+    
+    func save(_ fname: String) {
+        let hsaver = TensorSaver(path: "./", model: fname)
+        hsaver[0]["h"] = self
+        hsaver.save()
     }
     
     func zero() {
@@ -137,7 +142,7 @@ class Bufferable<Type> : MTLBufferable {
     
     
     var str: String {
-        return _str()
+        return str(10)
     }
     
     
@@ -152,9 +157,9 @@ class Bufferable<Type> : MTLBufferable {
     }
     
     
-    func _str(count: Int = 10, noEval: Bool = false) -> String {
-        if !noEval { gpu.eval() }
-        let _count = count<self.count ? count : self.count
+    func str(_ count: Int? = nil) -> String {
+        gpu.eval()
+        let _count = count != nil && count!<self.count ? count! : self.count
         var outStr = ""
         for i in 0..<_count {
             outStr += "\(self[i]), "
@@ -170,6 +175,20 @@ class Bufferable<Type> : MTLBufferable {
 
         withUnsafePointer(to: &floatStorage) { floatPointer in
             floatPointer.withMemoryRebound(to: Int16.self, capacity: 1) { intPointer in
+                intStorage = intPointer.pointee
+            }
+        }
+        return intStorage
+    }
+    
+    func getLong(index: Int) -> Int {
+        var floatStorage: Type
+            floatStorage = self[index]
+
+        var intStorage: Int = 0
+
+        withUnsafePointer(to: &floatStorage) { floatPointer in
+            floatPointer.withMemoryRebound(to: Int.self, capacity: 1) { intPointer in
                 intStorage = intPointer.pointee
             }
         }
@@ -240,6 +259,7 @@ class ScalarFloat: Bufferable<Float> {
     
     var val : Float {self[0]}
     var intVal: Int16 {self.getInt(index: 0)}
+    var long: Int {self.getLong(index: 0)}
 }
 
 

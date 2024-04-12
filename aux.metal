@@ -22,6 +22,23 @@ kernel void touch(device half* v[[buffer(0)]],
 
 }
 
+//gpu.deploy("hasNan\(bitSize)", buffers: [self, tmpScalar], threadCount: self.count)
+kernel void hasNan16(device half* v[[buffer(0)]],
+                     device atomic_float* out [[buffer(1)]],
+                     uint id [[thread_position_in_grid]]) {
+    if (isnan(v[id])) {
+        atomic_fetch_add_explicit(out, 1, memory_order_relaxed);
+    }
+}
+
+kernel void hasNan32(device float* v[[buffer(0)]],
+                     device atomic_float* out [[buffer(1)]],
+                     uint id [[thread_position_in_grid]]) {
+    if (isnan(v[id])) {
+        atomic_fetch_add_explicit(out, 1, memory_order_relaxed);
+    }
+}
+
 
 kernel void zero16(device half* v[[buffer(0)]],
                     uint id [[thread_position_in_grid]]) {

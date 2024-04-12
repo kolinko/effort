@@ -91,6 +91,12 @@ class TensorLoader {
     
     let index: [String: String]
     let path: String
+    
+    static func loadVec(_ fname: String) -> VectorFloat {
+        let tl = TensorLoader(path: "./", model: fname)
+        return tl["h"] as! VectorFloat
+    }
+    
     init() {
         self.path = "/dev/null"
         self.index = [String: String]()

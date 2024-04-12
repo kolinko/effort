@@ -128,13 +128,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             let xv = xvLayerToken[layerNo][thisToken]
             let QQ = quant
             expertMul(v: h_norm, by: layer.wq, out: xq, quant: QQ)
+           /* if (xq.hasNan) {
+                print("hello")
+            }*/
             
-//            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ)
+//            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ) // 1.0!
             basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)//, quant: QQ)
 
             xk_temp.repeated(kvRepeats, into:xk)
                         
-            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ)
+//            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ) // 1.0!
             basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)//, quant: QQ)
 
 //            basicMul(v: h_norm, by: layer.wv.core!, out: xk_temp, quant: QQ)
@@ -162,6 +165,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             testVec("scores:\(thisToken):\(layerNo)", scores.asVector())
 
             scores.softmax()
+        //    print(scores.str)
             testVec("scoresSM:\(thisToken):\(layerNo)", scores.asVector())
 
             sumScores(scores: scores,
@@ -176,6 +180,10 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
 
             h.add(by: attnFfnOut)
+            //print(h.str)
+            /*if h.hasNan {
+                print("hello")
+            }*/
             h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
@@ -256,8 +264,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             }
 
             let topToken = Int(topKVector.getInt(index: 0))
-            let newS = t[topToken].replacingOccurrences(of: "▁", with: " ")
-            output += newS.replacingOccurrences(of: "<0x0A>", with: "↩")
+            let newS = t[topToken].replacingOccurrences(of: "▁", with: " ").replacingOccurrences(of: "<0x0A>", with: "↩")
+            output += newS
             if (silent) {
                 print(newS, terminator: goVerify ? "\n" : "")
                 fflush(stdout)
@@ -342,7 +350,9 @@ var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
 var quant: Double = 1.0 // 0.25
+
 var isTest = false
+var prevQuery : String? = nil
 numTokens = 100
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
@@ -351,6 +361,16 @@ while true {
         if let input = readLine() {
             if let number = Int(input), (0...100).contains(number) {
                 quant = Double(number)/100.0
+                if prevQuery != nil {
+                    let tokens = t.embed("<s>[INST]\(prevQuery!)[/INST]")
+                    runNetwork(isTest: isTest, tokens: tokens, quant:quant)
+                }
+            } else if input == "r" {
+                // a nice simple test case
+                let tq = "What's larger - Radom, Poland, or Sydney, Australia?"
+                print("? \(tq)")
+                let tokens = t.embed("<s>[INST]\(tq)[/INST]")
+                runNetwork(isTest: isTest, tokens: tokens, quant:quant)
             } else if input == "t" {
                 isTest = !isTest
                 print("Test switched to " + (isTest ? "ON" : "OFF"))
@@ -358,8 +378,8 @@ while true {
                 let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
                                           16289, 28793])
                 runNetwork(isTest: isTest, tokens: tokens, quant:quant)
-
             } else {
+                prevQuery = input
                 let tokens = t.embed("<s>[INST]"+input+"[/INST]")
                 runNetwork(isTest: isTest, tokens: tokens, quant:quant)
             }

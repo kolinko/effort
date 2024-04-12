@@ -27,14 +27,22 @@ kernel void roundUp(device uint* result [[buffer(0)]],
                      uint id [[thread_position_in_grid]]) {
     
     prevResult[0] = result[0];
-    result[0] = (1+(uint(result[0])/number)) * number;
+    result[0] = (1+uint(uint(result[0])/number)) * number;
 
 }
+
+#define CUTOFF_SCALE 100000
+// ^ cheap hack to prevent cutoff from going out of range in wv wq in Mistral
+// although a better idea would be to rescale all the weights in models by ~1000 to better fit
+// the half precision.
+//
+// btw. the code should use bfloats instead of halfs for weights, but then it would be a bit more
+// hussle to implement 
 
 kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
                                   device const half4* binStats[[buffer(1)]],
                                   device const int* expertNo[[buffer(2)]],
-                                  device const half* cutoff[[buffer(3)]],
+                                  device const float* cutoff[[buffer(3)]],
                                   device float2* dispatch[[buffer(4)]],
                                   device atomic_uint* dispatchCount[[buffer(5)]],
                                   device const int& chunkSize [[buffer(6)]],
@@ -53,7 +61,7 @@ kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
     for (uint i = begin; i<end; i++) {
         half4 s = binStats[i]; // row, min, max, mean
         float val = v[i % rowsCount]; // int(s[0])
-        if (cutoff[0] < float(s[3]) * abs(val)) {
+        if (cutoff[0] < CUTOFF_SCALE * float(s[3]) * abs(val)) {
             if (counter == idxIncr) {
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;
@@ -123,46 +131,105 @@ kernel void bucketIntegrate(device const float* tmpMulVec[[buffer(0)]],
         
 }
 
-/*
 
-kernel void bucketMulWild(
-                        device const half *weights [[buffer(0)]],
-                        device const float2 *dispatch [[buffer(1)]],
-                        device float *result [[buffer(2)]],
-                        constant float *dispatchSize [[buffer(3)]],
-                        constant uint &cols [[buffer(4)]],
-                        constant int &groups [[buffer(5)]],
-                        uint id [[thread_position_in_grid]],
-                        uint tpitg [[thread_position_in_threadgroup]],
-                        uint tgpig [[threadgroup_position_in_grid]],
-                        uint tiisg [[thread_index_in_simdgroup]],
-                        uint sgiitg [[simdgroup_index_in_threadgroup]]) {
-                            
-    if (true) { // stupid autoformatter
-        float2 myCounter = 0;
-        const ushort myPos = tiisg % 16;
-        const ushort myOff = sgiitg*2;
 
-        for(uint row = 0; row < uint(dispatchSize[0]); row++){
-            threadgroup half w[64];
-            threadgroup float2 d;
-            simdgroup_half8x8 tmp_w;
-            if (sgiitg==0) {
-                d = dispatch[row];
-                simdgroup_load(tmp_w, &weights[uint(d[0])]);
-                simdgroup_store(tmp_w, w);
+kernel void findCutoff32(device const float *v [[buffer(0)]],
+                       device const half *probes [[buffer(1)]],
+                       device const uint *expNo [[buffer(2)]],
+                       device float* out[[buffer(3)]],
+
+                       constant uint &_quant [[buffer(4)]],
+
+                       uint id [[thread_position_in_grid]],
+                       uint tiisg [[thread_index_in_simdgroup]],
+                       uint siitg [[simdgroup_index_in_threadgroup]],
+                       uint tpg [[threads_per_grid]]) {
+
+//    const uint probesCount = 4096;
+    uint quant = 4096-_quant;
+    float myMax = -999;
+    float myMin = 999;
+    bfloat4 myVal;
+    
+    for (int i = 0; i<4; i++) {
+        myVal[i] = bfloat(CUTOFF_SCALE * abs(v[4*id+i]*bfloat(probes[4*id+i+expNo[0]*4096])));
+        myMax = max(myMax, myVal[i]);
+        myMin = min(myMin, myVal[i]);
+    }
+    
+    //half myVal = abs(v[id]*probes[id+expNo[0]*4096]);
+    float sgMin = simd_min(myMin);
+    float sgMax = simd_max(myMax);
+    
+    threadgroup bfloat tgMin[32] = {bfloat(999.0)};
+    threadgroup bfloat tgMax[32] = {bfloat(-999)};
+    
+    threadgroup float minBound = 999;
+    threadgroup float maxBound = -999;
+    threadgroup float newBound = -999;
+    threadgroup short minCount = 0;
+    threadgroup short maxCount = 0;
+    
+    if (tiisg == 0) {
+        tgMin[siitg] = bfloat(sgMin);
+        tgMax[siitg] = bfloat(sgMax);
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (siitg == 0) {
+        sgMin = tgMin[tiisg];
+        sgMax = tgMax[tiisg];
+        
+        minBound = simd_min(sgMin);
+        maxBound = simd_max(sgMax);
+    }
+
+    
+    threadgroup short tgAbove[32] = {0};
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    newBound = (minBound + maxBound)/2;
+
+    ushort loops = 0;
+    minCount = 4096;
+    while (true) {
+        loops += 1;
+        ushort countAbove = 0;
+        ushort myAbove = 0;
+        threadgroup ushort globalCount = 0;
+        for (int i = 0; i<4; i++) {
+            myAbove += myVal[i] > newBound ? 1 : 0;
+        }
+
+        tgAbove[siitg] = simd_sum(myAbove);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (siitg == 0) {
+            countAbove = tgAbove[tiisg];
+            countAbove = simd_sum(countAbove);
+            
+            if (countAbove < quant) {
+                maxBound = newBound;
+                maxCount = countAbove;
+            } else {
+                minBound = newBound;
+                minCount = countAbove;
             }
             
-            threadgroup_barrier(mem_flags::mem_threadgroup);
-            
-            const half2 myW = {w[myOff], w[myOff+1]};
-            const bool isMine = (as_type<ushort>(myW.x) & 15) == myPos;
-            myCounter.x += isMine ? myW.x : 0;
-            const bool isMine2 = (as_type<ushort>(myW.y) & 15) == myPos;
-            myCounter.y += isMine ? myW.y : 0;
+            newBound = (maxBound+minBound)/2;
+            globalCount = countAbove;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        if ((globalCount == quant) ||
+            (maxBound - minBound < 0.00001) ||
+            (abs(maxCount - minCount) < 2)) {
+            if (id == 0){
+                out[0] = newBound;
+            }
+            return;
         }
         
+        if (loops>100) {
+            return;
+        }
     }
-  }
-
-*/
+}

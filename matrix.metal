@@ -34,17 +34,6 @@ kernel void silu32b(device const float *x1 [[buffer(0)]],
 }
 
 
-kernel void probeExpert(device const float *v [[buffer(0)]],
-                        device const half *probes [[buffer(1)]],
-                        device const uint *expNo [[buffer(2)]],
-                        device half *out[[buffer(3)]],
-                        constant int &wCols [[buffer(4)]],
-                        uint id [[thread_position_in_grid]]) {
-    out[id] = abs(v[id] * probes[id+expNo[0]*4096]);
-}
-
-//gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff2], ints:[q], threadCount: probesCount, threadGroupSize: [1024, 1, 1])
-
 
 kernel void findCutoff(device const float *v [[buffer(0)]],
                        device const half *probes [[buffer(1)]],

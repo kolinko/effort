@@ -7,9 +7,15 @@ func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: V
     let bm = BucketMulFast.shared
    // bm.dispatch.zero()
     bm.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
-    gpu.deploy("roundUp", buffers:[bm.dispatch.size, prevSize], ints:[2096], threadCount: 1) // tofix
-    gpu.deploy("zeroRange32", buffers: [bm.dispatch, prevSize, bm.dispatch.size], threadCount: 2024 )
+//    gpu.eval()
+//    print(bm.dispatch.size.intVal)
+//    print(bm.cutoff.val)
+    gpu.deploy("roundUp", buffers:[bm.dispatch.size, prevSize], ints:[2048], threadCount: 1) // tofix
+    gpu.deploy("zeroRange32", buffers: [bm.dispatch, prevSize, bm.dispatch.size], threadCount: 2048 )
     bm.mul(by: by, out: out)
+//    if out.hasNan {
+//        print("hello")
+//    }
 }
 
 
@@ -18,14 +24,14 @@ class BucketMulFast {
     let maxDispatchSize = 229376 * 2//176128
     let dispatch : DynaVectorFloat
     let probes : Vector
-    let cutoff : Scalar
+    let cutoff : ScalarFloat
     
     static let shared = BucketMulFast()
     
     private init() {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
         self.probes = Vector(shape: [probesCount])
-        self.cutoff = Scalar(value: 0)
+        self.cutoff = ScalarFloat(value: 0)
     }
         
     func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
@@ -35,7 +41,7 @@ class BucketMulFast {
         dispatch.size.zero()
         let q = Int(Double(probesCount-1)*(1-quant))
 
-        gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
+        gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
         let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
