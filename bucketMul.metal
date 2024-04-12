@@ -220,8 +220,8 @@ kernel void findCutoff32(device const float *v [[buffer(0)]],
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
         if ((globalCount == quant) ||
-            (maxBound - minBound < 0.00001) ||
-            (abs(maxCount - minCount) < 2)) {
+            (maxBound - minBound < 0.00001*CUTOFF_SCALE) ||
+            (abs(maxCount - minCount) < 3)) {
             if (id == 0){
                 out[0] = newBound;
             }
@@ -229,7 +229,14 @@ kernel void findCutoff32(device const float *v [[buffer(0)]],
         }
         
         if (loops>100) {
+            // inf loop? sth went terribly wrong here. it should throw assert during debug
+            // and in other case - either newBound and hope for the best, or max range to slow down
+            // but guarantee proper results
+            if (id == 0) {
+                out[0] = newBound;
+            }
             return;
+
         }
     }
 }

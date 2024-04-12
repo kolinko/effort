@@ -32,16 +32,16 @@ func modelRunTests() {
     print()
     print(control.str)
     //gpu.startCapture()
-    for _ in 0..<100 {
-        for q in [0.05, 0.1, 0.15, 0.2, 0.3, 0.8, 1] {
-            expertMul(v: v, by: ew, out: test, quant: q)
-            assert(!test.hasNan)
-            //gpu.stopCapture()
-            //        print()
-            let score = test.cosineSimilarityTo(control)
-            print("\(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
-            //        print()
-        }
+    for q in [0.01, 0.02, 0.03] {
+        test.zero()
+        expertMul(v: v, by: ew, out: test, quant: q)
+        print(test.str)
+        assert(!test.hasNan)
+        //gpu.stopCapture()
+        //        print()
+        let score = test.cosineSimilarityTo(control)
+        print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
+        //        print()
     }
     exit(0)
     

@@ -39,8 +39,8 @@ let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) 
 let goSaveTests = false
 
 
-//modelRunTests()
-//exit(0)
+modelRunTests()
+exit(0)
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
@@ -173,8 +173,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                       numTokens: thisToken+1,
                       out: attnOutput)
             
-//            expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, quant: QQ)
-            basicMul(v: attnOutput, by: layer.wo.core!, out: attnFfnOut)
+            expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, quant: QQ)
+//            basicMul(v: attnOutput, by: layer.wo.core!, out: attnFfnOut)
 
             
             testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
@@ -189,7 +189,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             fxn.mul(by:layer.ffnNorm)
 
             testVec("fxn:\(thisToken):\(layerNo)", fxn)
-
             
             if layer.ffnGate == nil {
                 let expIdx = ScalarFloat(value: 0)

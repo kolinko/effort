@@ -114,7 +114,7 @@ class Gpu {
 
         if (!globalStates.keys.contains(fname)) {
             makeFunction(fname)
-            print("warn:Compute pipeline state for \(fname) not found.")
+         //   print("warn:Compute pipeline state for \(fname) not found.")
         }
         
         let internalState = self.globalStates[fname]!
