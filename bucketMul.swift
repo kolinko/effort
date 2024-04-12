@@ -43,7 +43,7 @@ class BucketMulFast {
     func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double) {
         calcDispatch(v: v, eWeights: ew, expNo: expNo, quant: quant)
         
-        gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1) // tofix
+        gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
         gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
         
         mul(by: ew, out: out)

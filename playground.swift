@@ -23,8 +23,10 @@ func modelRunTests() {
 */
     
     let v = TensorLoader.loadVec("xq_broken") //tokens[0]
-    let ew = modelData.layers[10]!.wq
-    let control = basicMul(v: v, by: ew.core!) //VectorFloat(shape:[ew.outSize])
+    let ew = modelData.layers[10]!.w1
+    let control = VectorFloat(shape:[ew.outSize])
+    expertMul(v: v, by: ew, out: control, quant: 1.0)
+//    let control = basicMul(v: v, by: ew.core!) //
     let test = VectorFloat(shape:[ew.outSize])
     
     print(v.str)
@@ -32,10 +34,10 @@ func modelRunTests() {
     print()
     print(control.str)
     //gpu.startCapture()
-    for q in [0.01, 0.02, 0.03] {
+    for q in [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 0.7, 1.0] {
         test.zero()
         expertMul(v: v, by: ew, out: test, quant: q)
-        print(test.str)
+//        print(test.str)
         assert(!test.hasNan)
         //gpu.stopCapture()
         //        print()
