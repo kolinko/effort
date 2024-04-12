@@ -72,7 +72,7 @@ func mpsMul(v vector: Vector, by weights: Matrix, out result: VectorFloat) {
     
     gpu.encoder.endEncoding()
     mvmul.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, inputVector: vector, resultVector: resultVector)
-    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
+    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder(dispatchType: gpu.dType)!
 }
 
 func mpsTopK(v: VectorFloat, topK: Int = 16)  -> VectorFloat {
@@ -105,5 +105,5 @@ func mpsTopK(v: VectorFloat, topK: Int = 16, outIndexes: VectorFloat, outValues:
     
     gpu.encoder.endEncoding()
     findTopK.encode(commandBuffer: gpu.commandBuffer, inputMatrix: matrix, resultIndexMatrix: indexMatrix, resultValueMatrix: valueMatrix)
-    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder()!
+    gpu.encoder = gpu.commandBuffer.makeComputeCommandEncoder(dispatchType: gpu.dType)!
 }

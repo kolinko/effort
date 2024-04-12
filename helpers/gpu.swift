@@ -21,6 +21,7 @@ class Gpu {
     let device : MTLDevice
     
     var warnOfEvals = false
+    let dType = MTLDispatchType.serial
     
     init() {
         let devices = MTLCopyAllDevices()
@@ -28,7 +29,7 @@ class Gpu {
         self.device = devices[0]
         self.commandQueue = device.makeCommandQueue()!
         self.commandBuffer = commandQueue.makeCommandBuffer()!
-        self.encoder = commandBuffer.makeComputeCommandEncoder()!
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
         self.captureON = false
         self.captureManager = MTLCaptureManager.shared()
         
@@ -57,9 +58,14 @@ class Gpu {
     
     func reEncode() {
         encoder.endEncoding()
-        self.encoder = commandBuffer.makeComputeCommandEncoder()!
-
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
     }
+
+    func reEncodeConcurrent() {
+        encoder.endEncoding()
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: .concurrent)!
+    }
+
     
     func eval() {
         if self.warnOfEvals {
@@ -70,7 +76,7 @@ class Gpu {
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         self.commandBuffer = commandQueue.makeCommandBuffer()!
-        self.encoder = commandBuffer.makeComputeCommandEncoder()!
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
     }
     
     func copyBuffer(src: MTLBufferable, dst:MTLBufferable, size: Int) {
@@ -83,7 +89,7 @@ class Gpu {
                                  destinationOffset: dst.offsetBytes,
                                      size: size)
         blitCommandEncoder?.endEncoding()
-        self.encoder = commandBuffer.makeComputeCommandEncoder()!
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
 
     }
     

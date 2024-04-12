@@ -68,6 +68,8 @@ gpu.eval()
 var silent = true
 
 func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) {
+    let bm1 = BucketMulFaster()
+    let bm2 = BucketMulFaster()
     var tokens = _tokens
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
     let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
@@ -116,6 +118,7 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         h = tokens[thisToken].copy()
 
         for layerNo in 0..<numLayers {
+
             let layer = modelData.layers[layerNo]!
             testVec("h_in:\(thisToken):\(layerNo)", h)
 
@@ -132,13 +135,13 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 print("hello")
             }*/
             
-//            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ) // 1.0!
-            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)//, quant: QQ)
+            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ)//QQ) // 1.0!
+//            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)//, quant: QQ)
 
             xk_temp.repeated(kvRepeats, into:xk)
                         
-//            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ) // 1.0!
-            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)//, quant: QQ)
+            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ)// QQ) // 1.0!
+//            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)//, quant: QQ)
 
 //            basicMul(v: h_norm, by: layer.wv.core!, out: xk_temp, quant: QQ)
 
@@ -191,10 +194,26 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             testVec("fxn:\(thisToken):\(layerNo)", fxn)
             
             if layer.ffnGate == nil {
+                let fence = gpu.device.makeFence()!
+                let fence2 = gpu.device.makeFence()!
+
                 let expIdx = ScalarFloat(value: 0)
+                /*
                 expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                expertMul(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)
-                
+                bucketMulFaster(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)*/
+                bm1.calcDispatch(v: fxn, eWeights: layer.w1, expNo: expIdx, quant: quant)
+                bm2.calcDispatch(v: fxn, eWeights: layer.w3, expNo: expIdx, quant: quant)
+//                gpu.startCapture()
+                gpu.encoder.updateFence(fence2)
+                gpu.reEncodeConcurrent()
+                gpu.encoder.waitForFence(fence2)
+                bm1.mul(by: layer.w1, out: x1)
+                bm2.mul(by: layer.w3, out: x3)
+                gpu.encoder.updateFence(fence)
+                gpu.reEncode()
+                gpu.encoder.waitForFence(fence)
+                bm1.reintegrate(out: x1)
+                bm2.reintegrate(out: x3)
                 silu(x1, x3, out: x2)
                 expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], quant: quant)
                 h.add(by: ffnOut[0])

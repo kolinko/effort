@@ -25,7 +25,7 @@ class BucketMulFaster {
     
     static let shared = BucketMulFaster()
     
-    private init() {
+    init() {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
         self.probes = Vector(shape: [probesCount])
         self.cutoff = ScalarFloat(value: 0)
@@ -43,6 +43,10 @@ class BucketMulFaster {
         let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFaster", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+        
+        gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
+        gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
+
     }
     
     
@@ -51,10 +55,6 @@ class BucketMulFaster {
 
     func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double) {
         calcDispatch(v: v, eWeights: ew, expNo: expNo, quant: quant)
-        
-        gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
-        gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
-        
         mul(by: ew, out: out)
     }
 
@@ -71,13 +71,17 @@ class BucketMulFaster {
                                ints: [weightBuckets.cols, mulGroups],
                                threadCount: [weightBuckets.cols, mulGroups])
        
-       let simdSize = 32
-       gpu.deploy("bucketIntegrate", buffers: [tmpMulVec, out],
-                  threadCount: [simdSize, out.rows/4, 1],
-                  threadGroupSize: [simdSize, 1, 1])
         
 
    }
+    
+    func reintegrate(out: VectorFloat) {
+        
+        let simdSize = 32
+        gpu.deploy("bucketIntegrate", buffers: [tmpMulVec, out],
+                   threadCount: [simdSize, out.rows/4, 1],
+                   threadGroupSize: [simdSize, 1, 1])
+    }
 
         /*
     func mul3(by: ExpertWeights, out: VectorFloat) {
