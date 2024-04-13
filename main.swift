@@ -67,9 +67,12 @@ gpu.eval()
 
 var silent = true
 
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0) {
+func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant _quant: Double = 1.0) {
+    let quant = _quant
     let bm1 = BucketMulFaster()
     let bm2 = BucketMulFaster()
+    let bm3 = BucketMulFaster()
+
     var tokens = _tokens
     let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
     let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
@@ -101,10 +104,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
     let _layer = modelData.layers[0]!
     let xq = VectorFloat(shape: [_layer.wq.outSize])
+    let xq_temp = VectorFloat(shape: [_layer.wq.outSize])
     let xk_temp = VectorFloat(shape: [_layer.wk.outSize])
+    let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
     let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
     let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
-
+    
     for thisToken in 0...numTokens {
         let scores = MatrixFloat(shape: [numHeads, thisToken+1])
 
@@ -116,8 +121,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
         }
         
         h = tokens[thisToken].copy()
-
+//        gpu.startCapture()
         for layerNo in 0..<numLayers {
+            //gpu.startCapture()
 
             let layer = modelData.layers[layerNo]!
             testVec("h_in:\(thisToken):\(layerNo)", h)
@@ -129,23 +135,28 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
-            let QQ = quant
-            expertMul(v: h_norm, by: layer.wq, out: xq, quant: QQ)
-           /* if (xq.hasNan) {
-                print("hello")
-            }*/
-            
-            expertMul(v: h_norm, by: layer.wk, out: xk_temp, quant: QQ)//QQ) // 1.0!
-//            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)//, quant: QQ)
+            let expIdx = ScalarFloat(value: 0)
 
-            xk_temp.repeated(kvRepeats, into:xk)
-                        
-            expertMul(v: h_norm, by: layer.wv, out: xv_temp, quant: QQ)// QQ) // 1.0!
-//            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)//, quant: QQ)
+            gpu.concurrent([{
+                bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdx, quant: quant)
+                bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdx, quant: quant)
+                bm3.findCutoff(v: h_norm, eWeights: layer.wv, expNo: expIdx, quant: quant)
+            }, {
+                bm1.prepareDispatch(v: h_norm, eWeights: layer.wq, expNo: expIdx, quant: quant)
+                bm2.prepareDispatch(v: h_norm, eWeights: layer.wk, expNo: expIdx, quant: quant)
+                bm3.prepareDispatch(v: h_norm, eWeights: layer.wv, expNo: expIdx, quant: quant)
+            }, {
+                bm1.mul(by: layer.wq, out: xq)
+                bm2.mul(by: layer.wk, out: xk_temp)
+                bm3.mul(by: layer.wv, out: xv_temp)
+             },{
+                bm1.reintegrate(out: xq_temp)
+                bm2.reintegrate(out: xk_temp)
+                bm3.reintegrate(out: xv_temp)
+             }])
 
-//            basicMul(v: h_norm, by: layer.wv.core!, out: xk_temp, quant: QQ)
-
-            xv_temp.repeated(kvRepeats, into: xv)
+            xk_temp.repeated(kvRepeats, into:xk_temp2)
+            xv_temp.repeated(kvRepeats, into:xv)
             
             let xqHeads = xq.asMatrix(newCols: headDim)
             let xkHeads = xk.asMatrix(newCols: headDim)
@@ -155,8 +166,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             
             let fCis = freqsCis[thisToken]
             testVec("xqHeads:\(thisToken):\(layerNo)", xqHeads.asVector())
-            xqHeads.rope(complexArray: fCis)
-            xkHeads.rope(complexArray: fCis)
+            
+            gpu.concurrent([{
+                gpu.deploy("rope_mx", buffers: [xq_temp, fCis, xqHeads], ints:[xqHeads.cols], threadCount: [xqHeads.cols, xqHeads.rows])
+                gpu.deploy("rope_mx", buffers: [xk_temp2, fCis, xkHeads], ints:[xkHeads.cols], threadCount: [xkHeads.cols, xkHeads.rows])
+            }])
+                           
+//            xqHeads.rope(complexArray: fCis)
+//            xkHeads.rope(complexArray: fCis)
             testVec("xqHeadsROPE:\(thisToken):\(layerNo)", xqHeads.asVector())
             
 
@@ -168,7 +185,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             testVec("scores:\(thisToken):\(layerNo)", scores.asVector())
 
             scores.softmax()
-        //    print(scores.str)
             testVec("scoresSM:\(thisToken):\(layerNo)", scores.asVector())
 
             sumScores(scores: scores,
@@ -176,17 +192,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                       numTokens: thisToken+1,
                       out: attnOutput)
             
-            expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, quant: QQ)
-//            basicMul(v: attnOutput, by: layer.wo.core!, out: attnFfnOut)
-
+            expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, quant: quant)
             
             testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
 
             h.add(by: attnFfnOut)
-            //print(h.str)
-            /*if h.hasNan {
-                print("hello")
-            }*/
             h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
@@ -194,26 +204,22 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
             testVec("fxn:\(thisToken):\(layerNo)", fxn)
             
             if layer.ffnGate == nil {
-                let fence = gpu.device.makeFence()!
-                let fence2 = gpu.device.makeFence()!
-
                 let expIdx = ScalarFloat(value: 0)
-                /*
-                expertMul(v: fxn, by: layer.w1, expNo: expIdx, out: x1, quant: quant)
-                bucketMulFaster(v: fxn, by: layer.w3, expNo: expIdx, out: x3, quant: quant)*/
-                bm1.calcDispatch(v: fxn, eWeights: layer.w1, expNo: expIdx, quant: quant)
-                bm2.calcDispatch(v: fxn, eWeights: layer.w3, expNo: expIdx, quant: quant)
-//                gpu.startCapture()
-                gpu.encoder.updateFence(fence2)
-                gpu.reEncodeConcurrent()
-                gpu.encoder.waitForFence(fence2)
-                bm1.mul(by: layer.w1, out: x1)
-                bm2.mul(by: layer.w3, out: x3)
-                gpu.encoder.updateFence(fence)
-                gpu.reEncode()
-                gpu.encoder.waitForFence(fence)
-                bm1.reintegrate(out: x1)
-                bm2.reintegrate(out: x3)
+
+                gpu.concurrent([{
+                    bm1.findCutoff(v: fxn, eWeights: layer.w1, expNo: expIdx, quant: quant)
+                    bm2.findCutoff(v: fxn, eWeights: layer.w3, expNo: expIdx, quant: quant)
+                }, {
+                    bm1.prepareDispatch(v: fxn, eWeights: layer.w1, expNo: expIdx, quant: quant)
+                    bm2.prepareDispatch(v: fxn, eWeights: layer.w3, expNo: expIdx, quant: quant)
+                }, {
+                    bm1.mul(by: layer.w1, out: x1)
+                    bm2.mul(by: layer.w3, out: x3)
+                },{
+                    bm1.reintegrate(out: x1)
+                    bm2.reintegrate(out: x3)
+                }])
+                
                 silu(x1, x3, out: x2)
                 expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], quant: quant)
                 h.add(by: ffnOut[0])
@@ -236,12 +242,12 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
                 h.add(by: ffnOut[1])
             }
             
-            gpu.stopCapture()
             
             testVec("h-out:\(thisToken):\(layerNo)", h)
+            gpu.stopCapture()
+
         }
-        
-        
+
         h.rmsNormFast(out: outNormed)
         outNormed.mul(by: modelData.norm)
         
@@ -260,10 +266,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], quant: Double = 1.0
 
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
-
-//        if goVerify && !goSaveTests {
-//            outputVector.copyFrom(getVec("ovector:\(thisToken)"))
-//        }
 
         let topKVector = mpsTopK(v: outputVector)
 

@@ -23,6 +23,8 @@ class Gpu {
     var warnOfEvals = false
     let dType = MTLDispatchType.serial
     
+    let fence : MTLFence
+    
     init() {
         let devices = MTLCopyAllDevices()
         assert(!devices.isEmpty, "No Metal devices available")
@@ -32,7 +34,8 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
         self.captureON = false
         self.captureManager = MTLCaptureManager.shared()
-        
+        self.fence = device.makeFence()!
+
         self.library = device.makeDefaultLibrary()!
         self.globalStates = [:]
         let functionNames = ["memcpy32", "rmsNorm32","halfToFloat", "mulVec32by16", "basicMul",
@@ -66,6 +69,35 @@ class Gpu {
         self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: .concurrent)!
     }
 
+    func startEncoding() {
+        self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: dType)!
+    }
+    func stopEncoding() {
+        encoder.endEncoding()
+    }
+    
+    //
+    //func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) -> Void) {
+
+    func concurrent(_ closures: [() -> Void]) {
+        for c in closures {
+            gpu.encoder.updateFence(fence)
+            stopEncoding()
+            self.encoder = commandBuffer.makeComputeCommandEncoder(dispatchType: .concurrent)!
+            gpu.encoder.waitForFence(fence)
+            c()
+        }
+        gpu.encoder.updateFence(fence)
+        stopEncoding()
+        startEncoding()
+        gpu.encoder.waitForFence(fence)
+    }
+        
+    func endConcurrent() {
+       stopEncoding()
+       startEncoding()
+       gpu.encoder.waitForFence(fence)
+    }
     
     func eval() {
         if self.warnOfEvals {

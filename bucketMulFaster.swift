@@ -13,7 +13,8 @@ private let prevSize = ScalarFloat(value: 0)
 func bucketMulFaster(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
     if goNoMuls {return;}
     let bm = BucketMulFaster.shared
-    bm.fullMul(v: v, ew: by, expNo: expNo, out: out, quant: quant)
+    assert(false)
+//    bm.fullMul(v: v, ew: by, expNo: expNo, out: out, quant: quant)
 }
 
 class BucketMulFaster {
@@ -43,9 +44,13 @@ class BucketMulFaster {
         let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFaster", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+
         
         gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
         gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
+
+        
+        assert(false)
 
     }
     
@@ -53,11 +58,35 @@ class BucketMulFaster {
     private let mulGroups = 32
     private let tmpMulVec = MatrixFloat(shape:[32, 16384])
 
-    func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double) {
+/*    func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double) {
         calcDispatch(v: v, eWeights: ew, expNo: expNo, quant: quant)
         mul(by: ew, out: out)
+    }*/
+    
+    func findCutoff(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+        assert(dispatch.rows >= ew.buckets.rows*2)
+        assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
+
+        dispatch.size.zero()
+        let q = Int(Double(probesCount-1)*(1-quant))
+
+        gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
     }
 
+    func prepareDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+        let chunkSize = 4//w.stats.rows//16
+        gpu.deploy("prepareExpertDispatchFaster", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+                   ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+    }
+    
+    func roundUp() {
+        gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
+    }
+    
+    func zeroRange() {
+        gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
+    }
+    
     
    func mul(by: ExpertWeights, out: VectorFloat) {
        let weightBuckets = by.buckets
@@ -76,7 +105,6 @@ class BucketMulFaster {
    }
     
     func reintegrate(out: VectorFloat) {
-        
         let simdSize = 32
         gpu.deploy("bucketIntegrate", buffers: [tmpMulVec, out],
                    threadCount: [simdSize, out.rows/4, 1],

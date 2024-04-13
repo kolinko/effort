@@ -62,30 +62,32 @@ kernel void bucketMulFaster(
                    constant uint &groups [[buffer(5)]],
                    uint2 id [[thread_position_in_grid]]) {
                       
-    float myVal[16] = {0};
-      
-    const uint rowOffset = id.y*dispatchSize[0]/groups;
-    for (uint r=0; r<dispatchSize[0]/groups; r+=STEP) {
-//        threadgroup_barrier(mem_flags::mem_threadgroup);
+                       float myVal[16] = {0};
+    
+                       const uint roundedDispatchSize = (1+int(dispatchSize[0] / 2048))*2048;
+                       const uint rowOffset = id.y*roundedDispatchSize/groups;
+                       const uint begin = rowOffset;
+                       const uint end = min(rowOffset + roundedDispatchSize/groups, dispatchSize[0]);
+                                       
+                    for (uint r=begin; r<end; r+=STEP) {
+                        
+                        for (uint s=r; s<r+STEP; s++) { // for better optimisation
+                            float2 d = dispatch[s];//rowOffset + r + s];//+s
+                            half w = weights[int(d[1]) + id.x];
+                            float v = d[0]*float(w);
+                            ushort pos = as_type<ushort>(w)&15;
+                            
+                            for (int i=0; i<16; i++) {
+                                myVal[i] += (pos == i) ? v : 0;
+                            }
+                            
+                        }
+                    }
 
-        for (int s=0; s<STEP; s++) { // for better optimisation
-            float2 d = dispatch[rowOffset + r + s];//+s
-            half w = weights[int(d[1]) + id.x];
-            float v = d[0]*float(w);
-            ushort pos = as_type<ushort>(w)&15;
-            
-            for (int i=0; i<16; i++) {
-                myVal[i] += (pos == i) ? v : 0;
-            }
-            
-        }
-    }
-
-    uint myOff = (id.y*16384);
-    for (int i = 0; i<16; i++) {
-        result[myOff + id.x*16 + i] = myVal[i];
-      //  atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
-    }
+                    uint myOff = (id.y*16384);
+                    for (int i = 0; i<16; i++) {
+                        result[myOff + id.x*16 + i] = myVal[i];
+                    }
                           
 }
 
