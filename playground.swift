@@ -25,7 +25,7 @@ func modelRunTests() {
     let v = TensorLoader.loadVec("xq_broken") //tokens[0]
     let ew = modelData.layers[10]!.w1
     let control = VectorFloat(shape:[ew.outSize])
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, quant: 1.0)
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
 
     
     
@@ -39,7 +39,7 @@ func modelRunTests() {
     print(control.str)
     //gpu.startCapture()
     for q in [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 0.7, 1.0] {
-        expertMul(v: v, by: ew, out: test, quant: q)
+        expertMul(v: v, by: ew, out: test, effort: q)
         assert(!test.hasNan)
         //gpu.stopCapture()
         //        print()
@@ -49,7 +49,7 @@ func modelRunTests() {
     }*/
 
     let q = 1.0
-    bucketMulFaster(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: q)
+    bucketMulFaster(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
     let score = test.cosineSimilarityTo(control)
     print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
 
@@ -58,22 +58,22 @@ func modelRunTests() {
     
     /*expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
 //    gpu.startCapture()
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
     gpu.stopCapture()
 
     timeIt(repeats:1000) { i in
         let ew = modelData.layers[i % 3]!.w1
-        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
     }
     print()
     timeIt(repeats:1000) { i in
         let ew = modelData.layers[i % 3]!.w1
-        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
     }
 
     //    gpu.startCapture()
 
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, quant: 1)
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
     gpu.stopCapture()
 
     print()

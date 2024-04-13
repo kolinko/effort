@@ -284,7 +284,7 @@ func bucketize(_ w: Matrix, outTensorsPref: String, tensors: inout [String: MTLB
     let outlierSlicesQ8 = outliersQ8.sliced(numSlices: bSize)
     
     let slices = buckets.sliced(numSlices: bSize)
-    let sliceStatsQ8 = MatrixFloat(shape:[bSize, 2]) // [minRange, diff], for decoding quantisation later on
+    let sliceStatsQ8 = MatrixFloat(shape:[bSize, 2]) // [minRange, diff], for decoding effortisation later on
     
     for i in 0..<bSize {
         let slice = Matrix(shape:slices[i].shape)

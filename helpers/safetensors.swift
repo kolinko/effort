@@ -172,7 +172,7 @@ class TensorLoader {
             numBytes = 4
         }
         
-        precondition(["BF16", "F16", "F32"].contains(dtype), "number type in safetensors unsupported. got \(dtype), expected either BF16 or F16. Did you try to load a quantized model?")
+        precondition(["BF16", "F16", "F32"].contains(dtype), "number type in safetensors unsupported. got \(dtype), expected either BF16 or F16. Did you try to load a effortized model?")
         
         let shape = tensorDict["shape"] as! [Int]
         var offsets = tensorDict["data_offsets"] as! [UInt64]

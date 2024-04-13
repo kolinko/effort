@@ -10,11 +10,11 @@ import Foundation
 
 private let prevSize = ScalarFloat(value: 0)
 
-func bucketMulFaster(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+func bucketMulFaster(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     if goNoMuls {return;}
     let bm = BucketMulFaster.shared
     assert(false)
-//    bm.fullMul(v: v, ew: by, expNo: expNo, out: out, quant: quant)
+//    bm.fullMul(v: v, ew: by, expNo: expNo, out: out, effort: effort)
 }
 
 class BucketMulFaster {
@@ -32,12 +32,12 @@ class BucketMulFaster {
         self.cutoff = ScalarFloat(value: 0)
     }
         
-    func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+    func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, effort: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
 
         dispatch.size.zero()
-        let q = Int(Double(probesCount-1)*(1-quant))
+        let q = Int(Double(probesCount-1)*(1-effort))
 
         gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
@@ -58,22 +58,22 @@ class BucketMulFaster {
     private let mulGroups = 32
     private let tmpMulVec = MatrixFloat(shape:[32, 16384])
 
-/*    func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double) {
-        calcDispatch(v: v, eWeights: ew, expNo: expNo, quant: quant)
+/*    func fullMul(v: VectorFloat, ew: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double) {
+        calcDispatch(v: v, eWeights: ew, expNo: expNo, effort: effort)
         mul(by: ew, out: out)
     }*/
     
-    func findCutoff(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+    func findCutoff(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, effort: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
 
         dispatch.size.zero()
-        let q = Int(Double(probesCount-1)*(1-quant))
+        let q = Int(Double(probesCount-1)*(1-effort))
 
         gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
     }
 
-    func prepareDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+    func prepareDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, effort: Double) {
         let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFaster", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)

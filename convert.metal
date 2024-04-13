@@ -184,7 +184,7 @@ kernel void extract(device half *slice[[buffer(0)]],
         }
     }
     */
-    // quantize!
+    // effortize!
     for (int i = 0; i<sliceCols; i++) {
         float el = abs(sliceRow[i]);
         if (el == 0) {continue;}
@@ -222,7 +222,7 @@ kernel void findPercentile(device const half *probes [[buffer(0)]],
 
     // damn this func be ugly
     
-    uint quant = 4096-_perc;
+    uint effort = 4096-_perc;
     half myMax = -999;
     half myMin = 999;
     half4 myVal;
@@ -282,7 +282,7 @@ kernel void findPercentile(device const half *probes [[buffer(0)]],
             countAbove = tgAbove[tiisg];
             countAbove = simd_sum(countAbove);
             
-            if (countAbove < quant) {
+            if (countAbove < effort) {
                 maxBound = newBound;
                 maxCount = countAbove;
             } else {
@@ -295,7 +295,7 @@ kernel void findPercentile(device const half *probes [[buffer(0)]],
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        if ((globalCount == quant) ||
+        if ((globalCount == effort) ||
             (maxBound - minBound < 0.00001) ||
             (abs(maxCount - minCount) < 2)) {
             if (id == 0){

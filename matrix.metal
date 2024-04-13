@@ -40,7 +40,7 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
                        device const uint *expNo [[buffer(2)]],
                        device half* out[[buffer(3)]],
 
-                       constant uint &_quant [[buffer(4)]],
+                       constant uint &_effort [[buffer(4)]],
 
                        uint id [[thread_position_in_grid]],
                        uint tiisg [[thread_index_in_simdgroup]],
@@ -48,7 +48,7 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
                        uint tpg [[threads_per_grid]]) {
 
 //    const uint probesCount = 4096;
-    uint quant = 4096-_quant;
+    uint effort = 4096-_effort;
     half myMax = -999;
     half myMin = 999;
     half4 myVal;
@@ -108,7 +108,7 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
             countAbove = tgAbove[tiisg];
             countAbove = simd_sum(countAbove);
             
-            if (countAbove < quant) {
+            if (countAbove < effort) {
                 maxBound = newBound;
                 maxCount = countAbove;
             } else {
@@ -121,7 +121,7 @@ kernel void findCutoff(device const float *v [[buffer(0)]],
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        if ((globalCount == quant) ||
+        if ((globalCount == effort) ||
             (maxBound - minBound < 0.00001) ||
             (abs(maxCount - minCount) < 2)) {
             if (id == 0){

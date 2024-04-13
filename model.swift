@@ -840,24 +840,24 @@ func silu(_ x1: VectorFloat, _ x3: VectorFloat, out: VectorFloat) {
 }
 
 
-func expertMulSlow(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+func expertMulSlow(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     if goNoMuls {return;}
     out.zero()
-    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, effort: effort)
 //    print(BucketMul.shared.dispatch.size.val, BucketMul.shared.dispatch.size.intVal)
     BucketMul.shared.mul(by: by, out: out)
     return
 }
 
-func expertMul3(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+func expertMul3(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     out.zero()
-    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+    BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, effort: effort)
     gpu.deploy("round", buffers:[BucketMul.shared.dispatch.size], ints:[1024], threadCount: 1) // tofix
     BucketMul.shared.mul3(by: by, out: out)
     /*
     timeIt(repeats:10000) { i in     //  max possible = 10000. Good enough = 5000.
         gpu.deploy("setVal", buffers: [expNo], ints:[i % 8], threadCount: 1)
-        BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, quant: quant)
+        BucketMul.shared.calcDispatch(v: v, eWeights: by, expNo: expNo, effort: effort)
         BucketMul.shared.mul3(by: by, out: out)
     }
 
@@ -879,12 +879,12 @@ class BucketMul {
         self.cutoff = Scalar(value: 0)
     }
         
-    func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, quant: Double) {
+    func calcDispatch(v: VectorFloat, eWeights ew: ExpertWeights, expNo: ScalarFloat, effort: Double) {
         assert(dispatch.rows >= ew.buckets.rows*2)
         assert(ew.probes.cols == 4096, "probes implemented for 4096 only. needs review of sort as well as probeShort")
 
         dispatch.size.zero()
-        let q = Int(Double(probesCount-1)*(1-quant))
+        let q = Int(Double(probesCount-1)*(1-effort))
 
         gpu.deploy("findCutoff", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         

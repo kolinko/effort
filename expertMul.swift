@@ -9,16 +9,16 @@ import Foundation
 
 private let tmpExpNo = ScalarFloat(value: 0)
 
-func expertMul(v: VectorFloat, by: ExpertWeights, out: VectorFloat, quant: Double = 0.25) {
-    expertMul(v: v, by: by, expNo: tmpExpNo, out: out, quant: quant)
+func expertMul(v: VectorFloat, by: ExpertWeights, out: VectorFloat, effort: Double = 0.25) {
+    expertMul(v: v, by: by, expNo: tmpExpNo, out: out, effort: effort)
 }
 
-func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, quant: Double = 0.25) {
+func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     if !goQ8 {
-        bucketMulFast(v: v, by: by, expNo: expNo, out: out, quant: quant)
-//        expertMulSlow(v: v, by: by, expNo: expNo, out: out, quant: quant)
+        bucketMulFast(v: v, by: by, expNo: expNo, out: out, effort: effort)
+//        expertMulSlow(v: v, by: by, expNo: expNo, out: out, effort: effort)
     } else {
-        expertMulQ8(v: v, by: by, expNo: expNo, out: out, quant: quant)
+        expertMulQ8(v: v, by: by, expNo: expNo, out: out, effort: effort)
     }
 }
 
