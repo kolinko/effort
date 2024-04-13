@@ -14,12 +14,18 @@ print("starting up")
 print(NSUserName())
 print(NSFullUserName())
  */
-
-let server = HTTPServer.init(host: "localhost", port: 8080)
+var serverReady = false
+let server = HTTPServer.init()
 do {
-//    try server.run()
+    try server.run(port: 8080)
 } catch {
-    print("server run failed")
+    print("server run on port 8080 failed")
+}
+
+signal(SIGINT) { _ in
+    print("Stopping server...")
+    server.stop()
+    exit(0)  // Terminate the program after stopping the server (remove if you want to continue with other tasks)
 }
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
@@ -82,16 +88,21 @@ runNetwork(isTest: false, tokens: tokens, effort:1)
 //runNetwork(isTest: false, tokens: t.embed("<s>[INST]User's name is \(NSFullUserName()), datetime is 17:01, 11 Apr 2024 - write some neat like 'Good morning professor XXX, how are we doing this morning.'. And a nice quote for the day.[/INST]"), effort: 0.25)
 //}
 
-numTokens = 150
+numTokens = 2048
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
 var effort: Double = 1.0 // 0.25
 
+serverReady = true
 var isTest = false
 var prevQuery : String? = nil
-numTokens = 100
+
+//runBenchmark()
+//exit(0)
+
+
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
     while true {
@@ -108,7 +119,7 @@ while true {
                 let tq = "What's larger - Radom, Poland, or Sydney, Australia?"
                 print("? \(tq)")
                 let tokens = t.embed("<s>[INST]\(tq)[/INST]")
-                runNetwork(isTest: isTest, tokens: tokens, effort:effort)
+                runNetwork(isTest: isTest, tokens: tokens, effort:effort, srcTokenIds: encode(prompt:"<s>[INST]\(tq)[/INST]"))
             } else if input == "t" {
                 isTest = !isTest
                 print("Test switched to " + (isTest ? "ON" : "OFF"))

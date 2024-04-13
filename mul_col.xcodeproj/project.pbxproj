@@ -42,6 +42,8 @@
 		A4FB86D42BCA4B7A0093C9BE /* server.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FB86D32BCA4B7A0093C9BE /* server.swift */; };
 		A4FB86D72BCA4FC50093C9BE /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = A4FB86D62BCA4FC50093C9BE /* NIOHTTP1 */; };
 		A4FB86D92BCA50F00093C9BE /* runNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FB86D82BCA50F00093C9BE /* runNetwork.swift */; };
+		A4FB86DB2BCA867A0093C9BE /* benchmark.py in Resources */ = {isa = PBXBuildFile; fileRef = A4FB86DA2BCA867A0093C9BE /* benchmark.py */; };
+		A4FB86DD2BCAA1100093C9BE /* benchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FB86DC2BCAA1100093C9BE /* benchmark.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -87,6 +89,8 @@
 		A4CE9F7F2B63D82F00910766 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		A4FB86D32BCA4B7A0093C9BE /* server.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = server.swift; sourceTree = "<group>"; };
 		A4FB86D82BCA50F00093C9BE /* runNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = runNetwork.swift; sourceTree = "<group>"; };
+		A4FB86DA2BCA867A0093C9BE /* benchmark.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = benchmark.py; sourceTree = "<group>"; };
+		A4FB86DC2BCAA1100093C9BE /* benchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = benchmark.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +129,8 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
+				A4FB86DC2BCAA1100093C9BE /* benchmark.swift */,
+				A4FB86DA2BCA867A0093C9BE /* benchmark.py */,
 				A4FB86D82BCA50F00093C9BE /* runNetwork.swift */,
 				A4260AEC2BB0CC0900DB76DA /* playground.swift */,
 				A4AB4DC42B6144350098B05D /* main.swift */,
@@ -236,6 +242,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4FB86DB2BCA867A0093C9BE /* benchmark.py in Resources */,
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
 				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
 			);
@@ -269,6 +276,7 @@
 				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
 				A43361612BC4203E006C12E9 /* convert.metal in Sources */,
 				A43361652BC43E8C006C12E9 /* bucketMulQ8.metal in Sources */,
+				A4FB86DD2BCAA1100093C9BE /* benchmark.swift in Sources */,
 				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
 				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,
 				A4FB86D92BCA50F00093C9BE /* runNetwork.swift in Sources */,

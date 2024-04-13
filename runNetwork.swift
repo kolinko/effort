@@ -8,7 +8,13 @@
 import Foundation
 
 
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Double = 1.0) {
+struct Reply {
+    let reply: String
+    let speed: [Float]
+    let hitMiss: [Int]
+}
+
+func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Double = 1.0, srcTokenIds : [Int]? = nil) -> Reply {
     let effort = _effort
     let bm1 = BucketMulFaster()
     let bm2 = BucketMulFaster()
@@ -50,6 +56,8 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
     let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
     let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
     let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
+    
+    var hitMiss = [Int]()
     
     for thisToken in 0...numTokens {
         let scores = MatrixFloat(shape: [numHeads, thisToken+1])
@@ -225,8 +233,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
             }
 
             let topToken = Int(topKVector.getInt(index: 0))
-            let newS = t[topToken].replacingOccurrences(of: "▁", with: " ").replacingOccurrences(of: "<0x0A>", with: "↩")
-            output += newS
+            let topT = t[topToken].replacingOccurrences(of: "▁", with: " ")
+            let newS = topT.replacingOccurrences(of: "<0x0A>", with: "↩")
+            output += topT
             if (silent) {
                 print(newS, terminator: goVerify ? "\n" : "")
                 fflush(stdout)
@@ -234,6 +243,14 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
                     break
                 }
             }
+        } else if srcTokenIds != nil {
+//            gpu.eval()
+//             hitMiss.append()//(topKVector.scalarAt(0).intVal == srcTokenIds![thisToken+1]) ? 1 : 0)
+        }
+        
+        if srcTokenIds != nil {
+            gpu.eval()
+            hitMiss.append(Int(topKVector.scalarAt(0).intVal)) //"\(Int(topKVector.scalarAt(0).intVal)), "
         }
         
         gpu.warnOfEvals = false
@@ -248,33 +265,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
     }
     
     evalTime = Date()
-//    gpu.eval()
-//    gpu.stopCapture()
     
     if let range = output.range(of: "</s>") {
-        output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
+       // output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
     } else {
-        output += " ›››"
+      //  output += " ›››"
     }
     
-    if !silent {
-        print("\(Int(effort*100))% \t \(output)\n")
-        
-        print("final eval time \(Date().timeIntervalSince(finalEvalTime)*1000, precision: 2) ms")
-        
-        print("sum eval time \(sumEvalTime*1000, precision: 2) ms")
-        print("sum prep time \(sumPrepTime*1000, precision: 2) ms")
-        print("avg eval time \(sumEvalTime*1000/Double(tokens.count-2), precision: 2) ms")
-        print("avg prep time \(sumPrepTime*1000/Double(tokens.count-2), precision: 2) ms")
-        
-        print("both \((Double(tokens.count-2)/(sumEvalTime+sumPrepTime)), precision: 2) tps")
-        print("just eval \((Double(tokens.count-2)/(sumEvalTime)), precision: 2) tps")
-        
-    } else {
-        speedReport()
-    }
+    let spd = speedReport()
     
-    func speedReport() {
+    func speedReport() -> [Float] {
         print("\n")
         var _sumEvalTime = sumEvalTime
         var _sumPrepTime = sumPrepTime
@@ -293,6 +293,16 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
         
         print("\(effort*100, precision: 2)%: prep: \(_prepTime, precision: 2)ms ; eval: \(_evalTime, precision: 2)ms (\(evalTps, precision: 2) » \(sumTps, precision: 2)tps)")
         print("")
+        
+        return [Float(_prepTime), Float(_evalTime), Float(evalTps), Float(sumTps)]
+        
     }
     
+   // print(hitMiss)
+    
+    return Reply(
+        reply: output,
+        speed: spd,
+        hitMiss: hitMiss
+    )
 }
