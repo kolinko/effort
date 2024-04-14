@@ -63,7 +63,8 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         let scores = MatrixFloat(shape: [numHeads, thisToken+1])
 
         if thisToken == 2 {
-            gpu.eval()
+            gpu.eval(noWarn: true)
+            // first token is a warmup, so we're not benchmarking it
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
             gpu.warnOfEvals = true
@@ -280,17 +281,19 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         gpu.warnOfEvals = true
 
         if thisToken == maxTokens {
+            print(" »")
             break
         }
     }
     
     evalTime = Date()
     
+    /*
     if let range = output.range(of: "</s>") {
        // output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
     } else {
       //  output += " ›››"
-    }
+    }*/
     
     let spd = speedReport()
     

@@ -99,8 +99,8 @@ class Gpu {
        gpu.encoder.waitForFence(fence)
     }
     
-    func eval() {
-        if self.warnOfEvals {
+    func eval(noWarn: Bool = false) {
+        if self.warnOfEvals && !noWarn {
             print("warn: EVAL")
         }
         

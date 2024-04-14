@@ -52,16 +52,11 @@ let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) 
 let goSaveTests = false
 
 
-//modelRunTests()
-//exit(0)
-
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
 let t = Tokeniser(modelData)
 
-//var tokens = [VectorFloat]()
-let tokens = t.embed([1, 1602, 460])//[    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
-//                          16289, 28793])//!!!! [1, 1602, 460])//
+let tokens = t.embed([1, 1602, 460])
 
 os_signpost(.end, log: log, name: "Loading")
 
@@ -73,7 +68,6 @@ let maxSeqLen = 2048
 let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
-//modelProfile()
 
 print()
 gpu.eval()
@@ -83,12 +77,10 @@ var silent = true
 var runControl = false
 silent = true
 //for _ in 0..<20 {
+print("»»» How are ", terminator: "")
 runNetwork(isTest: false, tokens: tokens, effort:1)
-//numTokens = 150
-//runNetwork(isTest: false, tokens: t.embed("<s>[INST]User's name is \(NSFullUserName()), datetime is 17:01, 11 Apr 2024 - write some neat like 'Good morning professor XXX, how are we doing this morning.'. And a nice quote for the day.[/INST]"), effort: 0.25)
-//}
 
-numTokens = 200//2048
+numTokens = 200
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
@@ -99,7 +91,7 @@ serverReady = false
 var isTest = false
 var prevQuery : String? = nil
 
-//runBenchmark()
+goTruthhful()
 //exit(0)
 
 //runBenchmark()
@@ -138,7 +130,7 @@ while true {
             } else {
                 prevQuery = input
                 let tokens = t.embed("<s>[INST]"+input+"[/INST]")
-                runNetwork(isTest: isTest, tokens: tokens, effort:effort, limitLogits: [28740, 28750, 28770, 28781])
+                runNetwork(isTest: isTest, tokens: tokens, effort:effort)//, limitLogits: [28740, 28750, 28770, 28781])
             }
         }
     }
