@@ -192,6 +192,7 @@ class Model {
         self.layers = layers
 
         print("data init time \(Date().timeIntervalSince(startTime)) seconds")
+        gpu.eval()
     }
 }
 

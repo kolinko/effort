@@ -381,11 +381,12 @@ kernel void sumScores32(const device float* scores [[buffer(0)]],
                       const device float* xvToken [[buffer(1)]],
                       device float* out [[buffer(2)]],
                       const device int& numTokens [[buffer(3)]],
-                      uint id [[thread_position_in_grid]]) {
+                        const device int& scoresCols [[buffer(4)]],
+                        uint id [[thread_position_in_grid]]) {
     float suma = 0.0;
     uint headNo = id / headDim;
     for (int tok2 = 0; tok2 < numTokens; tok2++) {
-        suma += scores[headNo*numTokens + tok2] * xvToken[tok2*numDims + id];
+        suma += scores[headNo*scoresCols + tok2] * xvToken[tok2*numDims + id];
     }
     out[id] = suma;
 }

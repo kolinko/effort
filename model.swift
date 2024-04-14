@@ -87,18 +87,11 @@ class Bufferable<Type> : MTLBufferable {
 
     }
     
-    convenience init(shape: [Int], private _private: Bool = false) {
+    convenience init(shape: [Int]) {
         let bufferSize = shape.reduce(1, *) * MemoryLayout<Type>.size
-        var _buffer: MTLBuffer
-        if _private {
-            _buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModePrivate)!
-        } else {
-            _buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
-        }
-//        self.buffer = _buffer
+        let _buffer = gpu.device.makeBuffer(length: bufferSize, options: .storageModeShared)!
         self.init(shape: shape, buffer: _buffer)
     }
-
 
     convenience init(shape: [Int], with: Type) {
         self.init(shape: shape)
@@ -317,10 +310,9 @@ class Matrix: Bufferable<Float16> {
         return Scalar(buffer: self.buffer, offset: self.offsetEls + row*self.cols + col)
     }
     
-    func fetchRow(_ rowNum: ScalarFloat) -> VectorFloat {
-        let out = VectorFloat(shape:[self.cols])
+    func fetchRow(_ rowNum: ScalarFloat, out: VectorFloat) {
+        assert (out.rows == self.cols)
         gpu.deploy("fetchRow16to32", buffers: [rowNum, self, out], threadCount: self.cols)
-        return out
     }
     
     func asVectorList() -> [Vector] {
@@ -808,24 +800,13 @@ func sumScores2(numHeads: Int, headDim:Int, scores: MatrixFloat, xvToken: Matrix
     
     return outMatrix.asVector()
 }
-/*
-func sumScores(numHeads: Int, headDim:Int, scores: [VectorFloat], xvToken: [VectorFloat]) -> VectorFloat {
-    let outMatrix = MatrixFloat(shape: [numHeads, headDim])
-    let scoresMatrix = gpuConsolidate(vecList: scores)
-    let xvTokenMatrix = gpuConsolidate(vecList: xvToken)
 
-    let numTokens = scores[0].rows
-    let numDims = numHeads*headDim
-    gpu.deploy("sumScores32", buffers:[scoresMatrix, xvTokenMatrix, outMatrix], ints: [numTokens], threadCount: [numDims])
-    
-    return outMatrix.asVector()
-}*/
 func sumScores(scores: MatrixFloat, xvToken: MatrixFloat, numTokens: Int, out: VectorFloat) {
     let numDims = numHeads*headDim
     
     assert(scores.cols == numTokens)
     out.zero()
-    gpu.deploy("sumScores32", buffers:[scores, xvToken, out], ints: [numTokens], threadCount: [numDims])
+    gpu.deploy("sumScores32", buffers:[scores, xvToken, out], ints: [numTokens, scores.cols], threadCount: [numDims])
     
 }
 

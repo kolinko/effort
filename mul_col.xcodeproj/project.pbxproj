@@ -40,6 +40,8 @@
 		A4FB86DD2BCAA1100093C9BE /* benchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FB86DC2BCAA1100093C9BE /* benchmark.swift */; };
 		A4FB86E12BCBAE220093C9BE /* convert-boolq.py in Resources */ = {isa = PBXBuildFile; fileRef = A4FB86E02BCBAE220093C9BE /* convert-boolq.py */; };
 		A4FB86E32BCBAFC40093C9BE /* boolq.py in Resources */ = {isa = PBXBuildFile; fileRef = A4FB86E22BCBAFC40093C9BE /* boolq.py */; };
+		A4FB86E52BCBD2380093C9BE /* basic.json in Resources */ = {isa = PBXBuildFile; fileRef = A4FB86E42BCBD2380093C9BE /* basic.json */; };
+		A4FB86E72BCBD6A40093C9BE /* quiz.json in Resources */ = {isa = PBXBuildFile; fileRef = A4FB86E62BCBD6A40093C9BE /* quiz.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -89,6 +91,8 @@
 		A4FB86DC2BCAA1100093C9BE /* benchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = benchmark.swift; sourceTree = "<group>"; };
 		A4FB86E02BCBAE220093C9BE /* convert-boolq.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = "convert-boolq.py"; sourceTree = "<group>"; };
 		A4FB86E22BCBAFC40093C9BE /* boolq.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = boolq.py; sourceTree = "<group>"; };
+		A4FB86E42BCBD2380093C9BE /* basic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = basic.json; sourceTree = "<group>"; };
+		A4FB86E62BCBD6A40093C9BE /* quiz.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = quiz.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +118,7 @@
 				A4260AEE2BB1B16F00DB76DA /* tokeniser.swift */,
 				A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */,
 				A45C6C912BAEC56D004AE765 /* timeit.swift */,
+				A4FB86D32BCA4B7A0093C9BE /* server.swift */,
 			);
 			path = helpers;
 			sourceTree = "<group>";
@@ -126,7 +131,6 @@
 				A4FB86D82BCA50F00093C9BE /* runNetwork.swift */,
 				A4260AEC2BB0CC0900DB76DA /* playground.swift */,
 				A4AB4DC42B6144350098B05D /* main.swift */,
-				A4FB86D32BCA4B7A0093C9BE /* server.swift */,
 				A43F8F972B6CF5C800578E56 /* loader.swift */,
 				A4CE9F6E2B626DB500910766 /* model.swift */,
 				A456C2BC2BC7FC2500C7B79F /* expertMul.swift */,
@@ -158,6 +162,8 @@
 		A4FB86DE2BCBA9850093C9BE /* data */ = {
 			isa = PBXGroup;
 			children = (
+				A4FB86E42BCBD2380093C9BE /* basic.json */,
+				A4FB86E62BCBD6A40093C9BE /* quiz.json */,
 			);
 			path = data;
 			sourceTree = "<group>";
@@ -238,8 +244,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4FB86E72BCBD6A40093C9BE /* quiz.json in Resources */,
 				A4FB86DB2BCA867A0093C9BE /* benchmark.py in Resources */,
 				A4FB86E12BCBAE220093C9BE /* convert-boolq.py in Resources */,
+				A4FB86E52BCBD2380093C9BE /* basic.json in Resources */,
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
 				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
 				A4FB86E32BCBAFC40093C9BE /* boolq.py in Resources */,

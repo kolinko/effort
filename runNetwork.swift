@@ -38,24 +38,30 @@ let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
 let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
 let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
 let expIdxZero = ScalarFloat(value: 0)
+let scores = MatrixFloat(shape: [numHeads, maxTokens])
 
 func runNetwork(tokens _tokens: [VectorFloat],
                 effort: Double = 1.0,
                 srcTokenIds : [Int]? = nil,
                 limitLogits : [Int]? = nil) -> Reply {
 
-    var tokens = _tokens
+    let tokens = MatrixFloat(shape: [maxTokens, stateDim]).asVectorList()
+    for i in 0..<_tokens.count {
+        tokens[i].copyFrom(_tokens[i])
+    }
+    gpu.eval()
+    
     var h : VectorFloat = tokens[0]
    
-    // timers
     var output = ""
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
-
+    
+    var countTokens = 0
     for thisToken in 0...numTokens {
-        let scores = MatrixFloat(shape: [numHeads, thisToken+1])
-
+        countTokens += 1
+        
         if thisToken == 2 {
             gpu.eval(noWarn: true)
             sumPrepTime = Date().timeIntervalSince(evalTime)
@@ -105,7 +111,8 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 gpu.deploy("rope_mx", buffers: [xq_temp, fCis, xqHeads], ints:[xqHeads.cols], threadCount: [xqHeads.cols, xqHeads.rows])
                 gpu.deploy("rope_mx", buffers: [xk_temp2, fCis, xkHeads], ints:[xkHeads.cols], threadCount: [xkHeads.cols, xkHeads.rows])
             }])
-                           
+            
+            scores.shape = [numHeads, thisToken+1]
             calcScores(xq_heads: xqHeads,
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
@@ -126,14 +133,14 @@ func runNetwork(tokens _tokens: [VectorFloat],
             fxn.mul(by:layer.ffnNorm)
 
             if layer.ffnGate == nil {
-                let expIdx = ScalarFloat(value: 0)
+          
 
                 gpu.concurrent([{
-                    bm1.findCutoff(v: fxn, eWeights: layer.w1, expNo: expIdx, effort: effort)
-                    bm2.findCutoff(v: fxn, eWeights: layer.w3, expNo: expIdx, effort: effort)
+                    bm1.findCutoff(v: fxn, eWeights: layer.w1, expNo: expIdxZero, effort: effort)
+                    bm2.findCutoff(v: fxn, eWeights: layer.w3, expNo: expIdxZero, effort: effort)
                 }, {
-                    bm1.prepareDispatch(v: fxn, eWeights: layer.w1, expNo: expIdx, effort: effort)
-                    bm2.prepareDispatch(v: fxn, eWeights: layer.w3, expNo: expIdx, effort: effort)
+                    bm1.prepareDispatch(v: fxn, eWeights: layer.w1, expNo: expIdxZero, effort: effort)
+                    bm2.prepareDispatch(v: fxn, eWeights: layer.w3, expNo: expIdxZero, effort: effort)
                 }, {
                     bm1.mul(by: layer.w1, out: x1)
                     bm2.mul(by: layer.w3, out: x3)
@@ -143,7 +150,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 }])
                 
                 silu(x1, x3, out: x2)
-                expertMul(v: x2, by: layer.w2, expNo: expIdx, out: ffnOut[0], effort: effort)
+                expertMul(v: x2, by: layer.w2, expNo: expIdxZero, out: ffnOut[0], effort: effort)
                 h.add(by: ffnOut[0])
             } else {
                 basicMul(v:fxn, by:layer.ffnGate!, out:gateOut)
@@ -184,40 +191,34 @@ func runNetwork(tokens _tokens: [VectorFloat],
 
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
+        
+        if thisToken >= _tokens.count-1 {
+            let topKVector = mpsTopK(v: outputVector)
 
-        /*
-
-        if tokens.count-1 == thisToken && limitLogits != nil {
-            gpu.eval()
-            for i in 0..<topKVector.count {
-                for j in 0..<limitLogits!.count {
-                    if limitLogits![j] == topKVector.getLong(index: i) {
-                        return Reply(
-                            reply: String(j+1),
-                            hitMiss: []
-                        )
+            if limitLogits != nil {
+                gpu.eval()
+                for i in 0..<topKVector.count {
+                    for j in 0..<limitLogits!.count {
+                        if limitLogits![j] == topKVector.getLong(index: i) {
+                            return Reply(
+                                reply: String(j+1),
+                                hitMiss: []
+                            )
+                        }
                     }
                 }
             }
-        }*/
-        
-        if tokens.count-1 == thisToken {
-            let topKVector = mpsTopK(v: outputVector)
-
-            tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
+            
+            modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0), out: tokens[thisToken+1])
             gpu.eval()
 
             let topToken = Int(topKVector.getInt(index: 0))
             let topT = t[topToken].replacingOccurrences(of: "▁", with: " ")
             let newS = topT.replacingOccurrences(of: "<0x0A>", with: "↩")
             output += topT
-            if (silent) {
-                print(newS, terminator: goVerify ? "\n" : "")
-                fflush(stdout)
-                if output.contains("</s>") {
-                    break
-                }
-            }
+
+            print(newS, terminator: goVerify ? "\n" : "")
+            fflush(stdout)
         }
         
         if srcTokenIds == nil || thisToken >= srcTokenIds!.count-1 {
@@ -230,7 +231,11 @@ func runNetwork(tokens _tokens: [VectorFloat],
             testReport(thisToken >= 10)
             break
         }
-        
+
+        if output.contains("</s>") {
+            break
+        }
+
         if thisToken == numTokens {
             print(" »")
             break
@@ -238,13 +243,10 @@ func runNetwork(tokens _tokens: [VectorFloat],
         gpu.stopCapture()
     }
     
-    evalTime = Date()
     
-    speedReport()
-    
-    func speedReport() {
+    do {
         print("\n")
-        let numTkns = Double(min(tokens.count, numTokens)-2)
+        let numTkns = Double(countTokens-2)
         var _sumEvalTime = sumEvalTime
         var _sumPrepTime = sumPrepTime
         var _evalTime = _sumEvalTime*1000/numTkns
@@ -256,13 +258,11 @@ func runNetwork(tokens _tokens: [VectorFloat],
         _sumEvalTime /= Double(numLayers) / 32.0
         _sumPrepTime /= Double(numLayers) / 32.0
         
-        
         let sumTps = numTkns/(_sumEvalTime+_sumPrepTime)
         let evalTps = numTkns/(_sumEvalTime)
         
         print("\(effort*100, precision: 2)%: prep: \(_prepTime, precision: 2)ms ; eval: \(_evalTime, precision: 2)ms (\(evalTps, precision: 2) » \(sumTps, precision: 2)tps)")
         print("")
-                
     }
     
     return Reply(

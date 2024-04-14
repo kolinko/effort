@@ -10,32 +10,12 @@ import Metal
 import simd
 print("starting up")
 
-/*
-print(NSUserName())
-print(NSFullUserName())
- */
 var serverReady = false
-/*
-let server = HTTPServer.init()
-do {
-    try server.run(port: 8080)
-} catch {
-    print("server run on port 8080 failed")
-}*/
-/*
-signal(SIGINT) { _ in
-    print("Stopping server...")
-    server.stop()
-    exit(0)  // Terminate the program after stopping the server (remove if you want to continue with other tasks)
-}*/
 
-let log = OSLog(subsystem: "com.kolinko", category: "Performance")
- 
 let gpu = Gpu()
 print("loading")
 
 //runConvert([.mixtral, .fp16])
-//exit(0)
 
 let stateDim = 4096
 let hiddenDim = 14336
@@ -52,14 +32,10 @@ let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
 
-
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
 let t = Tokeniser(modelData)
 
-let tokens = t.embed([1, 1602, 460])
-
-os_signpost(.end, log: log, name: "Loading")
 
 let headDim = 128  // Example head dimension
 let numHeadsKV = 8
@@ -69,19 +45,11 @@ let maxSeqLen = 2048
 let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
-
 print()
-gpu.eval()
-
-var silent = true
-
-var runControl = false
-silent = true
-//for _ in 0..<20 {
 print("»»» How are ", terminator: "")
-_ = runNetwork(tokens: tokens, effort:1)
+_ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1)
 
-numTokens = 40
+numTokens = 150
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
@@ -93,6 +61,8 @@ var isTest = false
 var prevQuery : String? = nil
 
 var modeABC = false
+
+//goQuiz()
 
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")

@@ -36,13 +36,16 @@ func goBoolQ() {
     let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
     let qa = loadBoolQ()
 
+    numTokens = 800
+    
     var results = [[Bool]]()
     var count = 0
     for test in qa {
         count += 1
         print("Testing QA, \(count) of \(qa.count)")
-        let prompt = "Answer this question: \"\(test.0)?\", for this context: \"\(test.2)\". Answer 1 for TRUE, 2 for FALSE"
-        let out = verifyABCD(prompt, answer: test.1 ? 1 : 2 , scale: scale)
+        let prompt = "Answer this question: \"\(test.prompt)\". Answer 1 for TRUE, 4 for FALSE"
+        print(test.prompt)
+        let out = verifyABCD(prompt, answer: test.answer ? 1 : 4 , scale: scale)
         print(out)
         results.append(out)
         
@@ -54,25 +57,79 @@ func goBoolQ() {
             }
         }
         
-        print("truthful replies")
         for s in 0..<scale.count {
-            print("\(Int(scale[s]*100))% -> \(result[s])")
+            print("\(Int(scale[s]*100))% -> \(result[s]); ", terminator: "")
         }
+        print()
+    }
+    
+}
+
+func goQuiz() {
+    print("Testing BoolQ")
+    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
+    let qa = loadQuiz()
+
+    numTokens = 800
+    
+    var results = [[Bool]]()
+    var count = 0
+    for test in qa {
+        count += 1
+        print("Testing QA, \(count) of \(qa.count)")
+        var prompt = "Answer this question: \"\(test.prompt)\". Choices:"
+        for i in 0..<test.choices.count {
+            prompt += "\(i+1). \(test.choices[i])"
+        }
+        print(test.prompt)
+        let out = verifyABCD(prompt, answer: test.answer+1 , scale: scale)
+        print(out)
+        results.append(out)
+        
+        
+        var result = Array(repeating: 0, count: scale.count)
+        for r in results {
+            for s in 0..<scale.count {
+                result[s] += r[s] ? 1 : 0
+            }
+        }
+        
+        for s in 0..<scale.count {
+            print("\(Int(scale[s]*100))% -> \(result[s]); ", terminator: "")
+        }
+        print()
     }
     
 }
 
 
-func loadBoolQ() -> [(String, Bool, String)] {
-    struct Item: Decodable {
-        let question: String
-        let answer: Bool
-        let passage: String
-    }
-    let fileUrl = URL(fileURLWithPath: "./benchmarks/data/dev.json")
+struct ItemQuiz: Decodable {
+    let prompt: String
+    let choices: [String]
+    let answer: Int
+}
+
+
+struct ItemQA: Decodable {
+    let prompt: String
+    let answer: Bool
+}
+
+func loadQuiz() -> [ItemQuiz] {
+
+    let fileUrl = URL(fileURLWithPath: "./benchmarks/data/quiz.json")
     let jsonData = try! Data(contentsOf: fileUrl)
-    let items = try! JSONDecoder().decode([Item].self, from: jsonData)
-    return items.map { ($0.question, $0.answer, $0.passage) }
+    let items = try! JSONDecoder().decode([ItemQuiz].self, from: jsonData)
+    return items
+}
+
+
+func loadBoolQ() -> [ItemQA] {
+
+    let fileUrl = URL(fileURLWithPath: "./benchmarks/data/basic.json")
+    let jsonData = try! Data(contentsOf: fileUrl)
+    let items = try! JSONDecoder().decode([ItemQA].self, from: jsonData)
+    return items
 }
 
 

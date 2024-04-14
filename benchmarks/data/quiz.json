@@ -1,0 +1,24 @@
+[
+    {"prompt": "Where is the Eiffel Tower located?", "choices": ["Berlin", "Oslo", "Paris", "Potato"], "answer": 2},
+    {"prompt": "What is the chemical symbol for water?", "choices": ["H2O", "CO2", "O2", "H2SO4"], "answer": 0},
+    {"prompt": "Which planet is known as the Red Planet?", "choices": ["Venus", "Mars", "Jupiter", "Saturn"], "answer": 1},
+    {"prompt": "How many hearts does an octopus have?", "choices": ["Two", "Three", "One", "Four"], "answer": 1},
+    {"prompt": "What is the hardest natural substance on Earth?", "choices": ["Gold", "Iron", "Diamond", "Quartz"], "answer": 2},
+    {"prompt": "What is the largest ocean on Earth?", "choices": ["Atlantic", "Indian", "Arctic", "Pacific"], "answer": 3},
+    {"prompt": "What gas do plants absorb from the atmosphere to perform photosynthesis?", "choices": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], "answer": 2},
+    {"prompt": "Which animal is known to have the longest lifespan?", "choices": ["Elephant", "Blue Whale", "Tortoise", "Crow"], "answer": 2},
+    {"prompt": "What temperature does water boil at sea level?", "choices": ["90°C", "100°C", "110°C", "120°C"], "answer": 1},
+    {"prompt": "What is the capital of Japan?", "choices": ["Beijing", "Seoul", "Bangkok", "Tokyo"], "answer": 3},
+    {"prompt": "Which element is known for being the lightest?", "choices": ["Helium", "Hydrogen", "Oxygen", "Carbon"], "answer": 1},
+    {"prompt": "What type of animal is a spider?", "choices": ["Insect", "Arachnid", "Mammal", "Bird"], "answer": 1},
+    {"prompt": "Which vitamin is primarily obtained from sunlight?", "choices": ["Vitamin A", "Vitamin B12", "Vitamin C", "Vitamin D"], "answer": 3},
+    {"prompt": "What is the primary gas in the Earth's atmosphere?", "choices": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Helium"], "answer": 1},
+    {"prompt": "Which country is the largest by land area?", "choices": ["United States", "China", "Russia", "Canada"], "answer": 2},
+    {"prompt": "What device is used to measure atmospheric pressure?", "choices": ["Thermometer", "Barometer", "Hygrometer", "Anemometer"], "answer": 1},
+    {"prompt": "Which of these elements is a noble gas?", "choices": ["Nitrogen", "Oxygen", "Argon", "Phosphorus"], "answer": 2},
+    {"prompt": "What year did the Titanic sink?", "choices": ["1912", "1905", "1898", "1923"], "answer": 0},
+    {"prompt": "What is the smallest unit of life?", "choices": ["Cell", "Molecule", "Atom", "Electron"], "answer": 0},
+    {"prompt": "What fruit is known to be an excellent source of Vitamin C?", "choices": ["Banana", "Apple", "Orange", "Pear"], "answer": 2}
+    
+
+]
