@@ -43,7 +43,8 @@ let scores = MatrixFloat(shape: [numHeads, maxTokens])
 func runNetwork(tokens _tokens: [VectorFloat],
                 effort: Double = 1.0,
                 srcTokenIds : [Int]? = nil,
-                limitLogits : [Int]? = nil) -> Reply {
+                limitLogits : [Int]? = nil,
+                returnPredictions: Bool = false) -> Reply {
 
     let tokens = MatrixFloat(shape: [maxTokens, stateDim]).asVectorList()
     for i in 0..<_tokens.count {
@@ -59,6 +60,8 @@ func runNetwork(tokens _tokens: [VectorFloat],
     var sumEvalTime = Date().timeIntervalSince(evalTime)
     
     var countTokens = 0
+    var predictedTokens = [Int]()
+    
     for thisToken in 0...numTokens {
         countTokens += 1
         
@@ -77,7 +80,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
-            /*
+            
             gpu.concurrent([{
                 bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
                 bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
@@ -94,11 +97,12 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 bm1.reintegrate(out: xq_temp)
                 bm2.reintegrate(out: xk_temp)
                 bm3.reintegrate(out: xv_temp)
-             }])*/
+             }])
+            /*
             basicMul(v: h_norm, by: layer.wq.core!, out: xq_temp)
             basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)
             basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)
-
+*/
 
             xk_temp.repeated(kvRepeats, into:xk_temp2)
             xv_temp.repeated(kvRepeats, into:xv)
@@ -196,6 +200,12 @@ func runNetwork(tokens _tokens: [VectorFloat],
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
         
+        if returnPredictions {
+            let topKVector = mpsTopK(v: outputVector)
+            gpu.eval()
+            predictedTokens.append(topKVector.getLong(index: 0))
+        }
+        
         if thisToken >= _tokens.count-1 {
             let topKVector = mpsTopK(v: outputVector)
 
@@ -216,7 +226,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
             
             modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0), out: tokens[thisToken+1])
             gpu.eval()
-
+        
             let topToken = Int(topKVector.getInt(index: 0))
             let topT = t[topToken].replacingOccurrences(of: "▁", with: " ")
             let newS = topT.replacingOccurrences(of: "<0x0A>", with: "↩")
@@ -272,6 +282,6 @@ func runNetwork(tokens _tokens: [VectorFloat],
     
     return Reply(
         reply: output,
-        hitMiss: []//(srcTokenIds != nil ? srcTokenIds! : []) + hitMiss
+        hitMiss: predictedTokens
     )
 }

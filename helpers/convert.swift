@@ -36,7 +36,7 @@ func runConvert(_ options: ConvertOptions) {
             convertMistral(goQ8: false)//goQ8: false)
         }
         if options.contains(.q8) {
-            assertionFailure("not implemented yet")
+//            assertionFailure("not implemented yet")
             convertMistral(goQ8: true)//goQ8: true)
         }
     }

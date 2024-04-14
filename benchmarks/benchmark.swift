@@ -31,43 +31,25 @@ func verifyABCD(_ _query: String, answer: Int, scale: [Double]) -> [Bool] {
     return outputs
 }
 
-func goBoolQ() {
-    print("Testing BoolQ")
-    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
-    let qa = loadBoolQ()
-
-    numTokens = 800
-    
-    var results = [[Bool]]()
-    var count = 0
-    for test in qa {
-        count += 1
-        print("Testing QA, \(count) of \(qa.count)")
-        let prompt = "Answer this question: \"\(test.prompt)\". Answer 1 for TRUE, 4 for FALSE"
-        print(test.prompt)
-        let out = verifyABCD(prompt, answer: test.answer ? 1 : 4 , scale: scale)
-        print(out)
-        results.append(out)
-        
-        
-        var result = Array(repeating: 0, count: scale.count)
-        for r in results {
-            for s in 0..<scale.count {
-                result[s] += r[s] ? 1 : 0
-            }
-        }
-        
-        for s in 0..<scale.count {
-            print("\(Int(scale[s]*100))% -> \(result[s]); ", terminator: "")
-        }
-        print()
+func makeScale() -> [Double] {
+    var scale = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.35]
+    for i in 0...15 {
+        scale.append(0.3-Double(i)*0.02)
     }
-    
+    var out = "Scale: ["
+    for s in scale {
+        out += "\(s*100, precision: 0), "
+    }
+    print(out+"]")
+    return scale
+
 }
 
 func goQuiz() {
     print("Testing BoolQ")
-    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
+    let scale = makeScale()
+    print("Scale: ", scale)
+//    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
     var qa = loadQuiz()
 
     numTokens = 800
@@ -128,13 +110,7 @@ struct ItemQuiz: Decodable {
 }
 
 
-struct ItemQA: Decodable {
-    let prompt: String
-    let answer: Bool
-}
-
 func loadQuiz() -> [ItemQuiz] {
-
     let fileUrl = URL(fileURLWithPath: "./benchmarks/data/quiz.json")
     let jsonData = try! Data(contentsOf: fileUrl)
     let items = try! JSONDecoder().decode([ItemQuiz].self, from: jsonData)
@@ -142,28 +118,23 @@ func loadQuiz() -> [ItemQuiz] {
 }
 
 
-func loadBoolQ() -> [ItemQA] {
-
-    let fileUrl = URL(fileURLWithPath: "./benchmarks/data/basic.json")
-    let jsonData = try! Data(contentsOf: fileUrl)
-    let items = try! JSONDecoder().decode([ItemQA].self, from: jsonData)
-    return items
-}
-
 
 func goBenchmarkSimilarity() {
+    let scale = makeScale()
+
     numTokens = 500
-    let query = "[INST]Write a condensed perl implementations of the following: Dijkstra's algorithm, text search and quicksort. No comments, just write the code. Include data loaders.[/INST]"
-//  let query = "[INST]Write an extremely long and convoluted story about potatoes[/INST]"
+//    let query = "[INST]Write a condensed perl implementations of the following: Dijkstra's algorithm, text search and quicksort. No comments, just write the code. Include data loaders.[/INST]"
+  let query = "[INST]Write an extremely long and convoluted story about potatoes[/INST]"
 
     let tokIds = encode(prompt: query)
-    let baseline = runNetwork(tokens: t.embed(tokIds), effort: 1, srcTokenIds: tokIds)
+    let baselineText = runNetwork(tokens: t.embed(tokIds), effort: 1).reply
 
-    let tokenIds2 = baseline.hitMiss
-    let control = runNetwork(tokens: t.embed(tokenIds2), effort: 1).hitMiss
+//    let tokenIds2 = baseline.hitMiss
+    let embeded = t.embed(query+baselineText)
+    let control = runNetwork(tokens: embeded, effort: 1, returnPredictions: true).hitMiss
     
-    for effort in [1, 0.01, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.20, 0.15, 0.10, 0.08, 0.06, 0.04, 0.02] {
-        let test = runNetwork(tokens: t.embed(tokenIds2), effort: effort).hitMiss
+    for effort in scale {
+        let test = runNetwork(tokens: embeded, effort: effort, returnPredictions: true).hitMiss
         var num = 0
         for i in 0..<control.count {
             num += control[i] == test[i] ? 1 : 0
