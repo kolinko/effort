@@ -6,206 +6,202 @@
 
 import Metal
 import Foundation
+let shapeDict = readJson()
+
+private let bam = BufferActivityManager()
+
+let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
+let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+let jsonPath = "/Users/kolinko/mul_col/model-mixtral/"
+
+private let tLoader = TensorLoader(path: modelPath, model: modelName)
+
 
 class Weights {
     let core: Matrix
-    let buckets: Matrix
-    let stats: Matrix
-    var outSize: Int {
-        return core.rows
-    }
-    var inSize: Int {
-        return core.cols!
-    }
+    var outSize: Int { return core.rows }
+    var inSize: Int { return core.cols }
     
-    init(core: Matrix, buckets:Matrix, stats:Matrix) {
-        self.core = core
-        self.buckets = buckets
-        self.stats = stats
-        assert(core.cols!*16 == buckets.rows)
-        assert(core.cols!*16 == stats.rows)
-    }
-    
-    convenience init(fromFile: String, shape: [Int]) {
-        let core = loadBinaryFile(named: fromFile, shape: shape)
-        let bShape = [shape[1]*16, shape[0]/16]
-        let buckets = loadBinaryFile(named: fromFile+".bins.bin", shape: bShape)
-        let sShape = [shape[1]*16, 4]
-        let stats = loadBinaryFile(named: fromFile+".bins.stats.bin", shape: sShape)
-        self.init(core: core, buckets: buckets, stats: stats)
+    init(elName: String, shape: [Int]? = nil) {
+        self.core = tLoader.matrix(elName+".core", assertShape: (shape != nil) ? shape : shapeDict[elName]!)
     }
 }
+
+
+class ExpertWeights {
+    let inSize: Int
+    let outSize: Int
+    let percentLoad: Int
+    var expertSize: Int {percentLoad*inSize}
+    
+    let buckets: Matrix3D
+    let stats: Matrix3D
+    let probes: Matrix
+    let sliceStats: Matrix3DFloat?
+    let core: Matrix?
+    
+    init(elName: String) {
+        self.core = tLoader.matrix(elName+".core")
+        self.inSize = core!.cols
+        self.outSize = core!.rows
+        self.percentLoad = goQ8 ? 8 : 16
+        
+        let probesCount = 4096
+        self.probes = Matrix(shape: [1, probesCount])
+        let probesList: [Vector] = probes.asVectorList()
+        
+        self.buckets = Matrix3D(shape: [1, inSize*percentLoad, outSize/16])
+        let bucketList: [Matrix] = self.buckets.asMatrixList()
+        bam.addBuffer(self.buckets)
+        
+        self.stats = Matrix3D(shape: [1, inSize*percentLoad, 4])
+        let statList: [Matrix] = self.stats.asMatrixList()
+        bam.addBuffer(self.stats)
+
+        var sliceStatsList: [MatrixFloat]?
+        
+        if goQ8 {
+            self.sliceStats = Matrix3DFloat(shape: [1, 8 , 2])
+            sliceStatsList = self.sliceStats!.asMatrixList()
+        } else {
+            self.sliceStats = nil
+        }
+        
+        probesList[0].copyFrom(tLoader.vector(elName+".probes"))//, mySize: true)
+        bucketList[0].copyFrom(tLoader.matrix(elName+".buckets"))//, mySize: true)
+        statList[0].copyFrom(tLoader.matrix(elName+".bucket.stats"))//, mySize: true)
+        if goQ8 {
+            sliceStatsList![0].copyFrom(tLoader.matrix(elName+".sliceStats"))//, mySize: true)
+        }
+
+    }
+
+    
+    init(_ prefix: String, _ wId: String? = nil, inDim: Int, outDim: Int, numExperts: Int, percentLoad: Int) {
+        self.core = nil
+        
+        self.inSize = inDim
+        self.outSize = outDim
+        self.percentLoad = percentLoad
+        
+        let probesCount = 4096
+        self.probes = Matrix(shape: [numExperts, probesCount])
+        let probesList: [Vector] = probes.asVectorList()
+        
+        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
+        let bucketList: [Matrix] = self.buckets.asMatrixList()
+        bam.addBuffer(self.buckets)
+        
+        self.stats = Matrix3D(shape: [numExperts, inDim*percentLoad, 4])
+        let statList: [Matrix] = self.stats.asMatrixList()
+        bam.addBuffer(self.stats)
+
+        var sliceStatsList: [MatrixFloat]?
+        
+        if goQ8 {
+            self.sliceStats = Matrix3DFloat(shape: [numExperts, 8 , 2])
+            sliceStatsList = self.sliceStats!.asMatrixList()
+        } else {
+            self.sliceStats = nil
+        }
+        
+        for eNo in 0..<numExperts {
+            let fName = prefix + (wId != nil ? "\(eNo).\(wId!)." : "")
+            probesList[eNo].copyFrom(tLoader[fName+"probes"], mySize: true)
+            bucketList[eNo].copyFrom(tLoader[fName+"buckets"], mySize: true)
+            statList[eNo].copyFrom(tLoader[fName+"bucket.stats"], mySize: true)
+            if goQ8 {
+                sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats"], mySize: true)
+            }
+        }
+    }
+}
+
 class Layer {
     var data = [String: Matrix]()
+    let numExperts: Int
+    let percentLoad: Int
 
-    private func getWeights(for key: String) -> Weights {
-        guard let core = data[key],
-              let buckets = data["\(key).bins"],
-              let stats = data["\(key).bins.stats"] else {
-            fatalError("Invalid key or missing data for \(key)")
-        }
-        return Weights(core: core, buckets: buckets, stats: stats)
-    }
+    let attnNorm: Vector
+    let ffnNorm: Vector
+    let ffnGate: Matrix?
 
-    private func getVector(for key: String) -> Vector {
-        guard let matrix = data[key] else {
-            fatalError("Matrix not found for key: \(key)")
-        }
-        return matrix.asVector()
-    }
+    let wo: ExpertWeights
+    let wq: ExpertWeights
+    let wk: ExpertWeights
+    let wv: ExpertWeights
 
-    var attnNorm: Vector { getVector(for: "attention_norm") }
-    var ffnNorm: Vector { getVector(for: "ffn_norm") }
-
-    var wo: Weights { getWeights(for: "attention.wo") }
-    var wq: Weights { getWeights(for: "attention.wq") }
-    var wk: Weights { getWeights(for: "attention.wk") }
-    var wv: Weights { getWeights(for: "attention.wv") }
-
-    var w1: Weights { getWeights(for: "feed_forward.w1") }
-    var w2: Weights { getWeights(for: "feed_forward.w2") }
-    var w3: Weights { getWeights(for: "feed_forward.w3") }
-
+    let w1: ExpertWeights
+    let w2: ExpertWeights
+    let w3: ExpertWeights
+    
     subscript(index: String) -> Matrix {
         get { data[index]! }
         set { data[index] = newValue }
     }
+        
+    init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
+        let layerName = "layers.\(layerNo)."
+        
+        self.ffnNorm = tLoader.vector(layerName+"ffn_norm", assertShape:shapeDict[layerName+"ffn_norm"]!)
+        self.attnNorm = tLoader.vector(layerName+"attention_norm", assertShape: shapeDict[layerName+"attention_norm"]!)
+
+        if numExperts > 1 {
+            self.ffnGate = tLoader.matrix(layerName+"feed_forward.gate", assertShape: [numExperts, stateDim])
+        } else {
+            self.ffnGate = nil
+        }
+        
+        self.wo = ExpertWeights(elName: layerName+"attention.wo")
+        self.wk = ExpertWeights(elName: layerName+"attention.wk")
+        self.wq = ExpertWeights(elName: layerName+"attention.wq")
+        self.wv = ExpertWeights(elName: layerName+"attention.wv")
+
+        self.numExperts = numExperts
+        self.percentLoad = percentLoad
+        
+        let prefix = "layers.\(layerNo).feed_forward.experts."
+        self.w1 = ExpertWeights(prefix, "w1", inDim: stateDim, outDim: hiddenDim, numExperts: numExperts, percentLoad: percentLoad)
+        self.w3 = ExpertWeights(prefix, "w3", inDim: stateDim, outDim: hiddenDim, numExperts: numExperts, percentLoad: percentLoad)
+        self.w2 = ExpertWeights(prefix, "w2", inDim: hiddenDim, outDim: stateDim, numExperts: numExperts, percentLoad: percentLoad)
+    }
+
 }
 
-class ModelData {
-    let norm: Matrix
+
+class Model {
+    let norm: Vector
     let output: Weights
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
-    init(norm: Matrix, output: Weights, tokEmbeddings: Matrix, layers: [Int : Layer]) {
-        self.norm = norm
-        self.output = output
-        self.tokEmbeddings = tokEmbeddings
+    init(numLayers: Int, numExperts: Int, percentLoad: Int) {
+        let startTime = Date()
+        self.norm = tLoader.vector("model.norm", assertShape: shapeDict["norm"]!)
+        self.output = Weights(elName: "output", shape: shapeDict["output"]!)
+        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core", assertShape: shapeDict["tok_embeddings"]!)
+
+        print("loading weights")
+        var layers = [Int: Layer]()
+        for i in 0..<numLayers {
+            layers[i] = Layer(i, numExperts:numExperts, percentLoad: percentLoad)
+            print("preparing layer \(i)...\r", terminator:"")
+            fflush(stdout)
+            gpu.eval()
+        }
         self.layers = layers
+
+        print("data init time \(Date().timeIntervalSince(startTime)) seconds")
+        gpu.eval()
     }
 }
 
-let absolutePath = "/Users/kolinko/mul_col/model/"
-import Foundation
 
 func readJson() -> [String: [Int]] {
-    let fileUrl = URL(fileURLWithPath: absolutePath + "shape.json")
+    let fileUrl = URL(fileURLWithPath: jsonPath + "index.json")
     let data = try! Data(contentsOf: fileUrl)
     let dictionary = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: [Int]]
 
     return dictionary
-}
-
-func loadTokens() -> [Vector] {
-    let fileName = absolutePath + "/tokens.bin"
-    let fileURL = URL(fileURLWithPath: fileName)
-
-    let fileHandle = FileHandle(forReadingAtPath: fileURL.path)!
-    let data = fileHandle.readDataToEndOfFile()
-
-    let numTokens = 9
-    let layerSize = 4096
-    let expectedCount = numTokens * layerSize
-    let expectedSize = expectedCount * MemoryLayout<Float32>.size
-
-    // Assert that the data size matches the expected size
-    assert(data.count == expectedSize, "Data size does not match expected size for \(fileName). Expected: \(expectedSize), Actual: \(data.count)")
-
-    // Convert Float32 data to Float16
-    let float32Pointer = data.withUnsafeBytes { $0.bindMemory(to: Float32.self) }
-    var float16Data = [Float16]()
-    float16Data.reserveCapacity(expectedCount)
-
-    for i in 0..<expectedCount {
-        let float32Value = float32Pointer[i]
-        let float16Value = Float16(float32Value)
-        float16Data.append(float16Value)
-    }
-
-    // Create MTLBuffer from Float16 data
-    let buffer = gpu.device.makeBuffer(bytes: float16Data, length: float16Data.count * MemoryLayout<Float16>.size, options: .storageModeShared)!
-
-    var tokens: [Vector] = []
-
-    for i in 0..<numTokens {
-        let offset = i * layerSize * MemoryLayout<Float16>.size
-        let layerBuffer = gpu.device.makeBuffer(bytesNoCopy: buffer.contents() + offset, length: layerSize * MemoryLayout<Float16>.size, options: .storageModeShared, deallocator: nil)!
-        tokens.append(Vector(shape: [layerSize], buffer: layerBuffer))
-    }
-
-    // Directly assert a specific value in the first layer (update the assertion for Float16)
-    let pointer = tokens[1].buffer.contents().assumingMemoryBound(to: Float16.self)
-    assert(pointer[13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
-
-    assert(tokens[1][13] == Float16(0.0132369995), "Layer value at index 13 does not match expected value in the first layer")
-    assert(tokens[0].test("token[0]", mul: 100, val: [0.02, -0.01, 0.01, 0.02, -0.01]))
-
-    return tokens
-}
-
-
-
-func loadModelData(from filePath: String) -> ModelData {
-    
-    let startTime = Date()
-    let shapeDict = readJson()
-    
-    let numLayers = 31
-    var layers = [Int: Layer]()
-    for i in 0...numLayers {
-        layers[i] = Layer()
-        for key in ["ffn_norm", "attention_norm"] {
-            let keyName = "layers."+String(i)+"."+key
-            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shapeDict[keyName]!)
-        }
-        
-        for key in ["feed_forward.w1", "feed_forward.w2","feed_forward.w3", 
-                    "attention.wv", "attention.wk", "attention.wq", "attention.wo"] {
-            let keyName = "layers.\(i).\(key)"
-            let shape = shapeDict[keyName]!
-            layers[i]!.data[key] = loadBinaryFile(named: keyName, shape: shape)
-            layers[i]![key+".bins"] = loadBinaryFile(named: keyName+".bins.bin", shape: [shape[1]*16, shape[0]/16])
-            layers[i]![key+".bins.stats"] = loadBinaryFile(named: keyName+".bins.stats.bin", shape: [shape[1]*16, 4])
-        }
-    }
-    
-    let model = ModelData(
-        norm:loadBinaryFile(named: "norm", shape: shapeDict["norm"]!),
-        output: Weights(fromFile: "output", shape: shapeDict["output"]!),
-        tokEmbeddings:loadBinaryFile(named: "tok_embeddings", shape: shapeDict["tok_embeddings"]!),
-        layers: layers
-    )
-    
-    assert(model.norm[5]==1.544, "data seems loaded incorrectly?")
-    let testLayer = model.layers[0]!["feed_forward.w1"]
-    assert(testLayer[4*testLayer.shape[1] + 10] == -0.02287, "wrong data on layers.0.feed_forward.w1[4][10]")
-    assert(testLayer[10*testLayer.shape[1] + 4] == 0.02187, "wrong data on layers.0.feed_forward.w1[10][4]")
-
-    let endTime = Date()
-    print("data load time \(endTime.timeIntervalSince(startTime)) seconds")
-
-    return model
-}
-
-
-func loadBinaryFile(named fileName: String, shape: [Int]) -> Matrix {
-    let fileURL = URL(fileURLWithPath: absolutePath + fileName)
-
-    // Calculate the expected size
-    let expectedCount = shape.reduce(1, *)
-    let expectedSize = expectedCount * MemoryLayout<Float16>.size
-
-    // Memory map the file
-    let fileDescriptor = open(fileURL.path, O_RDONLY)
-    precondition(fileDescriptor != -1, "Cannot open file \(fileName).")
-
-    let dataPointer = mmap(nil, expectedSize, PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
-    precondition(dataPointer != MAP_FAILED, "Memory mapping of \(fileName) failed.")
-
-    // Create MTLBuffer from the memory-mapped data
-    let buffer = gpu.device.makeBuffer(bytesNoCopy: dataPointer!, length: expectedSize, options: .storageModeShared, deallocator: nil)!
-
-    return Matrix(shape: shape, buffer: buffer)
 }
 
