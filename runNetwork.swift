@@ -226,7 +226,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
             for i in 0..<topKVector.count {
                 for j in 0..<limitLogits!.count {
                     if limitLogits![j] == topKVector.getLong(index: i) {
-                        //print("answer:", j+1)
                         return Reply(
                             reply: String(j+1),
                             hitMiss: []
@@ -239,15 +238,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
-
-            if thisToken >= 30 && goVerify {
-                speedReport()
-            }
-
-            testReport(thisToken >= 10)
-            if thisToken >= 10 && goVerify {
-                exit(0)
-            }
 
             let topToken = Int(topKVector.getInt(index: 0))
             let topT = t[topToken].replacingOccurrences(of: "▁", with: " ")
@@ -267,18 +257,22 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
             hitMiss.append(Int(topKVector.scalarAt(0).intVal))
         }
         gpu.eval()
-        gpu.warnOfEvals = false
         
         if !silent {
             print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
             evalTime = Date()
         }
-        gpu.warnOfEvals = true
-
+        
+        if thisToken >= 30 && goVerify {
+            testReport(thisToken >= 10)
+            break
+        }
+        
         if thisToken == numTokens {
             print(" »")
             break
         }
+        gpu.stopCapture()
     }
     
     evalTime = Date()

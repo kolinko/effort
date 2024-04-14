@@ -39,6 +39,7 @@ func getVec(_ title: String) -> VectorFloat {
 
 func testVec(_ title: String, _ v: VectorFloat) {
     return ()
+    /*
     testCount += 1
     if goSaveTests {
         let hh = v.copy()
@@ -48,7 +49,7 @@ func testVec(_ title: String, _ v: VectorFloat) {
         let tt = testLoader![title] as! VectorFloat
         let score = tt.cosineSimilarityTo(v)
         testTest(title, score)
-    }
+    }*/
 }
 
 func cosVec(_ title: String, _ v: VectorFloat) -> Float {

@@ -92,11 +92,6 @@ serverReady = false
 var isTest = false
 var prevQuery : String? = nil
 
-//goBoolQ()
-//exit(0)
-
-//runBenchmark()
-
 var modeABC = false
 
 while true {
