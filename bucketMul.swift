@@ -34,6 +34,9 @@ class BucketMulFast {
         let chunkSize = 4//w.stats.rows//16
         gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
+      //  gpu.eval()
+        
+    //    print("dsize", dispatch.size.getLong(index: 0))
     }
     
     

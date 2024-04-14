@@ -17,6 +17,7 @@ print("loading")
 
 //runConvert([.mistral, .q8])
 
+
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
@@ -47,14 +48,14 @@ let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
 print()
 print("»»» How are ", terminator: "")
-_ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1)
+_ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1.0)
 
 numTokens = 150
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
-var effort: Double = 1.0 // 0.25
+var effort: Double = 1.0
 
 serverReady = false
 var isTest = false
@@ -62,8 +63,9 @@ var prevQuery : String? = nil
 
 var modeABC = false
 
-//goQuiz()
-//gitgoBenchmarkSimilarity()
+goQuiz()
+//goBenchmarkSimilarity()
+//goBucketPerformance()
 
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")

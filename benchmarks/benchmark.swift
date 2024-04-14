@@ -19,7 +19,7 @@ func testABCD(_ _query: String) {
 }
 
 func verifyABCD(_ _query: String, answer: Int, scale: [Double]) -> [Bool] {
-    let query = "<s>[INST]\(_query)[/INST] The answer is number:"
+    let query = "<s>[INST]\(_query)[/INST] The answer is number: "
     let logits = [28740, 28750, 28770, 28781]
     let embeded = t.embed(query)
     var outputs = [Bool]()
@@ -49,8 +49,7 @@ func goQuiz() {
     print("Testing BoolQ")
     let scale = makeScale()
     print("Scale: ", scale)
-//    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
-    var qa = loadQuiz()
+    let qa = loadQuiz()
 
     numTokens = 800
     
@@ -122,8 +121,8 @@ func loadQuiz() -> [ItemQuiz] {
 func goBenchmarkSimilarity() {
     let scale = makeScale()
 
-    numTokens = 500
-//    let query = "[INST]Write a condensed perl implementations of the following: Dijkstra's algorithm, text search and quicksort. No comments, just write the code. Include data loaders.[/INST]"
+    numTokens = 50
+//    let query = "[INST]Write a condensed perl implementations of the following: Dijkstra's algorithm, text search, quicksort, llama llm inference, brainfuck interpreter. No comments, just write the code. Include data loaders. Make it perl-golf style.[/INST]"
   let query = "[INST]Write an extremely long and convoluted story about potatoes[/INST]"
 
     let tokIds = encode(prompt: query)
@@ -132,6 +131,8 @@ func goBenchmarkSimilarity() {
 //    let tokenIds2 = baseline.hitMiss
     let embeded = t.embed(query+baselineText)
     let control = runNetwork(tokens: embeded, effort: 1, returnPredictions: true).hitMiss
+    
+    print(control.count, "tokens prompt.")
     
     for effort in scale {
         let test = runNetwork(tokens: embeded, effort: effort, returnPredictions: true).hitMiss
@@ -145,4 +146,107 @@ func goBenchmarkSimilarity() {
     }
   
     exit(0)
+}
+
+
+func goBucketPerformance() {
+    let scale = makeScale()
+    let modelData = Model(numLayers: 32, numExperts: 1, percentLoad: 0x10)
+    let t = Tokeniser(modelData)
+    
+    let v = t.embed([1])[0]// random token embeded to get a state vector
+    
+    let ew = modelData.layers[10]!.wq
+    
+    let control = VectorFloat(shape:[ew.outSize])
+    
+    basicMul(v: v, by: ew.core!, out: control)
+    expertMul(v: v, by: ew, out: control, effort: 1.0)
+    
+    for s in scale {
+        let test = VectorFloat(shape:[ew.outSize])
+        expertMul(v: v, by: ew, out: test, effort: s)
+        print("\(s, perc: ()) -> \(test.cosineSimilarityTo(control), precision: 5)")
+    }
+    
+    print("speed comparison")
+
+    // warmups are within timeIt
+    timeIt(repeats: 30000) { i in
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
+    }
+    print("^ MPS")
+
+    
+    for s in scale {
+        let test = VectorFloat(shape:[ew.outSize])
+        timeIt(repeats: 30000) { i in
+            expertMul(v: v, by: modelData.layers[i % 32]!.wq, out: test, effort: s)
+        }
+        expertMul(v: v, by: ew, out: test, effort: s)
+        print("^ BucketMul (\(s, perc: ())")
+    }
+
+    
+    exit(0)
+    
+   // bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
+
+    
+    
+    //    let control = basicMul(v: v, by: ew.core!) //
+    let test = VectorFloat(shape:[ew.outSize])
+    
+    /*
+    print(v.str)
+    print(ew.buckets.str)
+    print()
+    print(control.str)
+    //gpu.startCapture()
+    for q in [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 0.7, 1.0] {
+        expertMul(v: v, by: ew, out: test, effort: q)
+        assert(!test.hasNan)
+        //gpu.stopCapture()
+        //        print()
+        let score = test.cosineSimilarityTo(control)
+        print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
+        //        print()
+    }*/
+
+    let q = 1.0
+    bucketMulFaster(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
+    let score = test.cosineSimilarityTo(control)
+    print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
+
+    exit(0)
+    
+    
+    /*expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
+//    gpu.startCapture()
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
+    gpu.stopCapture()
+
+    timeIt(repeats:1000) { i in
+        let ew = modelData.layers[i % 3]!.w1
+        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
+    }
+    print()
+    timeIt(repeats:1000) { i in
+        let ew = modelData.layers[i % 3]!.w1
+        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
+    }
+
+    //    gpu.startCapture()
+
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
+    gpu.stopCapture()
+
+    print()
+    let score = test.cosineSimilarityTo(control)
+    print("\(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
+    print()
+
+    
+    exit(0)
+    */
 }

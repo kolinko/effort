@@ -81,28 +81,9 @@ func runNetwork(tokens _tokens: [VectorFloat],
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
             
-            gpu.concurrent([{
-                bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
-                bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
-                bm3.findCutoff(v: h_norm, eWeights: layer.wv, expNo: expIdxZero, effort: effort)
-            }, {
-                bm1.prepareDispatch(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
-                bm2.prepareDispatch(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
-                bm3.prepareDispatch(v: h_norm, eWeights: layer.wv, expNo: expIdxZero, effort: effort)
-            }, {
-                bm1.mul(by: layer.wq, out: xq)
-                bm2.mul(by: layer.wk, out: xk_temp)
-                bm3.mul(by: layer.wv, out: xv_temp)
-             },{
-                bm1.reintegrate(out: xq_temp)
-                bm2.reintegrate(out: xk_temp)
-                bm3.reintegrate(out: xv_temp)
-             }])
-            /*
-            basicMul(v: h_norm, by: layer.wq.core!, out: xq_temp)
-            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)
-            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)
-*/
+            expertMul(v: h_norm, by: layer.wq, out: xq_temp)
+            expertMul(v: h_norm, by: layer.wk, out: xk_temp)
+            expertMul(v: h_norm, by: layer.wv, out: xv_temp)
 
             xk_temp.repeated(kvRepeats, into:xk_temp2)
             xv_temp.repeated(kvRepeats, into:xv)
@@ -141,22 +122,9 @@ func runNetwork(tokens _tokens: [VectorFloat],
             fxn.mul(by:layer.ffnNorm)
 
             if layer.ffnGate == nil {
-          
+                expertMul(v: fxn, by: layer.w1, expNo: expIdxZero, out: x1, effort: effort)
+                expertMul(v: fxn, by: layer.w3, expNo: expIdxZero, out: x3, effort: effort)
 
-                gpu.concurrent([{
-                    bm1.findCutoff(v: fxn, eWeights: layer.w1, expNo: expIdxZero, effort: effort)
-                    bm2.findCutoff(v: fxn, eWeights: layer.w3, expNo: expIdxZero, effort: effort)
-                }, {
-                    bm1.prepareDispatch(v: fxn, eWeights: layer.w1, expNo: expIdxZero, effort: effort)
-                    bm2.prepareDispatch(v: fxn, eWeights: layer.w3, expNo: expIdxZero, effort: effort)
-                }, {
-                    bm1.mul(by: layer.w1, out: x1)
-                    bm2.mul(by: layer.w3, out: x3)
-                },{
-                    bm1.reintegrate(out: x1)
-                    bm2.reintegrate(out: x3)
-                }])
-                
                 silu(x1, x3, out: x2)
                 expertMul(v: x2, by: layer.w2, expNo: expIdxZero, out: ffnOut[0], effort: effort)
                 h.add(by: ffnOut[0])
@@ -197,13 +165,13 @@ func runNetwork(tokens _tokens: [VectorFloat],
         sumEvalTime += Date().timeIntervalSince(evalTime)
         evalTime = Date()
 
-        testVec32("token:\(thisToken)", h)
-        testVec32("ovector:\(thisToken)", outputVector)
+      //  testVec32("token:\(thisToken)", h)
+      //  testVec32("ovector:\(thisToken)", outputVector)
         
         if returnPredictions {
-            let topKVector = mpsTopK(v: outputVector)
-            gpu.eval()
-            predictedTokens.append(topKVector.getLong(index: 0))
+           let topKVector = mpsTopK(v: outputVector)
+           gpu.eval()
+           predictedTokens.append(topKVector.getLong(index: 0))
         }
         
         if thisToken >= _tokens.count-1 {
@@ -240,7 +208,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
        //     gpu.eval()
           //  hitMiss.append(Int(topKVector.scalarAt(0).intVal))
         }
-       // gpu.eval()
+        gpu.eval()
         
         if thisToken >= 30 && goVerify {
             testReport(thisToken >= 10)

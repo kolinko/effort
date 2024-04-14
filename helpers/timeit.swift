@@ -12,7 +12,7 @@ func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) ->
     var goTime = Date()
     gpu.startCapture(cond: withCapture)
     // warmup loop & in case of capture - just the roop
-    for i in 0..<10 {
+    for i in 0..<1000 {
         closure(i)
     }
     if withCapture {
@@ -23,12 +23,12 @@ func timeIt(repeats: Int = 10000, withCapture: Bool = false, _ closure: (Int) ->
     for i in 0..<repeats {
         closure(i)
     }
-    print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+//    print("prep time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
     goTime = Date()
     gpu.eval()
-    print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
+//    print("final eval time \(Date().timeIntervalSince(goTime)*1000, precision: 2) ms")
     let epl = Date().timeIntervalSince(goTime)*1000/Double(repeats)
-    print("eval per loop \(epl, precision: 2) ms")
+//    print("eval per loop \(epl, precision: 2) ms")
     print("persec \(Double(repeats) / Date().timeIntervalSince(goTime), precision: 2) runs")
     print()
     print("tpt \(epl*1*4*32, precision: 2) ms")

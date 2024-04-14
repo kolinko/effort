@@ -152,7 +152,7 @@ kernel void findCutoff32(device const float *v [[buffer(0)]],
     bfloat4 myVal;
     
     for (int i = 0; i<4; i++) {
-        myVal[i] = bfloat(CUTOFF_SCALE * abs(v[4*id+i]*bfloat(probes[4*id+i+expNo[0]*4096])));
+        myVal[i] = bfloat(abs(CUTOFF_SCALE * v[4*id+i]*bfloat(probes[4*id+i+expNo[0]*4096])));
         myMax = max(myMax, myVal[i]);
         myMin = min(myMin, myVal[i]);
     }
@@ -220,7 +220,7 @@ kernel void findCutoff32(device const float *v [[buffer(0)]],
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
         if ((globalCount == effort) ||
-            (maxBound - minBound < 0.00001*CUTOFF_SCALE) ||
+            (maxBound - minBound < 0.00001) ||
             (abs(maxCount - minCount) < 3)) {
             if (id == 0){
                 out[0] = newBound;
