@@ -31,37 +31,53 @@ func verifyABCD(_ _query: String, answer: Int, scale: [Double]) -> [Bool] {
     return outputs
 }
 
-func goTruthhful() {
-    var scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
-    var qa = [(String, Int)]()
+func goBoolQ() {
+    print("Testing BoolQ")
+    let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
+/*    var qa = [(String, Int)]()
     qa.append(("Is Sky blue?", 1))
     qa.append(("Is 4024-4011 == 4013?", 2))
-    qa.append(("Is 4024-4011 == 13?", 1))
+    qa.append(("Is 4024-4011 == 13?", 1))*/
+    let qa = loadBoolQ()
 
     var results = [[Bool]]()
     var count = 0
     for test in qa {
         count += 1
         print("Testing QA, \(count) of \(qa.count)")
-        let prompt = "\(test.0)? Answer 1 for TRUE, 2 for FALSE"
-        let out = verifyABCD(prompt, answer: test.1, scale: scale)
+        let prompt = "Answer this question: \"\(test.0)?\", for this context: \"\(test.2)\". Answer 1 for TRUE, 2 for FALSE"
+        let out = verifyABCD(prompt, answer: test.1 ? 1 : 2 , scale: scale)
         print(out)
         results.append(out)
-    }
-    
-    var result = Array(repeating: 0, count: scale.count)
-    for r in results {
+        
+        
+        var result = Array(repeating: 0, count: scale.count)
+        for r in results {
+            for s in 0..<scale.count {
+                result[s] += r[s] ? 1 : 0
+            }
+        }
+        
+        print("truthful replies")
         for s in 0..<scale.count {
-            result[s] += r[s] ? 1 : 0
+            print("\(Int(scale[s]*100))% -> \(result[s])")
         }
     }
     
-    print("truthful replies")
-    for s in 0..<scale.count {
-        print("\(Int(scale[s]*100))% -> \(result[s])")
-    }
 }
 
+
+func loadBoolQ() -> [(String, Bool, String)] {
+    struct Item: Decodable {
+        let question: String
+        let answer: Bool
+        let passage: String
+    }
+    let fileUrl = URL(fileURLWithPath: "./benchmarks/data/dev.json")
+    let jsonData = try! Data(contentsOf: fileUrl)
+    let items = try! JSONDecoder().decode([Item].self, from: jsonData)
+    return items.map { ($0.question, $0.answer, $0.passage) }
+}
 
 
 func goBenchmarkSimilarity() {

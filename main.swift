@@ -15,18 +15,19 @@ print(NSUserName())
 print(NSFullUserName())
  */
 var serverReady = false
+/*
 let server = HTTPServer.init()
 do {
     try server.run(port: 8080)
 } catch {
     print("server run on port 8080 failed")
-}
-
+}*/
+/*
 signal(SIGINT) { _ in
     print("Stopping server...")
     server.stop()
     exit(0)  // Terminate the program after stopping the server (remove if you want to continue with other tasks)
-}
+}*/
 
 let log = OSLog(subsystem: "com.kolinko", category: "Performance")
  
@@ -91,7 +92,7 @@ serverReady = false
 var isTest = false
 var prevQuery : String? = nil
 
-goTruthhful()
+goBoolQ()
 //exit(0)
 
 //runBenchmark()

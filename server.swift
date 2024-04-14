@@ -1,4 +1,5 @@
-import NIO
+/*
+ import NIO
 import NIOHTTP1
 import Foundation
 
@@ -166,3 +167,4 @@ func appFunction(query: String, effort: Int, numTokens: Int) -> [String: String]
     return ["response": reply.reply]
 
 }
+*/
