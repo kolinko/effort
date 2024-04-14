@@ -23,7 +23,7 @@ func runConvert(_ options: ConvertOptions) {
 //        assertionFailure("don't touch for now")
 
         if options.contains(.fp16) {
-            convertMixtral(goQ8: true)//goQ8: false)
+            convertMixtral(goQ8: false)//goQ8: false)
         }
         if options.contains(.q8) {
 //            assertionFailure("not implemented yet")
@@ -149,8 +149,8 @@ func convertMixtral(goQ8: Bool) {
         for s in ["k", "o", "q", "v"] {
             let prefix = "layers.\(layerNo).attention.w\(s).core"
             let newPrefix = "layers.\(layerNo).attention.w\(s)."
+            
             layerTensors[prefix] = tensors[prefix+".bin"]
-
             bucketize(tensors[prefix+".bin"] as! Matrix, outTensorsPref: newPrefix, tensors: &layerTensors, goQ8: goQ8)
         }
         

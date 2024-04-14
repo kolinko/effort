@@ -137,7 +137,7 @@ class TensorLoader {
         if self.index.keys.contains(_keyname) {
             keyname = _keyname
         } else {
-            keyname = String(_keyname.dropLast(4))
+            keyname = _keyname+".weight"//_keyname.dropLast(4))
         }
         
 //        if keyname.contains(".bucket.stats") {

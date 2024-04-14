@@ -119,6 +119,8 @@
 				A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */,
 				A45C6C912BAEC56D004AE765 /* timeit.swift */,
 				A4FB86D32BCA4B7A0093C9BE /* server.swift */,
+				A433615E2BC414C4006C12E9 /* convert.swift */,
+				A43361602BC4203E006C12E9 /* convert.metal */,
 			);
 			path = helpers;
 			sourceTree = "<group>";
@@ -140,8 +142,6 @@
 				A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */,
 				A43361622BC43E7E006C12E9 /* bucketMulQ8.swift */,
 				A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */,
-				A433615E2BC414C4006C12E9 /* convert.swift */,
-				A43361602BC4203E006C12E9 /* convert.metal */,
 				A40B31992BA06D5800095AF5 /* info.plist */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,

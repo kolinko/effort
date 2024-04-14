@@ -77,7 +77,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
-
+            /*
             gpu.concurrent([{
                 bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
                 bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
@@ -94,7 +94,11 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 bm1.reintegrate(out: xq_temp)
                 bm2.reintegrate(out: xk_temp)
                 bm3.reintegrate(out: xv_temp)
-             }])
+             }])*/
+            basicMul(v: h_norm, by: layer.wq.core!, out: xq_temp)
+            basicMul(v: h_norm, by: layer.wk.core!, out: xk_temp)
+            basicMul(v: h_norm, by: layer.wv.core!, out: xv_temp)
+
 
             xk_temp.repeated(kvRepeats, into:xk_temp2)
             xv_temp.repeated(kvRepeats, into:xv)
