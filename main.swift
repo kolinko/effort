@@ -39,7 +39,7 @@ print("loading")
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0xD // works decently for mixtral// from 0 to max binSize
+let percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
@@ -88,20 +88,23 @@ runNetwork(isTest: false, tokens: tokens, effort:1)
 //runNetwork(isTest: false, tokens: t.embed("<s>[INST]User's name is \(NSFullUserName()), datetime is 17:01, 11 Apr 2024 - write some neat like 'Good morning professor XXX, how are we doing this morning.'. And a nice quote for the day.[/INST]"), effort: 0.25)
 //}
 
-numTokens = 2048
+numTokens = 200//2048
 
 var storedIntegers: [Int] = []
 var storedStrings: [String] = []
 
 var effort: Double = 1.0 // 0.25
 
-serverReady = true
+serverReady = false
 var isTest = false
 var prevQuery : String? = nil
 
 //runBenchmark()
 //exit(0)
 
+//runBenchmark()
+
+var modeABC = false
 
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
@@ -123,14 +126,19 @@ while true {
             } else if input == "t" {
                 isTest = !isTest
                 print("Test switched to " + (isTest ? "ON" : "OFF"))
+            } else if input == "a" {
+                modeABC = !modeABC
+                print(modeABC ? "Mode: question ABC" : "Mode: regular")
             } else if input == "w" {
                 let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
                                           16289, 28793])
                 runNetwork(isTest: isTest, tokens: tokens, effort:effort)
+            } else if modeABC {
+                testABCD(input)
             } else {
                 prevQuery = input
                 let tokens = t.embed("<s>[INST]"+input+"[/INST]")
-                runNetwork(isTest: isTest, tokens: tokens, effort:effort)
+                runNetwork(isTest: isTest, tokens: tokens, effort:effort, limitLogits: [28740, 28750, 28770, 28781])
             }
         }
     }

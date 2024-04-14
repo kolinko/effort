@@ -76,6 +76,16 @@ final class HTTPHandler: ChannelInboundHandler {
 
     private func processRequest(context: ChannelHandlerContext) {
 
+        
+        if !serverReady || busy {
+            let reply = ["error": "busy"]
+            let response = try! JSONEncoder().encode(reply)
+            let responseString = String(data: response, encoding: .utf8) ?? "{}"
+            respond(context, status: .ok, message: responseString)
+            return
+        }
+
+        
         guard let effortString = queryParameters["effort"],
               let effort = Int(effortString) else {
               respond(context, status: .badRequest, message: "Missing or invalid parameters. Needs query=string; effort: 0-100. Optional: numTokens")

@@ -14,7 +14,7 @@ struct Reply {
     let hitMiss: [Int]
 }
 
-func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Double = 1.0, srcTokenIds : [Int]? = nil) -> Reply {
+func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _effort: Double = 1.0, srcTokenIds : [Int]? = nil, limitLogits : [Int]? = nil) -> Reply {
     let effort = _effort
     let bm1 = BucketMulFaster()
     let bm2 = BucketMulFaster()
@@ -70,6 +70,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
         }
         
         h = tokens[thisToken].copy()
+        gpu.warnOfEvals = false
+        gpu.eval()
+        gpu.warnOfEvals = true
 //        gpu.startCapture()
         for layerNo in 0..<numLayers {
             //gpu.startCapture()
@@ -218,6 +221,21 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
 
         let topKVector = mpsTopK(v: outputVector)
 
+        if tokens.count-1 == thisToken && limitLogits != nil {
+            gpu.eval()
+            for i in 0..<topKVector.count {
+                for j in 0..<limitLogits!.count {
+                    if limitLogits![j] == topKVector.getLong(index: i) {
+                        //print("answer:", j+1)
+                        return Reply(
+                            reply: String(j+1),
+                            speed: [0],
+                            hitMiss: []
+                        )
+                    }
+                }
+            }
+        }
         
         if tokens.count-1 == thisToken {
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
@@ -248,11 +266,11 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
 //             hitMiss.append()//(topKVector.scalarAt(0).intVal == srcTokenIds![thisToken+1]) ? 1 : 0)
         }
         
-        if srcTokenIds != nil {
+        if srcTokenIds == nil || thisToken >= srcTokenIds!.count-1 {
             gpu.eval()
             hitMiss.append(Int(topKVector.scalarAt(0).intVal)) //"\(Int(topKVector.scalarAt(0).intVal)), "
         }
-        
+        gpu.eval()
         gpu.warnOfEvals = false
         
         if !silent {
@@ -261,7 +279,9 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
         }
         gpu.warnOfEvals = true
 
-        
+        if thisToken == maxTokens {
+            break
+        }
     }
     
     evalTime = Date()
@@ -303,6 +323,6 @@ func runNetwork(isTest: Bool, tokens _tokens: [VectorFloat], effort _effort: Dou
     return Reply(
         reply: output,
         speed: spd,
-        hitMiss: hitMiss
+        hitMiss: (srcTokenIds != nil ? srcTokenIds! : []) + hitMiss
     )
 }

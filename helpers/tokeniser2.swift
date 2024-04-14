@@ -178,7 +178,7 @@ private class Node : Comparable {
     }
 }
 
-func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool = true) -> [Int] {
+func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool = false) -> [Int] {
     if prompt == "" { return [Int]() }
     let tokenIds = mapCharactersToTokenIds(prompt: prompt, addBosToken:addBosToken, addPrecedingSpace: addPrecedingSpace)
     
