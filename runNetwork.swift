@@ -207,6 +207,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
                         }
                     }
                 }
+                return Reply(reply: String(99), hitMiss: [])
             }
             
             modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0), out: tokens[thisToken+1])

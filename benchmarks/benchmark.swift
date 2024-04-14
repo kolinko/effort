@@ -68,16 +68,18 @@ func goBoolQ() {
 func goQuiz() {
     print("Testing BoolQ")
     let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
-    let qa = loadQuiz()
+    var qa = loadQuiz()
 
     numTokens = 800
     
     var results = [[Bool]]()
     var count = 0
-    for test in qa {
+    for _test in qa {
+        var test = _test
         count += 1
         print("Testing QA, \(count) of \(qa.count)")
         var prompt = "Answer this question: \"\(test.prompt)\". Choices:"
+        test.shuffle()
         for i in 0..<test.choices.count {
             prompt += "\(i+1). \(test.choices[i])"
         }
@@ -105,8 +107,24 @@ func goQuiz() {
 
 struct ItemQuiz: Decodable {
     let prompt: String
-    let choices: [String]
-    let answer: Int
+    var choices: [String]
+    var answer: Int
+    
+    mutating func shuffle() {
+            var newChoices = choices
+            var lastIndex = choices.count - 1
+            while lastIndex > 0 {
+                let randomIndex = Int.random(in: 0...lastIndex)
+                newChoices.swapAt(lastIndex, randomIndex)
+                if answer == lastIndex {
+                    answer = randomIndex
+                } else if answer == randomIndex {
+                    answer = lastIndex
+                }
+                lastIndex -= 1
+            }
+            choices = newChoices
+        }
 }
 
 
