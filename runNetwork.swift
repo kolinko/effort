@@ -37,8 +37,12 @@ let xk_temp = VectorFloat(shape: [_layer.wk.outSize])
 let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
 let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
 let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
+let expIdxZero = ScalarFloat(value: 0)
 
-func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effort: Double = 1.0, srcTokenIds : [Int]? = nil, limitLogits : [Int]? = nil) -> Reply {
+func runNetwork(tokens _tokens: [VectorFloat],
+                effort: Double = 1.0,
+                srcTokenIds : [Int]? = nil,
+                limitLogits : [Int]? = nil) -> Reply {
 
     var tokens = _tokens
     var h : VectorFloat = tokens[0]
@@ -49,8 +53,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effo
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
 
-    var hitMiss = [Int]()
-    
     for thisToken in 0...numTokens {
         let scores = MatrixFloat(shape: [numHeads, thisToken+1])
 
@@ -60,28 +62,24 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effo
             sumEvalTime = Date().timeIntervalSince(evalTime)
         }
         
-        h = tokens[thisToken]//.copy()
-        gpu.eval(noWarn: true)
+        h = tokens[thisToken]
 
         for layerNo in 0..<numLayers {
-            //gpu.startCapture()
-
             let layer = modelData.layers[layerNo]!
             h.rmsNormFast(out: h_norm)
             h_norm.mul(by:layer.attnNorm)
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
-            let expIdx = ScalarFloat(value: 0)
 
             gpu.concurrent([{
-                bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdx, effort: effort)
-                bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdx, effort: effort)
-                bm3.findCutoff(v: h_norm, eWeights: layer.wv, expNo: expIdx, effort: effort)
+                bm1.findCutoff(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
+                bm2.findCutoff(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
+                bm3.findCutoff(v: h_norm, eWeights: layer.wv, expNo: expIdxZero, effort: effort)
             }, {
-                bm1.prepareDispatch(v: h_norm, eWeights: layer.wq, expNo: expIdx, effort: effort)
-                bm2.prepareDispatch(v: h_norm, eWeights: layer.wk, expNo: expIdx, effort: effort)
-                bm3.prepareDispatch(v: h_norm, eWeights: layer.wv, expNo: expIdx, effort: effort)
+                bm1.prepareDispatch(v: h_norm, eWeights: layer.wq, expNo: expIdxZero, effort: effort)
+                bm2.prepareDispatch(v: h_norm, eWeights: layer.wk, expNo: expIdxZero, effort: effort)
+                bm3.prepareDispatch(v: h_norm, eWeights: layer.wv, expNo: expIdxZero, effort: effort)
             }, {
                 bm1.mul(by: layer.wq, out: xq)
                 bm2.mul(by: layer.wk, out: xk_temp)
@@ -102,14 +100,13 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effo
             let xvToken = xvLayerToken[layerNo]
             
             let fCis = freqsCis[thisToken]
-            testVec("xqHeads:\(thisToken):\(layerNo)", xqHeads.asVector())
             
             gpu.concurrent([{
                 gpu.deploy("rope_mx", buffers: [xq_temp, fCis, xqHeads], ints:[xqHeads.cols], threadCount: [xqHeads.cols, xqHeads.rows])
                 gpu.deploy("rope_mx", buffers: [xk_temp2, fCis, xkHeads], ints:[xkHeads.cols], threadCount: [xkHeads.cols, xkHeads.rows])
             }])
                            
-            calcScores2(xq_heads: xqHeads,
+            calcScores(xq_heads: xqHeads,
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
                         out: scores)
@@ -178,7 +175,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effo
         gpu.warnOfEvals = false
         
         sumPrepTime += Date().timeIntervalSince(evalTime)
-        let ptime = Date().timeIntervalSince(evalTime)*1000
         evalTime = Date()
         
         gpu.eval()
@@ -271,6 +267,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effo
     
     return Reply(
         reply: output,
-        hitMiss: (srcTokenIds != nil ? srcTokenIds! : []) + hitMiss
+        hitMiss: []//(srcTokenIds != nil ? srcTokenIds! : []) + hitMiss
     )
 }

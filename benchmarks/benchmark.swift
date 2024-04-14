@@ -82,13 +82,13 @@ func goBenchmarkSimilarity() {
 //  let query = "[INST]Write an extremely long and convoluted story about potatoes[/INST]"
 
     let tokIds = encode(prompt: query)
-    let baseline = runNetwork(isTest: true, tokens: t.embed(tokIds), effort: 1, srcTokenIds: tokIds)
+    let baseline = runNetwork(tokens: t.embed(tokIds), effort: 1, srcTokenIds: tokIds)
 
     let tokenIds2 = baseline.hitMiss
-    let control = runNetwork(isTest: true, tokens: t.embed(tokenIds2), effort: 1).hitMiss
+    let control = runNetwork(tokens: t.embed(tokenIds2), effort: 1).hitMiss
     
     for effort in [1, 0.01, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.20, 0.15, 0.10, 0.08, 0.06, 0.04, 0.02] {
-        let test = runNetwork(isTest: true, tokens: t.embed(tokenIds2), effort: effort).hitMiss
+        let test = runNetwork(tokens: t.embed(tokenIds2), effort: effort).hitMiss
         var num = 0
         for i in 0..<control.count {
             num += control[i] == test[i] ? 1 : 0

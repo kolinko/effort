@@ -13,7 +13,7 @@ func modelRunTests() {
     let t = Tokeniser(modelData)
 
     //var tokens = [VectorFloat]()
-    let tokens = t.embed([1, 1602, 460])
+//    let tokens = t.embed([1, 1602, 460])
 /*
     for i in 0..<32 {
         let ew = modelData.layers[i]!.wq

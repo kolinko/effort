@@ -527,11 +527,6 @@ class VectorFloat: Bufferable<Float> {
         return out
     }
     
-    func copy() -> VectorFloat {
-        let out = VectorFloat(shape:self.shape)
-        gpu.deploy("memcpy\(self.bitSize)", buffers: [self, out], threadCount: self.rows)
-        return out
-    }
     
     func asMatrix(newCols: Int) -> MatrixFloat {
         assert(self.rows % newCols == 0, "Original layer size must be divisible by new dimension size")
@@ -767,7 +762,6 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
 
     assert(headDim==128, "unusual headDim. it should work with others, but asserts/tests will fail")
     let freqs = logspace(start: 0, end: 1.0, num: headDim / 2, base: 1e-6)
-//    assert(freqs[2] == 0.7498942093324559)
     let heads = MatrixFloat(shape: [2*maxSeqLen, freqs.count*2]).asVectorList()
     for i in 0..<(2 * maxSeqLen) {
         for j in 0..<freqs.count {
@@ -779,36 +773,17 @@ func createFreqsCis(headDim: Int, maxSeqLen: Int) -> [VectorFloat] {
             heads[i][j*2+1] = imagPart
         }
     }
-  //  assert(heads[1][2]==0.6479058)
-  //  assert(heads[1][3]==0.7617204)
     return heads
 }
 
-func calcScores2(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int, out scores: MatrixFloat) {
-//    let scores = MatrixFloat(shape: [numHeads, numTokens])
-
+func calcScores(xq_heads: MatrixFloat, xkTokenHeads: Matrix3DFloat, numTokens: Int, out scores: MatrixFloat) {
     gpu.deploy("dotSetScore2",
                buffers: [xq_heads, xkTokenHeads, scores],
                threadCount: [128, numTokens, numHeads],
                threadGroupSize: [128, 1, 1])
     
-  //  return scores
 }
 
-func calcScores(xq_heads: [VectorFloat], xkTokenHeads: [[VectorFloat]]) -> [VectorFloat] {
-    let numTokens = xkTokenHeads.count
-    let scores = MatrixFloat(shape: [numHeads, numTokens])
-
-    for t2 in 0..<numTokens {
-        for headNo in 0..<numHeads {
-            assert(xq_heads[headNo].rows == 128, "not tested/implemented for other values.");
-            gpu.deploy("dotSetScore32", buffers: [xq_heads[headNo], xkTokenHeads[t2][headNo], scores.scalarAt(headNo, t2)],
-                       ints: [1], threadCount:[128], threadGroupSize: [128, 1, 1])
-        }
-    }
-    
-    return scores.asVectorList()
-}
 
 func gpuConsolidate(vecList src:[VectorFloat]) -> MatrixFloat {
     assert(src.count > 0)

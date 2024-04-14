@@ -47,13 +47,14 @@ class Archive : OrderedDict<VectorFloat> {
     var addIdx = 0
 
     func add(prefix pref: String? = nil, _ value: VectorFloat) {
+/*
         let valueCopy = value.copy()
         if let pref = pref {
             super.self["\(pref) \(addIdx)"] = valueCopy
         } else {
             super.self["\(addPrefix)\(addIdx)"] = valueCopy
         }
-        self.addIdx += 1
+        self.addIdx += 1*/
     }
     func add(prefix pref: String = "idx", _ value: [VectorFloat]) {
         for item in value {

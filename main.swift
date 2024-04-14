@@ -79,7 +79,7 @@ var runControl = false
 silent = true
 //for _ in 0..<20 {
 print("»»» How are ", terminator: "")
-runNetwork(isTest: false, tokens: tokens, effort:1)
+_ = runNetwork(tokens: tokens, effort:1)
 
 numTokens = 40
 
@@ -103,14 +103,14 @@ while true {
                 effort = Double(number)/100.0
                 if prevQuery != nil {
                     let tokens = t.embed("<s>[INST]\(prevQuery!)[/INST]")
-                    _ = runNetwork(isTest: isTest, tokens: tokens, effort:effort)
+                    _ = runNetwork(tokens: tokens, effort:effort)
                 }
             } else if input == "r" {
                 // a nice simple test case
                 let tq = "What's larger - Radom, Poland, or Sydney, Australia?"
                 print("? \(tq)")
                 let tokens = t.embed("<s>[INST]\(tq)[/INST]")
-                _ = runNetwork(isTest: isTest, tokens: tokens, effort:effort, srcTokenIds: encode(prompt:"<s>[INST]\(tq)[/INST]"))
+                _ = runNetwork(tokens: tokens, effort:effort, srcTokenIds: encode(prompt:"<s>[INST]\(tq)[/INST]"))
             } else if input == "t" {
                 isTest = !isTest
                 print("Test switched to " + (isTest ? "ON" : "OFF"))
@@ -120,13 +120,13 @@ while true {
             } else if input == "w" {
                 let tokens = t.embed([    1,   733, 16289, 28793,  1602,   460,   368, 28804,   733, 28748,
                                           16289, 28793])
-                _ = runNetwork(isTest: isTest, tokens: tokens, effort:effort)
+                _ = runNetwork(tokens: tokens, effort:effort)
             } else if modeABC {
                 testABCD(input)
             } else {
                 prevQuery = input
                 let tokens = t.embed("<s>[INST]"+input+"[/INST]")
-                _ = runNetwork(isTest: isTest, tokens: tokens, effort:effort)//, limitLogits: [28740, 28750, 28770, 28781])
+                _ = runNetwork(tokens: tokens, effort:effort)
             }
         }
     }
