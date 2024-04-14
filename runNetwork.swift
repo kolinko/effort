@@ -13,49 +13,42 @@ struct Reply {
     let hitMiss: [Int]
 }
 
-func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _effort: Double = 1.0, srcTokenIds : [Int]? = nil, limitLogits : [Int]? = nil) -> Reply {
-    let effort = _effort
-    let bm1 = BucketMulFaster()
-    let bm2 = BucketMulFaster()
-    let bm3 = BucketMulFaster()
+let bm1 = BucketMulFaster()
+let bm2 = BucketMulFaster()
+let bm3 = BucketMulFaster()
+let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
+let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
+let x1 = VectorFloat(shape:[hiddenDim])
+let x3 = VectorFloat(shape:[hiddenDim])
+let x2 = VectorFloat(shape:[hiddenDim])
+let ffnOut = [VectorFloat]([VectorFloat(shape:[stateDim]), VectorFloat(shape:[stateDim])])
+let h_norm = VectorFloat(shape:[stateDim])
+let attnOutput = VectorFloat(shape: [numHeads * headDim])
+let fxn = VectorFloat(shape:[stateDim])
+let gateOut = VectorFloat(shape: [numExperts])
+let gateIdxs = VectorFloat(shape:[2])
+let gateVals = VectorFloat(shape:[2])
+let outputVector = VectorFloat(shape:[modelData.output.outSize])
+let outNormed = VectorFloat(shape: [stateDim])
+let _layer = modelData.layers[0]!
+let xq = VectorFloat(shape: [_layer.wq.outSize])
+let xq_temp = VectorFloat(shape: [_layer.wq.outSize])
+let xk_temp = VectorFloat(shape: [_layer.wk.outSize])
+let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
+let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
+let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
+
+func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort effort: Double = 1.0, srcTokenIds : [Int]? = nil, limitLogits : [Int]? = nil) -> Reply {
 
     var tokens = _tokens
-    let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
-    let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
-    
     var h : VectorFloat = tokens[0]
-    
-    let x1 = VectorFloat(shape:[hiddenDim])
-    let x3 = VectorFloat(shape:[hiddenDim])
-    let x2 = VectorFloat(shape:[hiddenDim])
-    let ffnOut = [VectorFloat]([VectorFloat(shape:[stateDim]), VectorFloat(shape:[stateDim])])
-    
-    // buffers
-    let h_norm = VectorFloat(shape:[stateDim])
-    let attnOutput = VectorFloat(shape: [numHeads * headDim])
-    let fxn = VectorFloat(shape:[stateDim])
-    let gateOut = VectorFloat(shape: [numExperts])
-    let gateIdxs = VectorFloat(shape:[2])
-    let gateVals = VectorFloat(shape:[2])
-    let outputVector = VectorFloat(shape:[modelData.output.outSize])
-    let outNormed = VectorFloat(shape: [stateDim])
-    
+   
     // timers
     var output = ""
-    gpu.warnOfEvals = false
-    let finalEvalTime = Date()
     var evalTime = Date()
     var sumPrepTime = Date().timeIntervalSince(evalTime)
     var sumEvalTime = Date().timeIntervalSince(evalTime)
 
-    let _layer = modelData.layers[0]!
-    let xq = VectorFloat(shape: [_layer.wq.outSize])
-    let xq_temp = VectorFloat(shape: [_layer.wq.outSize])
-    let xk_temp = VectorFloat(shape: [_layer.wk.outSize])
-    let xk_temp2 = VectorFloat(shape: [_layer.wk.outSize*4])
-    let xv_temp = VectorFloat(shape: [_layer.wk.outSize])
-    let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
-    
     var hitMiss = [Int]()
     
     for thisToken in 0...numTokens {
@@ -63,27 +56,19 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
 
         if thisToken == 2 {
             gpu.eval(noWarn: true)
-            // first token is a warmup, so we're not benchmarking it
             sumPrepTime = Date().timeIntervalSince(evalTime)
             sumEvalTime = Date().timeIntervalSince(evalTime)
-            gpu.warnOfEvals = true
         }
         
-        h = tokens[thisToken].copy()
-        gpu.warnOfEvals = false
-        gpu.eval()
-        gpu.warnOfEvals = true
-//        gpu.startCapture()
+        h = tokens[thisToken]//.copy()
+        gpu.eval(noWarn: true)
+
         for layerNo in 0..<numLayers {
             //gpu.startCapture()
 
             let layer = modelData.layers[layerNo]!
-            testVec("h_in:\(thisToken):\(layerNo)", h)
-
             h.rmsNormFast(out: h_norm)
-            testVec("h_norm_rms:\(thisToken):\(layerNo)", h_norm)
             h_norm.mul(by:layer.attnNorm)
-            testVec("h_norm_mul:\(thisToken):\(layerNo)", h_norm)
 
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
@@ -124,20 +109,12 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
                 gpu.deploy("rope_mx", buffers: [xk_temp2, fCis, xkHeads], ints:[xkHeads.cols], threadCount: [xkHeads.cols, xkHeads.rows])
             }])
                            
-//            xqHeads.rope(complexArray: fCis)
-//            xkHeads.rope(complexArray: fCis)
-            testVec("xqHeadsROPE:\(thisToken):\(layerNo)", xqHeads.asVector())
-            
-
             calcScores2(xq_heads: xqHeads,
                         xkTokenHeads: xkTokenHeads,
                         numTokens: thisToken+1,
                         out: scores)
 
-            testVec("scores:\(thisToken):\(layerNo)", scores.asVector())
-
             scores.softmax()
-            testVec("scoresSM:\(thisToken):\(layerNo)", scores.asVector())
 
             sumScores(scores: scores,
                       xvToken: xvToken,
@@ -146,15 +123,11 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
             
             expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, effort: effort)
             
-            testVec("attnFfnOut:\(thisToken):\(layerNo)", attnFfnOut)
-
             h.add(by: attnFfnOut)
             h.rmsNormFast(out:fxn)
             
             fxn.mul(by:layer.ffnNorm)
 
-            testVec("fxn:\(thisToken):\(layerNo)", fxn)
-            
             if layer.ffnGate == nil {
                 let expIdx = ScalarFloat(value: 0)
 
@@ -193,11 +166,8 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
                 h.add(by: ffnOut[0])
                 h.add(by: ffnOut[1])
             }
-            
-            
-            testVec("h-out:\(thisToken):\(layerNo)", h)
+                        
             gpu.stopCapture()
-
         }
 
         h.rmsNormFast(out: outNormed)
@@ -219,7 +189,7 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         testVec32("token:\(thisToken)", h)
         testVec32("ovector:\(thisToken)", outputVector)
 
-        let topKVector = mpsTopK(v: outputVector)
+        /*
 
         if tokens.count-1 == thisToken && limitLogits != nil {
             gpu.eval()
@@ -233,9 +203,11 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
                     }
                 }
             }
-        }
+        }*/
         
         if tokens.count-1 == thisToken {
+            let topKVector = mpsTopK(v: outputVector)
+
             tokens.append(modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0)))
             gpu.eval()
 
@@ -253,15 +225,10 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         }
         
         if srcTokenIds == nil || thisToken >= srcTokenIds!.count-1 {
-            gpu.eval()
-            hitMiss.append(Int(topKVector.scalarAt(0).intVal))
+       //     gpu.eval()
+          //  hitMiss.append(Int(topKVector.scalarAt(0).intVal))
         }
-        gpu.eval()
-        
-        if !silent {
-            print("prep: \(ptime, precision: 2) ms; eval: \(Date().timeIntervalSince(evalTime)*1000, precision: 2) ms")
-            evalTime = Date()
-        }
+       // gpu.eval()
         
         if thisToken >= 30 && goVerify {
             testReport(thisToken >= 10)
