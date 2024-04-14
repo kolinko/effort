@@ -10,7 +10,6 @@ import Foundation
 
 struct Reply {
     let reply: String
-    let speed: [Float]
     let hitMiss: [Int]
 }
 
@@ -230,7 +229,6 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
                         //print("answer:", j+1)
                         return Reply(
                             reply: String(j+1),
-                            speed: [0],
                             hitMiss: []
                         )
                     }
@@ -262,14 +260,11 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
                     break
                 }
             }
-        } else if srcTokenIds != nil {
-//            gpu.eval()
-//             hitMiss.append()//(topKVector.scalarAt(0).intVal == srcTokenIds![thisToken+1]) ? 1 : 0)
         }
         
         if srcTokenIds == nil || thisToken >= srcTokenIds!.count-1 {
             gpu.eval()
-            hitMiss.append(Int(topKVector.scalarAt(0).intVal)) //"\(Int(topKVector.scalarAt(0).intVal)), "
+            hitMiss.append(Int(topKVector.scalarAt(0).intVal))
         }
         gpu.eval()
         gpu.warnOfEvals = false
@@ -280,7 +275,7 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         }
         gpu.warnOfEvals = true
 
-        if thisToken == maxTokens {
+        if thisToken == numTokens {
             print(" »")
             break
         }
@@ -288,21 +283,15 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
     
     evalTime = Date()
     
-    /*
-    if let range = output.range(of: "</s>") {
-       // output = String(output.prefix(upTo: range.lowerBound)) + "ₔ"
-    } else {
-      //  output += " ›››"
-    }*/
+    speedReport()
     
-    let spd = speedReport()
-    
-    func speedReport() -> [Float] {
+    func speedReport() {
         print("\n")
+        let numTkns = Double(min(tokens.count, numTokens)-2)
         var _sumEvalTime = sumEvalTime
         var _sumPrepTime = sumPrepTime
-        var _evalTime = _sumEvalTime*1000/Double(tokens.count-2)
-        var _prepTime = _sumPrepTime*1000/Double(tokens.count-2)
+        var _evalTime = _sumEvalTime*1000/numTkns
+        var _prepTime = _sumPrepTime*1000/numTkns
         
         _evalTime /= Double(numLayers) / 32.0
         _prepTime /= Double(numLayers) / 32.0
@@ -311,21 +300,16 @@ func runNetwork(isTest: Bool = false, tokens _tokens: [VectorFloat], effort _eff
         _sumPrepTime /= Double(numLayers) / 32.0
         
         
-        let sumTps = Double(tokens.count-2)/(_sumEvalTime+_sumPrepTime)
-        let evalTps = Double(tokens.count-2)/(_sumEvalTime)
+        let sumTps = numTkns/(_sumEvalTime+_sumPrepTime)
+        let evalTps = numTkns/(_sumEvalTime)
         
         print("\(effort*100, precision: 2)%: prep: \(_prepTime, precision: 2)ms ; eval: \(_evalTime, precision: 2)ms (\(evalTps, precision: 2) » \(sumTps, precision: 2)tps)")
         print("")
-        
-        return [Float(_prepTime), Float(_evalTime), Float(evalTps), Float(sumTps)]
-        
+                
     }
-    
-   // print(hitMiss)
     
     return Reply(
         reply: output,
-        speed: spd,
         hitMiss: (srcTokenIds != nil ? srcTokenIds! : []) + hitMiss
     )
 }

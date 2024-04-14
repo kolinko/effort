@@ -34,10 +34,6 @@ func verifyABCD(_ _query: String, answer: Int, scale: [Double]) -> [Bool] {
 func goBoolQ() {
     print("Testing BoolQ")
     let scale = [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08]
-/*    var qa = [(String, Int)]()
-    qa.append(("Is Sky blue?", 1))
-    qa.append(("Is 4024-4011 == 4013?", 2))
-    qa.append(("Is 4024-4011 == 13?", 1))*/
     let qa = loadBoolQ()
 
     var results = [[Bool]]()
