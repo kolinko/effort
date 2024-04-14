@@ -15,16 +15,16 @@ var serverReady = false
 let gpu = Gpu()
 print("loading")
 
-//runConvert([.mixtral, .fp16])
+//runConvert([.mistral, .q8])
 
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0xC // works decently for mixtral// from 0 to max binSize
+let percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
-var numExperts = 8
+var numExperts = 1
 var numTokens = 30
 
 let goNoMuls = false
@@ -63,6 +63,7 @@ var prevQuery : String? = nil
 var modeABC = false
 
 //goQuiz()
+//gitgoBenchmarkSimilarity()
 
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")

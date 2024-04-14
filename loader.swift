@@ -12,7 +12,7 @@ private let bam = BufferActivityManager()
 
 let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
 let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
-let jsonPath = "/Users/kolinko/mul_col/model-mixtral/"
+let jsonPath = "./"
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
