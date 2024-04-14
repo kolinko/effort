@@ -63,7 +63,7 @@ var prevQuery : String? = nil
 var modeABC = false
 
 //goQuiz()
-goBenchmarkSimilarity()
+//goBenchmarkSimilarity()
 
 while true {
     print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
