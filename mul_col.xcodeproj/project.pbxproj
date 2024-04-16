@@ -28,6 +28,7 @@
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
 		A45C6C922BAEC56E004AE765 /* timeit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C6C912BAEC56D004AE765 /* timeit.swift */; };
 		A45D52FE2BC3DD87007E484D /* safetensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45D52FD2BC3DD87007E484D /* safetensors.swift */; };
+		A46EAB172BCE439300004B19 /* wildMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46EAB162BCE439300004B19 /* wildMul.swift */; };
 		A46F18E02BB76FAA00A630B4 /* bam.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18DF2BB76FAA00A630B4 /* bam.swift */; };
 		A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
@@ -75,6 +76,7 @@
 		A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulFaster.metal; sourceTree = "<group>"; };
 		A45C6C912BAEC56D004AE765 /* timeit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = timeit.swift; sourceTree = "<group>"; };
 		A45D52FD2BC3DD87007E484D /* safetensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = safetensors.swift; sourceTree = "<group>"; };
+		A46EAB162BCE439300004B19 /* wildMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wildMul.swift; sourceTree = "<group>"; };
 		A46F18DF2BB76FAA00A630B4 /* bam.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bam.swift; sourceTree = "<group>"; };
 		A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser2.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* mul_col */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mul_col; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -141,6 +143,7 @@
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
 				A433616A2BC5EA47006C12E9 /* wild.metal */,
+				A46EAB162BCE439300004B19 /* wildMul.swift */,
 				A4AB4DC22B6144350098B05D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -268,6 +271,7 @@
 				A433616B2BC5EA47006C12E9 /* wild.metal in Sources */,
 				A43361632BC43E7E006C12E9 /* bucketMulQ8.swift in Sources */,
 				A429EFEF2BA81B7600B25B68 /* mps.swift in Sources */,
+				A46EAB172BCE439300004B19 /* wildMul.swift in Sources */,
 				A43361612BC4203E006C12E9 /* convert.metal in Sources */,
 				A43361652BC43E8C006C12E9 /* bucketMulQ8.metal in Sources */,
 				A4FB86DD2BCAA1100093C9BE /* benchmark.swift in Sources */,

@@ -81,9 +81,9 @@ func runNetwork(tokens _tokens: [VectorFloat],
             let xk = xkLayerTokenHead[layerNo][thisToken].asVector()
             let xv = xvLayerToken[layerNo][thisToken]
             
-            expertMul(v: h_norm, by: layer.wq, out: xq_temp)
-            expertMul(v: h_norm, by: layer.wk, out: xk_temp)
-            expertMul(v: h_norm, by: layer.wv, out: xv_temp)
+            expertMul(v: h_norm, by: layer.wq, out: xq_temp, effort: effort)
+            expertMul(v: h_norm, by: layer.wk, out: xk_temp, effort: effort)
+            expertMul(v: h_norm, by: layer.wv, out: xv_temp, effort: effort)
 
             xk_temp.repeated(kvRepeats, into:xk_temp2)
             xv_temp.repeated(kvRepeats, into:xv)

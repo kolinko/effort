@@ -1,7 +1,20 @@
 import Foundation
 import Metal
 
+
 extension String.StringInterpolation {
+    mutating func appendInterpolation(perc value: Double) {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.locale = Locale(identifier: "en_US_POSIX") // Ensures '.' as the decimal separator
+        formatter.multiplier = 100
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2 // You can adjust precision here as needed
+        if let formattedString = formatter.string(for: value) {
+            appendLiteral(formattedString)
+        }
+    }
+    
     mutating func appendInterpolation(_ value: Double, precision: Int) {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -278,6 +291,7 @@ class ScalarFloat: Bufferable<Float> {
     var long: Int {self.getLong(index: 0)}
 }
 
+let ScalarZero = ScalarFloat(value: 0)
 
 class Scalar: Bufferable<Float16> {
     convenience init(value: Float16) {

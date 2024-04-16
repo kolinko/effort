@@ -5,32 +5,38 @@
 //  Created by Tomasz Kolinko on 24/03/2024.
 //
 
+/*
+     
+ */
+
 import Foundation
 
-func modelRunTests() {
+func goPlayground() {
   
-    let modelData = Model(numLayers: 11, numExperts: 1, percentLoad: 0x10)
+    let modelData = Model(numLayers: 1, numExperts: 1, percentLoad: 0x10)
     let t = Tokeniser(modelData)
-
-    //var tokens = [VectorFloat]()
-//    let tokens = t.embed([1, 1602, 460])
-/*
-    for i in 0..<32 {
-        let ew = modelData.layers[i]!.wq
-        print(ew.core!.str)
-    }
-    exit(0)
-*/
     
     let v = TensorLoader.loadVec("xq_broken") //tokens[0]
-    let ew = modelData.layers[10]!.w1
+    let ew = modelData.layers[0]!.w1
     let control = VectorFloat(shape:[ew.outSize])
+//    timeIt(repeats:2000) { i in
     bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
+    gpu.stopCapture()
 
-    
-    
-    //    let control = basicMul(v: v, by: ew.core!) //
+    //    }
     let test = VectorFloat(shape:[ew.outSize])
+    let q = 1.0
+
+        gpu.startCapture()
+        bucketMulWild(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
+    gpu.stopCapture()
+//    }
+    let score = test.cosineSimilarityTo(control)
+
+    print("\(perc: q): \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
+
+    exit(0)
+    //    let control = basicMul(v: v, by: ew.core!) //
     
     /*
     print(v.str)
@@ -48,9 +54,7 @@ func modelRunTests() {
         //        print()
     }*/
 
-    let q = 1.0
-    bucketMulFaster(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
-    let score = test.cosineSimilarityTo(control)
+    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
     print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
 
     exit(0)

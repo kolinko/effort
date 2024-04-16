@@ -18,6 +18,8 @@ print("loading")
 //runConvert([.mistral, .q8])
 
 
+let args = CommandLine.arguments
+
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
@@ -32,6 +34,14 @@ let goNoMuls = false
 let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
+
+switch args.count > 1 ? args[1] : "" {
+    case "playground":
+        goPlayground()
+    default:
+        break
+}
+
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 
@@ -63,7 +73,23 @@ var prevQuery : String? = nil
 
 var modeABC = false
 
-goQuiz()
+
+//let args = CommandLine.arguments
+switch args.count > 1 ? args[1] : "" {
+case "playground":
+    goPlayground()
+case "quiz":
+    goQuiz()
+case "benchmark":
+    goBenchmarkSimilarity()
+case "bucket":
+    goBucketPerformance()
+default:
+    print("No or invalid option provided")
+}
+
+goPlayground()
+//goQuiz()
 //goBenchmarkSimilarity()
 //goBucketPerformance()
 

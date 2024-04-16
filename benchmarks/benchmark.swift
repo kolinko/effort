@@ -121,7 +121,7 @@ func loadQuiz() -> [ItemQuiz] {
 func goBenchmarkSimilarity() {
     let scale = makeScale()
 
-    numTokens = 50
+    numTokens = 500
 //    let query = "[INST]Write a condensed perl implementations of the following: Dijkstra's algorithm, text search, quicksort, llama llm inference, brainfuck interpreter. No comments, just write the code. Include data loaders. Make it perl-golf style.[/INST]"
   let query = "[INST]Write an extremely long and convoluted story about potatoes[/INST]"
 
@@ -171,8 +171,20 @@ func goBucketPerformance() {
     
     print("speed comparison")
 
+    
+    /*
+     
+         1. Warmups are within timeIt.
+         2. Comparing 3xWK (3x4096x4096) vs 1xW1 (4x14336) here.
+            W2 and WQ/K/V are not optimised in this version, bc they need to have their parameters fixed -
+            see bucketMulFast deployment comment in bucketMul.swift.
+     
+     */
+
     // warmups are within timeIt
-    timeIt(repeats: 30000) { i in
+    timeIt(repeats: 10000) { i in
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
         basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
     }
     print("^ MPS")
@@ -180,8 +192,8 @@ func goBucketPerformance() {
     
     for s in scale {
         let test = VectorFloat(shape:[ew.outSize])
-        timeIt(repeats: 30000) { i in
-            expertMul(v: v, by: modelData.layers[i % 32]!.wq, out: test, effort: s)
+        timeIt(repeats: 10000) { i in
+            expertMul(v: v, by: modelData.layers[i % 32]!.w1, out: test, effort: s)
         }
         expertMul(v: v, by: ew, out: test, effort: s)
         print("^ BucketMul (\(s, perc: ())")
