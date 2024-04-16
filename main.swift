@@ -17,13 +17,13 @@ print("loading")
 
 //runConvert([.mistral, .q8])
 
-
 let args = CommandLine.arguments
 
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
+assert(!goQ8, "Q8 not implemented fully yet!")
+var percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
@@ -40,6 +40,18 @@ switch args.count > 1 ? args[1] : "" {
         goPlayground()
     default:
         break
+}
+
+
+let physicalMemoryGB = ProcessInfo.processInfo.physicalMemory / 1024 / 1024 / 1024
+print("Physical Memory: \(physicalMemoryGB) GB")
+
+if physicalMemoryGB <= 100 {
+    print("\nAw! You're a bit short on memory.\nI'll load just 75% of the model, ok? Quality will suffer, but it should run without swap then.")
+    print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
+    print("Press Enter to continue")
+    _ = readLine()
+    percentLoad = 0xB
 }
 
 
@@ -60,6 +72,8 @@ let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 print()
 print("»»» How are ", terminator: "")
 _ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1.0)
+// ^ fun fact, I noticed the message generated gets a bit more depressing as you decrease percentload and effort.
+//   research needed if this is a true correlation.
 
 numTokens = 150
 
