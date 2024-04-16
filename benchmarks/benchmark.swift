@@ -171,7 +171,6 @@ func goBucketPerformance() {
     
     print("speed comparison")
 
-    
     /*
      
          1. Warmups are within timeIt.
@@ -192,7 +191,7 @@ func goBucketPerformance() {
     
     for s in scale {
         let test = VectorFloat(shape:[ew.outSize])
-        timeIt(repeats: 10000) { i in
+        timeIt(repeats: 3000) { i in
             expertMul(v: v, by: modelData.layers[i % 32]!.w1, out: test, effort: s)
         }
         expertMul(v: v, by: ew, out: test, effort: s)
@@ -200,65 +199,49 @@ func goBucketPerformance() {
     }
 
     
-    exit(0)
-    
-   // bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
+}
 
+
+func goQuickBucketPerformance() {
+    // to be run after the main model is loaded
+    let scale = [1.0, 0.7, 0.5, 0.25, 0.15, 0.01]//makeScale()
+    let v = t.embed([1])[0]// random token embeded to get a state vector
     
+    let ew = modelData.layers[10]!.wq
     
-    //    let control = basicMul(v: v, by: ew.core!) //
-    let test = VectorFloat(shape:[ew.outSize])
+    let control = VectorFloat(shape:[ew.outSize])
     
+    basicMul(v: v, by: ew.core!, out: control)
+    
+    print("\nRunning a quick speed benchmark")
+    print("run with --no-benchmark to skip this")
+
     /*
-    print(v.str)
-    print(ew.buckets.str)
+     
+         1. Warmups are within timeIt.
+         2. Comparing 3xWK (3x4096x4096) vs 1xW1 (4x14336) here.
+            W2 and WQ/K/V are not optimised in this version, bc they need to have their parameters fixed -
+            see bucketMulFast deployment comment in bucketMul.swift.
+     
+     */
+
+    // warmups are within timeIt
     print()
-    print(control.str)
-    //gpu.startCapture()
-    for q in [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 0.7, 1.0] {
-        expertMul(v: v, by: ew, out: test, effort: q)
-        assert(!test.hasNan)
-        //gpu.stopCapture()
-        //        print()
-        let score = test.cosineSimilarityTo(control)
-        print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
-        //        print()
-    }*/
+    print("Default Apple MPS implementation (comparable to llama.cpp)")
 
-    let q = 1.0
-    bucketMulFaster(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
-    let score = test.cosineSimilarityTo(control)
-    print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
-
-    exit(0)
-    
-    
-    /*expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control)
-//    gpu.startCapture()
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
-    gpu.stopCapture()
-
-    timeIt(repeats:1000) { i in
-        let ew = modelData.layers[i % 3]!.w1
-        expertMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
+    timeIt(repeats: 3000, multiplier: 4/3, brief: true) { i in
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
+        basicMul(v: v, by: modelData.layers[i % 32]!.wq.core!, out: control)
     }
-    print()
-    timeIt(repeats:1000) { i in
-        let ew = modelData.layers[i % 3]!.w1
-        bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
-    }
-
-    //    gpu.startCapture()
-
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: 1)
-    gpu.stopCapture()
-
-    print()
-    let score = test.cosineSimilarityTo(control)
-    print("\(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
-    print()
-
     
-    exit(0)
-    */
+    for s in scale {
+        let test = VectorFloat(shape:[ew.outSize])
+        print("\nBucketMul \(s, perc: ()):")
+        timeIt(repeats: 10000, multiplier: 0x10 / Double(percentLoad), brief: true) { i in
+            expertMul(v: v, by: modelData.layers[i % 32]!.w1, out: test, effort: s)
+        }
+    }
+    print("\nThe actual generation speed will be slower because of an implementation overhead.\nIf you have experience with Apple Metal / Swift, please e-mail kolinko@gmail.com, help will be much appreciated!")
+    
 }

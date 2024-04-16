@@ -44,9 +44,10 @@ switch args.count > 1 ? args[1] : "" {
 
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
-
 let t = Tokeniser(modelData)
-
+if args.count <= 1 || args[1] != "--no-benchmark" {
+    goQuickBucketPerformance()
+}
 
 let headDim = 128  // Example head dimension
 let numHeadsKV = 8
@@ -85,16 +86,12 @@ case "benchmark":
 case "bucket":
     goBucketPerformance()
 default:
-    print("No or invalid option provided")
+    break
 }
 
-//goPlayground()
-//goQuiz()
-//goBenchmarkSimilarity()
-//goBucketPerformance()
-
 while true {
-    print("Enter 'p XX' to store a number or any text to store it as a string ('q' to quit):")
+    print("This is a test environment. Doesn't hold context!")
+    print("Enter 0-100 to change Effort, or type in query to see the output.")
     while true {
         print("> ", terminator: "")
         if let input = readLine() {
