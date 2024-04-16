@@ -117,6 +117,8 @@
 				A4FB86D32BCA4B7A0093C9BE /* server.swift */,
 				A433615E2BC414C4006C12E9 /* convert.swift */,
 				A43361602BC4203E006C12E9 /* convert.metal */,
+				A46EAB162BCE439300004B19 /* wildMul.swift */,
+				A433616A2BC5EA47006C12E9 /* wild.metal */,
 			);
 			path = helpers;
 			sourceTree = "<group>";
@@ -138,12 +140,10 @@
 				A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */,
 				A43361622BC43E7E006C12E9 /* bucketMulQ8.swift */,
 				A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */,
-				A40B31992BA06D5800095AF5 /* info.plist */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
+				A40B31992BA06D5800095AF5 /* info.plist */,
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
-				A433616A2BC5EA47006C12E9 /* wild.metal */,
-				A46EAB162BCE439300004B19 /* wildMul.swift */,
 				A4AB4DC22B6144350098B05D /* Products */,
 			);
 			sourceTree = "<group>";

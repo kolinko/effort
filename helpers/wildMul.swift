@@ -2,8 +2,15 @@
 //  wildMul.swift
 //  mul_col
 //
-//  Created by Tomasz Kolinko on 16/04/2024.
-//
+
+/*
+ 
+ This is an experimental, "wild" version, meant to try out doing things by the book - loading weights
+ into threadgroup memory first and only then processing the data.
+ 
+ It works like crap.
+ 
+ */
 
 import Foundation
 
