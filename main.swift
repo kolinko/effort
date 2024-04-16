@@ -88,7 +88,7 @@ default:
     print("No or invalid option provided")
 }
 
-goPlayground()
+//goPlayground()
 //goQuiz()
 //goBenchmarkSimilarity()
 //goBucketPerformance()
