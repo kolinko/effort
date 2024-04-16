@@ -8,12 +8,10 @@ import os
 import Foundation
 import Metal
 import simd
-print("starting up")
-
 var serverReady = false
 
 let gpu = Gpu()
-print("loading")
+print("\nEffort Engine v.0.0.1 BETA")
 
 //runConvert([.mistral, .q8])
 
@@ -23,7 +21,7 @@ let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
 assert(!goQ8, "Q8 not implemented fully yet!")
-var percentLoad = goQ8 ? 0x8 : 0x6 // works decently for mixtral// from 0 to max binSize
+var percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
@@ -40,11 +38,27 @@ if args.count > 1 && args[1] == "playground" {
     exit(0)
 }
 
+ensureDirectoryExists(for: "./", createDirectoryAtPath: "models")
+ensureDirectoryExists(for: "./models/", createDirectoryAtPath: "mistral")
+
+let modelIndex = "./models/mistral/buckets-FP16.safetensors.index.json"
+if !FileManager.default.fileExists(atPath: modelIndex) {
+    print("\nModel data not found at \(modelIndex)")
+    print("\nIf running from XCode and you have the model already:\n>>>   edit scheme -> working directory -> project directory\n")
+    print("If running from terminal:")
+    print(">>>  huggingface-cli download kolinko/mistral-buckets --exclude \"*Q8*\" --local-dir ./models/mistral")
+    print("")
+    print("If you don't have huggingface CLI:")
+    print(">>>  pip install -U \"huggingface_hub[cli]\"")
+    print()
+    exit(0)
+}
+
 
 let physicalMemoryGB = ProcessInfo.processInfo.physicalMemory / 1024 / 1024 / 1024
 print("Physical Memory: \(physicalMemoryGB) GB")
 
-if physicalMemoryGB <= 96 {
+if physicalMemoryGB <= 8 {
     print("\nWhat is this? A computer for ants?\n\nI'll load just 37% of weights, the answers will be barely understandable.")
     print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
     print("Press Enter to continue")

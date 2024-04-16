@@ -1,9 +1,8 @@
 //
-//  watchman.swift
-//  mul_col
+//  bam.swift
 //
-//  Created by Tomasz Kolinko on 29/03/2024.
-//
+//  Periodically reads from buffers to prevent system from throwing them into swap.
+//  >30GB - every 1s. <GB - every 100ms, perhaps should be even more intense.
 
 import Foundation
 
@@ -16,7 +15,12 @@ class BufferActivityManager {
     private let bsScalar = ScalarFloat(value: 0.0)
     
     init() {
-        self.startPeriodicDispatch()
+        if physicalMemoryGB < 30 {
+            self.startPeriodicDispatch(interval: 0.1)
+        } else {
+            self.startPeriodicDispatch(interval: 1.0)
+
+        }
     }
 
     func addBuffer(_ m: Bufferable<Float16>) {
@@ -25,7 +29,7 @@ class BufferActivityManager {
         lock = false
     }
         
-    func startPeriodicDispatch(interval: TimeInterval = 1.0) {
+    func startPeriodicDispatch(interval: TimeInterval = 0.10) {
         stopPeriodicDispatch() // Stop any existing timer
 
         let timer = DispatchSource.makeTimerSource(queue: queue)

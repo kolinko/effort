@@ -205,3 +205,16 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
+
+func ensureDirectoryExists(for path: String, createDirectoryAtPath createPath: String) {
+    let fileManager = FileManager.default
+    let exists = fileManager.fileExists(atPath: path + createPath)
+
+    if !exists {
+        do {
+            try fileManager.createDirectory(atPath: path+createPath, withIntermediateDirectories: true)
+        } catch {
+            print("Failed to create directory: \(error)")
+        }
+    }
+}
