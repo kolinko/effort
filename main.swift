@@ -23,7 +23,7 @@ let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
 assert(!goQ8, "Q8 not implemented fully yet!")
-var percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
+var percentLoad = goQ8 ? 0x8 : 0x6 // works decently for mixtral// from 0 to max binSize
 let bSize: Int
 
 var numLayers = 32
@@ -35,18 +35,22 @@ let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
 
-switch args.count > 1 ? args[1] : "" {
-    case "playground":
-        goPlayground()
-    default:
-        break
+if args.count > 1 && args[1] == "playground" {
+    goPlayground()
+    exit(0)
 }
 
 
 let physicalMemoryGB = ProcessInfo.processInfo.physicalMemory / 1024 / 1024 / 1024
 print("Physical Memory: \(physicalMemoryGB) GB")
 
-if physicalMemoryGB <= 100 {
+if physicalMemoryGB <= 96 {
+    print("\nWhat is this? A computer for ants?\n\nI'll load just 37% of weights, the answers will be barely understandable.")
+    print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
+    print("Press Enter to continue")
+    _ = readLine()
+    percentLoad = 0xB
+} else if physicalMemoryGB <= 16 {
     print("\nAw! You're a bit short on memory.\nI'll load just 75% of the model, ok? Quality will suffer, but it should run without swap then.")
     print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
     print("Press Enter to continue")
