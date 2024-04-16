@@ -53,7 +53,7 @@ class MistralTokenizer {
     var merges: [String: Int]
     var spaceToken: String
     init() {
-        print("init!")
+       // print("init!")
         // Load and decode JSON
         let fileUrl = URL(fileURLWithPath: jsonPath + "tokenizer.json")
         let data = try! Data(contentsOf: fileUrl)
@@ -89,7 +89,7 @@ class MistralTokenizer {
         }
         
         spaceToken = vocabById[28705]!
-        print("done!")
+     //   print("done!")
     }
 }
 

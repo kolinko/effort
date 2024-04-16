@@ -83,13 +83,13 @@ func convertMistral(goQ8: Bool) {
             let prefix = "model.layers.\(layerNo).mlp."
             let newPrefix = "layers.\(layerNo).feed_forward.experts.0."
 
-            layerTensors[newPrefix + "w1.core"] = tensors[prefix + "gate_proj.weight"]
+            //layerTensors[newPrefix + "w1.core"] = tensors[prefix + "gate_proj.weight"]
             bucketize(tensors[prefix+"gate_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w1.", tensors: &layerTensors, goQ8: goQ8)
 
-            layerTensors[newPrefix + "w2.core"] = tensors[prefix + "down_proj.weight"]
+            //layerTensors[newPrefix + "w2.core"] = tensors[prefix + "down_proj.weight"]
             bucketize(tensors[prefix+"down_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w2.", tensors: &layerTensors, goQ8: goQ8)
 
-            layerTensors[newPrefix + "w3.core"] = tensors[prefix + "up_proj.weight"]
+            //layerTensors[newPrefix + "w3.core"] = tensors[prefix + "up_proj.weight"]
             bucketize(tensors[prefix+"up_proj.weight"] as! Matrix, outTensorsPref: newPrefix+"w3.", tensors: &layerTensors, goQ8: goQ8)
 
             

@@ -13,7 +13,7 @@ var serverReady = false
 let gpu = Gpu()
 print("\nEffort Engine v.0.0.1 BETA")
 
-//runConvert([.mistral, .q8])
+//runConvert([.mistral, .fp16])
 
 let args = CommandLine.arguments
 
@@ -32,7 +32,11 @@ let goNoMuls = false
 let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
+var quickStart = false
 
+if args.count > 1 && args[1] == "quickstart" {
+    quickStart = true
+}
 if args.count > 1 && args[1] == "playground" {
     goPlayground()
     exit(0)
@@ -75,7 +79,7 @@ if physicalMemoryGB <= 8 {
 
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 let t = Tokeniser(modelData)
-if args.count <= 1 || args[1] != "--no-benchmark" {
+if !quickStart && (args.count <= 1 || args[1] != "--no-benchmark") {
     goQuickBucketPerformance()
 }
 
@@ -88,8 +92,10 @@ let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
 print()
-print("»»» How are ", terminator: "")
-_ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1.0)
+if !quickStart {
+    print("»»» How are ", terminator: "")
+    _ = runNetwork(tokens: t.embed([1, 1602, 460]), effort:1.0)
+}
 // ^ fun fact, I noticed the message generated gets a bit more depressing as you decrease percentload and effort.
 //   research needed if this is a true correlation.
 
