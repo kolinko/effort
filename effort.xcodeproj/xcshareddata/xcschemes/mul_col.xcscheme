@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A4AB4DC02B6144350098B05D"
-               BuildableName = "mul_col"
-               BlueprintName = "mul_col"
-               ReferencedContainer = "container:mul_col.xcodeproj">
+               BuildableName = "effort"
+               BlueprintName = "effort"
+               ReferencedContainer = "container:effort.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,9 +47,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A4AB4DC02B6144350098B05D"
-            BuildableName = "mul_col"
-            BlueprintName = "mul_col"
-            ReferencedContainer = "container:mul_col.xcodeproj">
+            BuildableName = "effort"
+            BlueprintName = "effort"
+            ReferencedContainer = "container:effort.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,9 +64,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A4AB4DC02B6144350098B05D"
-            BuildableName = "mul_col"
-            BlueprintName = "mul_col"
-            ReferencedContainer = "container:mul_col.xcodeproj">
+            BuildableName = "effort"
+            BlueprintName = "effort"
+            ReferencedContainer = "container:effort.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

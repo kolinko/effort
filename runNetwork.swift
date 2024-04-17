@@ -3,11 +3,6 @@
 //  effort
 //
 
-/*
- 
- 
- 
- */
 
 import Foundation
 
