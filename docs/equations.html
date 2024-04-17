@@ -293,7 +293,7 @@ cutoff = calc_cutoff(effort)
 
 def approxMul(V, W):
   for el_v in V:
-     el_cutoff = cutoff / v
+     el_cutoff = cutoff / el_v
      for el_w, idx_w in W:
         if el_w > el_cutoff:
            O[idx_w] += el_v * el_w
