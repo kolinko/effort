@@ -11,6 +11,18 @@
   </head>
 
   <body>
+  	<p>
+  <div style="float: right; padding-right:25px; margin-right:0px; line-height:1.5">
+  <a href="equations.html">The Basics</a><br>
+   <a href="bucketmul.html">Introducing bucketMul</a>
+   <br>
+      <a href="gpu.html">The GPU implementation</a><br>
+    <a href="q8.html">MoE</a><br>
+     <a href="pesky.html">Pesky details</a><br>
+     <a href="about.html">About the Author(s)</a> <br>
+     <a href="setup.html">Download and Run</a>
+</div>
+
     <article>
 
       <h1 id="tufte-css">Effort</h1>
@@ -30,7 +42,7 @@
 <p>
 You can download the implementation here - <a href="https://github.com/kolinko/effort">from Github</a>. It should run right after fetching the converted weights.
 <p>
-The implementation is done for FP16 only for now. The multiplications are fast, but inference overall is still slightly lacking because the boring parts are implemented poorly so far.
+The implementation is done for FP16 only for now. The multiplications are fast, but inference overall is still slightly lacking because some non-essential parts - softmax etc - need improvement.
 
 <p>Mixtral and Q8 are in the works. 
 <p>
@@ -45,7 +57,7 @@ Oh, and it also allows to <b>dynamically decide how much of the model you want t
   </script>
 </div>
 
-The actual speed is constrained by my poor implementation overhead. Even on 0%, it takes 15ms on my machine (and a few seconds on M1 Air) to produce a single token. These parts are done in <1ms in Llama.cpp/Ollama, and I could use help from a Swift/Metal engineer to fix this.
+The actual speed is constrained by the implementation overhead. Even on 0%, it still takes 15ms on my machine (and a few seconds on M1 Air) to produce a single token. These parts are done in <1ms in Llama.cpp/Ollama, and I could use help from a Swift/Metal engineer to fix this.
 </figure>
 <p>
   <a href="https://github.com/kolinko/effort">You can download and test it yourself from Github.</a>

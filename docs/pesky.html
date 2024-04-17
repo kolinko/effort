@@ -14,6 +14,18 @@
   </head>
 
   <body>
+  <div style="float: right; padding-right:25px; margin-right:0px; line-height:1.5; margin-top: 10px">
+  <a href="index.html">Home</a><br>
+
+  <a href="equations.html">The Basics</a><br>
+   <a href="bucketmul.html">Introducing bucketMul</a>
+   <br>
+      <a href="gpu.html">The GPU implementation</a><br>
+    <a href="q8.html">MoE</a><br>
+     <a href="pesky.html">Pesky details</a><br>
+     <a href="about.html">About the Author(s)</a> <br>
+     <a href="setup.html">Download and Run</a>
+</div>
 
     <article>
 
@@ -42,7 +54,7 @@ It seems that, even with 100% effort, Effort's Mistral has worse quality than a 
 <p>
 I could use some help here from someone experienced in implementing LLMs.
 
-<h2>Attention and longer contexts.</h2>
+<h2>Attention and longer contexts</h2>
 
 <p>
 I didn't bother optimising attention calculations so far, so the model will slow down very fast the moment you go into larger contexts. Also, above 2048 I think there may be some memory leaks here and there. I didn't bother yet to fix those, but if someone's up to a task, help would be welcome.
