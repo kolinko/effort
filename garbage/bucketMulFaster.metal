@@ -4,7 +4,7 @@
 //
 //  Created by Tomasz Kolinko on 12/04/2024.
 //
-
+/*
 #include <metal_stdlib>
 using namespace metal;
 
@@ -91,3 +91,4 @@ kernel void bucketMulFaster(
                           
 }
 
+*/

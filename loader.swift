@@ -1,12 +1,29 @@
 /*
  
-    Loading weights code
+ This went through so many iterations, and needs cleanup. Should be renamed Model really.
+
+ Weight loading is handled by helpers/loader.
  
- */
+ Core = basic weight matrix, used by MPSMul. Everything else is related to buckets.
+ 
+*/
 
 import Metal
 import Foundation
 let shapeDict = readJson()
+
+/*
+ 
+ BAM = queries each buffer every 100ms to prevent system from unloading it to swap.
+ Without it, if a model reaches 80% occupied memory, it will be offloaded/loaded into
+ memory all the time, swap will kick in and you'll get one token per minute performance.
+ You can see the struggle in the system Activity Monitor, Memory usage, and looking at Wired/Compressed mem stats.
+ 
+ MLX is missing this btw, and that's why it's generation speeds are crap for larger models.
+ 
+ There is a system setting to increase allowed wired memory size, but BAM seems to work better.
+ 
+ */
 
 private let bam = BufferActivityManager()
 
@@ -15,7 +32,6 @@ let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
 let jsonPath = "./"
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
-
 
 class Weights {
     let core: Matrix
@@ -27,6 +43,15 @@ class Weights {
     }
 }
 
+/*
+ 
+ ExpertWeights need to handle the following
+ - storing both core weights as an option to bucket weights (sometimes you want both easily accessible for testing)
+ - regular, and expert weights - you want to split them here, because all expert weights need to be passed as one buffer to BucketMul
+ - Q8 and FP16 - Q8 has an extra matrix of SliceStats
+ 
+ Originally I implemented it as separate classes, but then the rest of the code was more messed up.
+ */
 
 class ExpertWeights {
     let inSize: Int
@@ -117,6 +142,15 @@ class ExpertWeights {
     }
 }
 
+/*
+ 
+ I dislike this approach to loading - passing file/weight names to down-layers,
+ but it ended up as the most elegant for the time being.
+ 
+ Neater solutions welcome!
+ 
+ */
+
 class Layer {
     var data = [String: Matrix]()
     let numExperts: Int
@@ -168,6 +202,24 @@ class Layer {
 
 }
 
+/*
+ 
+ Core loading below.
+ 
+ Q: Can't we use multithreading to load faster?
+ 
+    I tried, ended up with the same speed, but uglier.
+    The hard drive speed is a limiting factor here if I measured correctly. Cannot be optimised for speed.
+ 
+ A: Can't we use memmap, and the system will load everything when it needs it?
+  
+    It uses memmap underneath, but forces to load everything here and now, because otherwise it looks ugly when
+    getting stuck in random places, BAM cannot be implemented easily and so on.
+ 
+ I also experimented with dynamic loading of buffers when needed (to be able to load both core and bucket weights
+ and just dynamically choose which ones are needed), but the memory management became a mess.
+ 
+ */
 
 class Model {
     let norm: Vector

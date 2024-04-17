@@ -2,20 +2,34 @@
 //  runNetwork.swift
 //  mul_col
 //
-//  Created by Tomasz Kolinko on 13/04/2024.
-//
+
+/*
+ 
+ 
+ 
+ */
 
 import Foundation
 
+/*
+ reply - reply string
+ hitMiss - predicted tokens, used in benchmarks
+ 
+ the Reply structure, and the whole reply of runNetwork needs a serious cleanup and refactor.
+ 
+ */
 
 struct Reply {
     let reply: String
     let hitMiss: [Int]
 }
 
-let bm1 = BucketMulFaster()
-let bm2 = BucketMulFaster()
-let bm3 = BucketMulFaster()
+/*
+ 
+ this obviously needs refactoring :D
+ 
+*/
+
 let xkLayerTokenHead = Matrix4DFloat(shape:[numLayers, maxTokens, numHeads, headDim])
 let xvLayerToken = Matrix3DFloat(shape:[numLayers, maxTokens, stateDim])
 let x1 = VectorFloat(shape:[hiddenDim])
@@ -40,6 +54,22 @@ let attnFfnOut = VectorFloat(shape: [_layer.wo.outSize])
 let expIdxZero = ScalarFloat(value: 0)
 let scores = MatrixFloat(shape: [numHeads, maxTokens])
 
+/*
+ 
+ The main loop.
+ 
+ If you worked with any other LLM model implementation,
+ it should be quite understandable, but ugly.
+ 
+ I prefer to have this done this way, not the regular way it's implemented
+ within the classes, because it's easier to see every single multiplication
+ implemented one by one, and debug / profile / improve them.
+ 
+ Regular implementations - like the HF or MLX one, make it very difficult to profile
+ and hide the calculations deep within the class/object layer.
+ 
+ */
+
 func runNetwork(tokens _tokens: [VectorFloat],
                 effort: Double = 1.0,
                 srcTokenIds : [Int]? = nil,
@@ -61,6 +91,27 @@ func runNetwork(tokens _tokens: [VectorFloat],
     
     var countTokens = 0
     var predictedTokens = [Int]()
+    
+    /*
+     
+     I beg any Metal engineer to help me here.
+     The core loop has delays between kernel invocations that I couldn't get rid of.
+     
+     Even with effort = 0, it still takes 15ms on my machine to generate a single token.
+     I know it can be fixed, because Llama.cpp has no such delays.
+     
+     - On GPU profiler, it shows blank spaces between some kernel invocations.
+     - I tried using concurrent encoders, but that gave no improvement.
+     - Perhaps it's because buffers are hazard-tracked, and we should directly implement fences?
+     
+     I beg, again, someone to help out here. This is the main unneccessary slowdown of the whole engine.
+     
+     Also:
+     - it seems something is subtly broken in one of the funcs - perhaps rmsnorm, or scores?
+       because the Mistral model doesn't work as good as it used to be, and Mixtral works barely at all.
+       I think bucketMul is doing it's job correctly, but one of the other funcs has other params
+     
+     */
     
     for thisToken in 0...numTokens {
         countTokens += 1
@@ -100,6 +151,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 gpu.deploy("rope_mx", buffers: [xq_temp, fCis, xqHeads], ints:[xqHeads.cols], threadCount: [xqHeads.cols, xqHeads.rows])
                 gpu.deploy("rope_mx", buffers: [xk_temp2, fCis, xkHeads], ints:[xkHeads.cols], threadCount: [xkHeads.cols, xkHeads.rows])
             }])
+            // ^ concurrent gives nothing here, should remove it, but don't want to change it right before premiere
             
             scores.shape = [numHeads, thisToken+1]
             calcScores(xq_heads: xqHeads,
@@ -113,6 +165,10 @@ func runNetwork(tokens _tokens: [VectorFloat],
                       xvToken: xvToken,
                       numTokens: thisToken+1,
                       out: attnOutput)
+            
+            // ^ these funcs are not optimised at all, and I think they cause the main slowdown with longer context
+            // first step would be to just fix it using the regular optimisation techniques
+            // second step would be inventing sth like BucketMul, but for sumscores/calcscores
             
             expertMul(v: attnOutput, by: layer.wo, out: attnFfnOut, effort: effort)
             
@@ -154,6 +210,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
         outNormed.mul(by: modelData.norm)
         
         basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
+        // ^ could be switched to BucketMul, but doesn't cause a big delay
 
         gpu.warnOfEvals = false
         
@@ -165,8 +222,11 @@ func runNetwork(tokens _tokens: [VectorFloat],
         sumEvalTime += Date().timeIntervalSince(evalTime)
         evalTime = Date()
 
-      //  testVec32("token:\(thisToken)", h)
-      //  testVec32("ovector:\(thisToken)", outputVector)
+        /*
+         
+         I apologise deeply for the code below -- TK.
+         
+         */
         
         if returnPredictions {
            let topKVector = mpsTopK(v: outputVector)

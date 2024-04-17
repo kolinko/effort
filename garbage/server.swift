@@ -1,22 +1,40 @@
-
 /*
-print(NSUserName())
-print(NSFullUserName())
+ 
+ Commented out for now, but it's implemented
+ 
+ If embeded into the main code: localhost:8080/q?numtokens=123&effort=13&query=some+kind+of+query
+ 
+ The idea was to do tests using a python code that calls this server in the background.
+ Ended up doing tests in swift, so this was not needed
+ 
  */
 
+
 /*
+ 
+ move this to the beginning of main to reenable server. may need a bit of fixing.
+ 
+ 
+var serverReady = false
 let server = HTTPServer.init()
 do {
     try server.run(port: 8080)
 } catch {
     print("server run on port 8080 failed")
-}*/
-/*
+}
 signal(SIGINT) { _ in
     print("Stopping server...")
     server.stop()
     exit(0)  // Terminate the program after stopping the server (remove if you want to continue with other tasks)
-}*/
+}
+
+/*
+ 
+ move this to the right before the main loop.
+ 
+ serverReady = true
+ 
+ */
 
 
 /*
@@ -188,4 +206,5 @@ func appFunction(query: String, effort: Int, numTokens: Int) -> [String: String]
     return ["response": reply.reply]
 
 }
+*/
 */

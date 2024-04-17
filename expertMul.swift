@@ -2,8 +2,16 @@
 //  expertMul.swift
 //  mul_col
 //
-//  Created by Tomasz Kolinko on 11/04/2024.
 //
+
+/*
+ 
+ A wrapper for the multiplications.
+ Useful for testing, to change the algorithm just here.
+ 
+ It will probably be refactored away probably, but for now it's useful to have it here.
+ 
+ */
 
 import Foundation
 
@@ -18,6 +26,7 @@ func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: Vecto
         bucketMulFast(v: v, by: by, expNo: expNo, out: out, effort: effort)
 //        expertMulSlow(v: v, by: by, expNo: expNo, out: out, effort: effort)
     } else {
+        assert(false, "not tested with the current iteration")
         expertMulQ8(v: v, by: by, expNo: expNo, out: out, effort: effort)
     }
 }

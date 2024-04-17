@@ -5,6 +5,14 @@
 //  Created by Tomasz Kolinko on 08/04/2024.
 //
 
+/*
+ 
+ Loads test cases from a .safetensor file, and compares them with desired output.
+ Useful when working with larger models - switch num layers to 10, num experts to 2,
+ and store states appearing on the way, then compare them between revisions.
+ 
+ */
+
 import Foundation
 
 private var testCount = 0

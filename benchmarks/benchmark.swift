@@ -238,7 +238,7 @@ func goQuickBucketPerformance() {
     for s in scale {
         let test = VectorFloat(shape:[ew.outSize])
         print("\nBucketMul \(s, perc: ()):")
-        timeIt(repeats: 10000, multiplier: 0x10 / Double(percentLoad), brief: true) { i in
+        timeIt(repeats: 3000, multiplier: 0x10 / Double(percentLoad), brief: true) { i in
             expertMul(v: v, by: modelData.layers[i % 32]!.w1, out: test, effort: s)
         }
     }

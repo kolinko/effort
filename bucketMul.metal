@@ -2,12 +2,11 @@
 //  bucketMul.metal
 //  mul_col
 //
-//  Created by Tomasz Kolinko on 09/04/2024.
-//
+
+
 
 #include <metal_stdlib>
 using namespace metal;
-//gpu.deploy("zeroRange32", buffers: [bm.dispatch, prevSize, bm.dispatch.size], threadCount: 2024 )
 
 kernel void zeroRange32(device float2* dispatch [[buffer(0)]],
                         device uint* begin [[buffer(1)]],
@@ -35,9 +34,15 @@ kernel void roundUp(device uint* result [[buffer(0)]],
 // ^ cheap hack to prevent cutoff from going out of range in wv wq in Mistral
 // although a better idea would be to rescale all the weights in models by ~1000 to better fit
 // the half precision.
-//
+
+// probes in wv, wq can be ~0.00003 at times, then v is 0.0001 at times
+// multiplying both kept causing precision errors in floats that broke stuff up
+
+// it's a quick hack implemented last minute, probably needs more testing/refactoring.
+// if you attempt to do so, be sure to test on wv, wq weights, because w1/w2/w3 work well without the rescaling
+
 // btw. the code should use bfloats instead of halfs for weights, but then it would be a bit more
-// hussle to implement 
+// of a hussle to implement
 
 kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
                                   device const half4* binStats[[buffer(1)]],

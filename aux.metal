@@ -149,7 +149,6 @@ kernel void rmsNorm32fast(device float* input [[buffer(0)]],
     for (uint i = begin; i<end; i++) {
         output[i] = input[i] / sqrt(float(full_sum)/float(numEls) + 1e-5);
     }
-//    output[0] = 10+sum;
 }
 
 kernel void rmsNorm32(device float* input [[buffer(0)]],

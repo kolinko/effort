@@ -5,6 +5,21 @@
 //  Created by Tomasz Kolinko on 02/04/2024.
 //
 
+
+/*
+ 
+Work in progress. One revision I tested was working smoothly - delivering good sim scores
+ as effort was lowered - although falling faster than with FP16.
+ 
+ Needs outliers implemented, and also the rest of implementation was so bugged out that it broke
+ down. Perhaps it would work properly now if reimplemented.
+ 
+ I keep it as a reference on the main branch, otherwise nobody would find it :p
+ 
+ */
+
+
+
 import Foundation
 
 
