@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Effort Engine</title>
+    <link rel="stylesheet" href="tufte.css"/>
+    <link rel="stylesheet" href="latex.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  </head>
+
+  <body>
+
+    <article>
+
+      <h1 id="tufte-css">Implementing bucketMul</h1>
+      <p class="subtitle">in Metal</p>
+      <section>
+
+<p>
+Let's see a <b>simplified</b> version of the main bucketMul function.
+
+It receives dispatch as a parameter, model weights, and outputs muls into the result.
+
+<pre>
+kernel void bucketMul(
+                   device const half *<b>weights</b> [[buffer(0)]],
+                   device const float2 *<b>dispatch</b> [[buffer(1)]],
+                   device float *<b>result</b> [[buffer(2)]],
+                   constant uint *<b>dispatchSize</b> [[buffer(3)]],
+                   uint <b>bucketID</b> [[thread_position_in_grid]]) {
+                      
+    float myVal[16] = {0};
+      
+    for (uint r=0; r&lt;dispatchSize; r+=1) {
+            float2 d = dispatch[rowOffset];
+            half w = weights[int(d[1]) + bucketID];
+
+            float v = d[0]*float(w);
+            ushort pos = as_type&lt;ushort>(w) & 15;
+            
+            for (int i=0; i&lt;16; i++) {
+                myVal[i] += (pos == i) ? v : 0;
+            }
+    }
+
+    for (int i = 0; i&lt;16; i++) {
+        result[myOff + i] = myVal[i];
+    }
+                          
+}
+</pre>
+
+<p>
+Readers fresh to GPU programming may ask now - <b>how does it work?</b>
+<p>
+Readers experienced with GPU programming may ask - <b>how the hell does it work?</b>
+
+<h2>Basics of Metal</h2>
+<p>
+The code above is a so-called shader function. It gets called from swift, from a line like this:
+
+<pre>
+gpu.deploy("bucketMulFast",
+           buffers:     [ weightBuckets,
+                          dispatch,
+                          tmpMulVec,
+                          dispatch.size],
+           threadCount: [ weightBuckets.cols ])
+</pre>
+<p>
+It gets called threadCount times.
+<p>
+Each call gets the same parameters, with the only difference being, in this case - bucketID, which is a thread's position in the grid. Grid in this case is simply [ weightBuckets.cols ].
+<p>
+Each call performs the computations, and writes out the result into the result buffer.
+<p>
+What will be important in our case is that - simplifying <b>wildly</b> - Apple's GPUs organise threads into SIMD-groups of 32.
+<p>
+SIMD (same instruction multiple data) groups execute all the operations at the same pace, doing exactly the same operations - just with possibly different data.
+<p>
+You don't need to sync-up the threads within one group - they always go at the same pace. If one has an "if", the others will wait for it to finish the if to proceed.
+<p>
+That's it for the basics. If you did any programming in your life, the code should be quite simple to understand:
+<p>
+- it fetches a row from dispatch: each row has the value, and an id of a bucket row - we'll be multiplying the value by the buckets in the bucket row
+<p>
+- for every bucketID, it grabs it's weight, it grabs the position from the least significant bits (& 15), and it multiplies the rest by the value, putting it into local memory (which is super-fast to access)
+<p>
+- finally, it outputs the result into the device memory
+
+<h2>Why BucketMul works fast</h2>
+<p>
+<span class="marginnote">
+            This whole section needs rewriting and feedback. Please <a href="mailto:kolinko@gmail.com">reach out</a> if you know anything about Metal programming.
+          </span>
+
+  Now, this may be obvious to some, but it wasn't obvious for me. Apple's documentation is lacking, disassembly not easily accessible, and I think I broke some rules while writing the code above. 
+
+<p>
+A better explaination will be most welcome.
+<p>
+My theories why such a simple code works:
+<p>
+- <b>dispatch load</b> - it's very little data, it gets cached, so we don't need to coordinate loading it too much. The real implementation has an inner loop that gets unrolled, and dispatch loads end up batched together by the optimizer
+<p>
+- <b>weights load</b> - since we have implicitly coordinated reads (threads from each simdgroup load elements that are next to each other), the reads get treated as consecutive, and we can perform them at a high speed. We're going against every known manual that says the reads should be consecutive within a single thread, not across threads - but somehow it seems to work?
+
+<p>
+
+  <pre>
+- myVal[i] loop:
+   - we have a micro-loop that gets unrolled
+   - three-way operator is very cheap in Metal
+   - we avoid random memory access this way
+   - myVal[j] += v might also work, but sometimes I had issues with performance, I think
+
+- myVal storage and speed:
+   - this is the biggest mystery to me!
+   - it seems it's the main slowdown of the kernel
+   - increasing size of myVal (say to 32) lowers the speed of operation twice
+   - keeping the size intact, but using just a fraction of the values speeds up the operation twice (!) - if you change & 15 to & 7, or modify underlying data to be in a smaller range (!!!), you will get a performance boost
+   - where is myVal stored and at what form? it won't fit the registers, it doesn't go to device memory, so I guess some sort of an intermediate cache? If anyone can shine light at it, I will appreciate it
+</pre>
+
+<p>
+The storage of myVal may also be a reason why bucketMool seems to have a higher speed on M3 compared to M2/M1. M3 has their cache/registry structure reorganised.
+<h2>
+Why buckets are sized 16.
+</h2>
+<p>
+If we switched from 16 to 32, we lose an extra bit for storing weights (can be avoided - see next chapter), and above all - <b>the speed gets 2x lower</b>, so we can't go that way.
+
+
+  <div class="epigraph">
+          <blockquote>
+            <p>
+The higher the bucket size, the more precise the bucket sorting (see previous chapter). So ideally, we'd like as large of a bucket as possible.
+</p></blockquote></div>
+<p>
+If we go into a lower bucket size, say 8, the memory ordering won't be as precise, and we'll need higher effort for the same result. With Q8 that's what we needed to do though. Also, if I remember correctly - with buckets sized 8 - execution slowed down in other places and we ended up in the same place as before - speed-wise.
+
+<h2>
+Other implementation details.</h2>
+
+This is my first program that tackles GPU development, and I could seriously use help here.
+
+<p>
+Most importantly: where does the overhead of overall calculations come from and how to get rid of it?
+
+(performance screenshot here)
+
+I know llama.cpp somehow doesn't have that overhead - judging by their numbers. In my case, even with multiplications set to zero, I keep having the delays between kernel invocations. If you have an idea on how to fix that, please I beg shoot me an e-mail: kolinko@gmail.com.
+
+Without this, we have a Ferrari engine in a Fiat body here - no simple way to show the results here.
+
+The second challenge is that the current implementation seems just broken. It used to deliver results that were very close to the original Mistral, and Mixtral used to work. Right now Mistral is not as good as it used to be, and Mixtral barely works. I'm at my wits' end trying to debug it all - if anyone knows enough about both GPU debugging and LLM implementations, I would appreciate any help here.
+
+Another case entirely is of couse the BucketMul implementation itself - could it be improved to get to full 100% memory bandwidth read? I tried simdgroup-coordinated reads and other tricks (you can see them in helpers/wild), but failed to write anything better than this.
+
+And finally - probably the easiest, but I just didn't have the time - right now the hyperparameters (num steps, groups) of multiplications are optimised for matrixes of a certain shape (w1 & w3 of Mistral). Other sizes can work as fast - I've seen it in some experiments, but I'd love to see a robust implementation here scaling to all sizes.
+
+Dispatch uses atomic floats to generate ids - speed aside, it causes the whole run to be nondeterministic - dispatch ends up in a different order every single time, and float adds in bucketmul are executed in a different order, resulting in a small dose of non-determinism. On the one hand it's nice, because we end up with a natural temperature to the model, but it makes testing difficult. Ideas here would be welcome.
+
+
+<h2>Where do we go from here?</h2>
+    <p>
+    - <a href="q8.html">MoE, Quantization and the others.</a>
+    </p>
+    <p>
+      - <a href="pesky.html">Pesky details (or: Help Needed!)</a>
+    </p>
+    <h2>
+      At any time
+    <p>
+      - <a href="setup.html">Install and Download</a>
+    </p>
+    <h2>And of course...</h2>
+    <p>
+      - <a href="about.html">About the Author(s)</a>
+    </p>
+    <p>
+      - Citations, notes and so on
+    </p>
+    <h2>Or going back...</h2>
+    <p>
+      - <a href="index.html">The landing page.</a>
+    </p>
+    <p>
+      - <a href="equations.html">The basics.</a>
+    </p>
+  <p>
+    - <a href="bucketmul.html">Introducing bucketMul.</a>
+  </p>
+
+    
+      </section>
+    </article>
+  </body>
+</html>

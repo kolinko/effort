@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Effort Engine</title>
+    <link rel="stylesheet" href="tufte.css"/>
+    <link rel="stylesheet" href="latex.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  </head>
+
+  <body>
+
+    <article>
+
+      <h1 id="tufte-css">MoE, Quantization</h1>
+      <p class="subtitle">and the others</p>
+      <section>
+
+<h2>Mixture of Experts</h2>
+<p>
+Mixtral is one bug away from working fully and nicely.
+
+<p>
+	It was working perfectly a few iterations ago, with an even higher tolerance for low Effort levels (~16-20% giving decent results IIRC). But I messed something up when implementing Mistral, and I just cannot find the bug.
+<p>
+<b>I hope someone helps find the bug,</b> although probably the best idea would be to refactor the whole code, clean everything up and the bug should pop up then.
+<p>
+By "one bug away" I mean, it will deliver some text when loaded up at 100% effort and 75% mem load, but switches to garbage very fast.
+<p>
+As for bigger models - my bet is that bigger models will be even more robust against effort lowering. Having said that, this implementation has the Mistral/Mixtral weights hardcoded in multiple places, and also you may start bumping into GPU cache limitations with the larger models - shouldn't be too difficult to fix, because you can always cut up a weight matrix into smaller ones, but someone needs to do the engineering part for this.
+<p>
+Llama 7B can work no problem if implemented - the model was originally developed and tested with it. From this I assume bucketMul should generalize to most LLMs.
+<h2>Quantization</h2>
+<p>
+I did some testing of Q8 quantization, the results are optimistic, but I didn't have enough time for the full implementation before the first release.
+<p>
+My guess is that Q8 is possible and relatively easily doable. As for lower quantizations, it would be very tricky to pull off.
+<p>
+If you're new to the field of Quantization, I highly recommend reading <a href="https://towardsdatascience.com/introduction-to-weight-quantization-2494701b9c0c">Introduction to Weight Quantization</a> by Maxime Labonne. It outlines the methods, and ours are the same.
+<p>
+Two main challenges that we face with bringing BucketMul to Q8 are the number of bits, and the speed.
+
+<h3>Speed</h3>
+<p>
+With Q8 quantization, first thing we need to do is change the bucket size to 8.
+
+<p>
+	Coincidentally - for Q8 we need size 8 buckets, for FP16, we need size 16. It is determined by the gpu architecture, on other archs we might want to use size 16 buckets for Q8, or the other way around.
+
+<h3>Number of bits</h3>
+<p>
+Our approach with quantization needs to account for the positional information we have encoded within each weight.
+<p>
+So out of the 8 bits we have available, we end up with 1 bit taken for the sign, and 3 bits taken for the position. So we are left with just 4 bits to encode the value.
+<p>
+Not all is lost though.
+<p>
+	Since we sorted/bucketed the weights, <b>we can calculate min/max ranges for each bucket separately</b>. And thus we end up with values spanning relatively small intervals - less than around two decimal digits' range. So e.g. bucket 1 will have items ranging from 0.001 to 0.06. So our encoding needs to cover just a small span, whereas a traditional Q8 needs to cover many more ranges - that is say from 0.00001 to 0.1.
+
+<p>
+So when encoding Q8, we note down the min/max values for each slice stat (see convert.swift/convert.metal), and then in decoding the numbers we 
+<p>
+There is a code for BucketMulQ8 available in <a href="https://github.com/kolinko/effort">the repo</a> - it's from a few iterations ago, but it should be working, and so should the converted weights.
+<h3>What is missing in Quantization</h3>
+	<p>
+- outliers, if necessary
+<p>
+- testing - the model seemed to produce total garbage, but my bet is that it was due to other parts of the code messed up, not Q8 itself
+
+<h3>
+The path to full Q8</h3>
+<p>
+- wrap up Q8 implementation
+<p>
+- test cosSim score between a multiplication of a quantized matrix and the original one
+<p>
+- if it's decent enough (0.99 for effort = 1), proceed with reimplementing it into the inference engine
+<p>
+- in case the sim score is not good enough, or the inference engine breaks - implement outliers, and that should do the trick
+
+<h2>Turbo Mode!</h2>
+
+<p>
+Right now, Effort is set statically for all the multiplications. But that absolutely doesn't have to be the case. I'm quite sure w2's effort can be lowered without the loss of quality (hint: look at the histogram of the input to w2), and this paper (link) suggests middle-layers are not too necessary for good results. There are many experiments that could be done here, and very many low hanging research fruits to be picked.
+
+<p>
+Also, although slightly more difficult - a variable Effort, depending on a given context and the cutoff calculations. One of the early iterations had effort/cutoff chosen such that the areas to the left and to the right of cutoff, on the probe chart, were similar in size. I removed this functionality to simplify the code for now, but there is research to be done here.
+
+<p>
+One of the things I was tracking originally was a divergence of states between the effort model and the original model. It was super-interesting, at least in LLama, the states diverged up until the layer ~10, their cos similarity scores lowering to as low as 80% and then it either went downhill from there, or back up to 98-99% in the final layer.
+
+<p>
+Having said all of the above, I can imagine variable token by token effort selection. You ask a dumb question, the model answers quickly, you ask a difficult question, the model takes more time to be precise. Or more realistically - probably half of the words are easily predictable in any given text (or 95% in case of Code of Davinci's author) - so a model could perhaps get by with a way lower precision.
+
+
+<h2>Vector search</h2>
+<p>
+I didn't tackle here at all, a subject of vector database search. But vector search can be seen as just another matrix multiplication. I wonder how this solution stacks up with sota algorithms of vector search.
+
+<h2>Where do we go from here?</h2>
+    <p>
+      - <a href="pesky.html">Pesky details (or: Help Needed!)</a>
+    </p>
+    <h2>
+      At any time
+    <p>
+      - <a href="setup.html">Download and Run</a>
+    </p>
+    <h2>And of course...</h2>
+    <p>
+      - <a href="about.html">About the Author(s)</a>
+    </p>
+    <p>
+      - Citations, notes and so on
+    </p>
+    <h2>Or going back...</h2>
+    <p>
+      - <a href="index.html">The landing page.</a>
+    </p>
+    <p>
+      - <a href="equations.html">The basics.</a>
+    </p>
+  <p>
+    - <a href="bucketmul.html">Introducing bucketMul.</a>
+  </p>
+    <p>
+      - <a href="gpu.html">GPU implementation.</a>
+    </p>
+

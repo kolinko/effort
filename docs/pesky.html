@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Effort Engine</title>
+    <link rel="stylesheet" href="tufte.css"/>
+    <link rel="stylesheet" href="latex.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  </head>
+
+  <body>
+
+    <article>
+
+      <h1 id="tufte-css">Pesky little details</h1>
+      <p class="subtitle">or: Help Needed!</p>
+      <section>
+
+        <p>If you're not ashamed of your first demo, you released too late.</p>
+<p>
+        I definietly didn't release too late.
+<h2>Performance</h2>
+<p>
+If you lower the effort to 0%, you will see that it still takes visible time to perform each loop - 15ms on my M2 Pro. In the GPU profiler you can see that there are empty spaces between kernel invocations.
+<p>
+  I know that llama.cpp and the others don't have this issue, so I assume there's something wrong in the way I implemented it all.
+</p>
+<p>
+  This is the single thing I have no idea how to fix myself. To anyone that helps out, I promise to ship a bottle of best whatever you choose, anywhere in the world you are.
+</p>
+
+<h2>Bugs in the base implementation</h2>
+<p>
+It seems that, even with 100% effort, Effort's Mistral has worse quality than a regular Mistral.
+<p>
+  Also, Mixtral is completly broken now, even though it used to work smoothly a few iterations ago. I assume it's not due to the bucketMul - which I tested extensively, but some other bug. Perhaps in RMSNorm, or attention scoring - around the time I was fixing their speed, I evidently broke something I cannot find now.
+<p>
+I could use some help here from someone experienced in implementing LLMs.
+
+<h2>Attention and longer contexts.</h2>
+
+<p>
+I didn't bother optimising attention calculations so far, so the model will slow down very fast the moment you go into larger contexts. Also, above 2048 I think there may be some memory leaks here and there. I didn't bother yet to fix those, but if someone's up to a task, help would be welcome.
+
+<p>
+I know that with Q8 and other quantizations, the drop in quality is first visible with longer contexts, so I'd love to do serious testing in this area as well. By myself it's been just too many tasks to handle so far and I decided to publish before these tests are done.
+
+<h2>Testing on MathEval and HellaSWAG</h2>
+<p>
+  Please keep in mind that this all has been a one-person operation so far.
+<p>
+  I'd love to test everything on serious tests, but right now the inference at 100% fails to answer HellaSWAG questions that the base Mistral succeeds on. That shouldn't be the case since it's essentially the same calculations. Again, it used to work way better, I think.
+
+<p>
+  From internal tests so far, the better the model and the implementation, the more resilient it is to a drop in effort, so I feel it's honest to publish it with the tests as they are.
+<p>
+  Finally, once the bugs are fixed, the speed needs to be so as well. Without it, it will either be very costly to rent out a server farm filled out with Apple Silicon, or it will take forever to gather reliable data. Remember that we need to rerun the same batch of tests for the whole ranges of effort - from 100% to 10%.
+
+
+<h2>Help will be much appreciated</h2>
+<p>
+Feel free to reach out to <a href="mailto:kolinko@gmail.com">kolinko@gmail.com</a>, or on Twitter, <a href="https://twitter.com/kolinko">@kolinko</a>.
+
+<p>
+  Especially if you have experience with LLM implementation, GPU programming, or if you'd like to implement bucketMul in other architectures (llama.cpp / transformers lib / MLX).
+
+<p>
+  Thank you, and thanks for the understanding.
+
+<h2>What's next?</h2>
+    <p>
+      - Download and Run
+    </p>
+    <p>
+      - About the Author(s)
+    </p>
+    <p>
+      - Citations, notes and so on
+    </p>
+    <h2>Or going back...</h2>
+    <p>
+      - <a href="index.html">The landing page.</a>
+    </p>
+    <p>
+      - <a href="equations.html">The basics.</a>
+    </p>
+  <p>
+    - <a href="bucketmul.html">Introducing bucketMul.</a>
+  </p>
+    <p>
+      - <a href="gpu.html">GPU implementation.</a>
+    </p>
+
+</section>
+</html>

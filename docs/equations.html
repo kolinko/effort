@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Effort Engine</title>
+    <link rel="stylesheet" href="tufte.css"/>
+    <link rel="stylesheet" href="latex.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  </head>
+
+  <body>
+
+    <article>
+
+      <h1 id="tufte-css">The basics</h1>
+      <p class="subtitle"></p>
+      <section>
+
+<p style="align: left;">
+
+The most time-consuming part of LLM inference is a vector-matrix multiplication. You multiply some state (h) by a weight matrix (w) to get an output state (o).
+<p>
+Within inference there are some attention calculations as well, but we're not takling them here. Everything else takes virtually no time.
+<p>
+Also, it's worth noting - it's memory reads, not really multiplications that we should care about. That will be the essence of the next chapter.
+<p>
+Let's go. Here is a baby version of the monster we'll face.
+<p>
+    \[
+ \begin{bmatrix} h_{1} \\ h_{2} \\ h_{3} \end{bmatrix} \times \begin{bmatrix} w_{11} & w_{12} & w_{13} \\ w_{21} & w_{22} & w_{23} \\ w_{31} & w_{32} & w_{33} \end{bmatrix}
+\]
+
+\[=\]
+
+
+
+\[
+\begin{bmatrix}
+h_{1} \cdot w_{11} + h_{2} \cdot w_{21} + h_{3} \cdot w_{31}
+\\
+h_{1} \cdot w_{12} + h_{2} \cdot w_{22} + h_{3} \cdot w_{32}
+\\
+h_{1} \cdot w_{13} + h_{2} \cdot w_{23} + h_{3} \cdot w_{33}
+\end{bmatrix}
+=
+\begin{bmatrix}
+o_1 \\ o_2 \\ o_3
+\end{bmatrix}
+\]
+
+For a concrete example.
+    \[
+ \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times 
+ \begin{bmatrix} 2 & 8 & 256 \\ 13 & 1 & 3 \\ 1 & 0.1 & 1 \end{bmatrix}
+\]
+
+\[=\]
+
+\[
+\begin{bmatrix}
+1 \cdot 2 + 10 \cdot 13 + 1000 \cdot 1
+\\
+1 \cdot 8 + 10 \cdot 1 + 1000 \cdot 0.1
+\\
+1 \cdot 256 + 10 \cdot 3 + 1000 \cdot 1
+\end{bmatrix}
+=
+\begin{bmatrix}
+1132 \\ 118 \\ 1286
+\end{bmatrix}
+\]
+
+A first instinct of anyone approaching the weights would be to try and remove the lowest weights.
+
+
+    \[
+ \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times 
+ \begin{bmatrix} 2 & 8 & 256 \\ 13 &  & 3 \\  &  &  \end{bmatrix}
+\]
+
+but look what happened to the output!
+
+\[
+\begin{bmatrix}
+1 \cdot 2 + 10 \cdot 13
+\\
+1 \cdot 8
+\\
+1 \cdot 256 + 10 \cdot 3
+\end{bmatrix}
+=
+\begin{bmatrix}
+132 \\ 8 \\ 556
+\end{bmatrix}
+
+\]
+Judging by the eye, it changed vastly.
+<p>
+A bit of it can be solved of course by normalization, but even then the second dimension's value is way smaller than originally, and the third is much higher than the first.
+<p>
+<b>Even a small 0.1 weight matters</b>, if it's lucky enough to be multiplied by a high value of vector - in this case 1000.
+
+<p>
+Let's normalize the vectors and calculate their distance (or cosine similarity score):
+  \[
+d(\
+ \begin{bmatrix} 0.67 \\ 0.07 \\ 0.75  \end{bmatrix} 
+,
+ \begin{bmatrix} 0.23 \\ 0.01 \\ 0.97  \end{bmatrix} 
+ ) = 0.88 
+ \]
+
+We know that this approach works nevertheless. To some extent that's how distillation works, Quantization would replace 0.1 with 0 and 1s with 2s in the example, and LORA/PCA would do other kinds of changes. (needs more details here)
+<p>
+Let's try another approach though. A <b>dynamic</b> one. Instead of statically changing the matrix, we will focus on multiplications from now on. And choose only the top 1 or 2 multiplications from each output.
+<p>
+Let's start by sorting the multiplications row-wise.
+<p>
+<!--  \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times 
+ \begin{bmatrix} 2 & 8 & 256 \\ 13 & 1 & 3 \\ 1 & 0.1 & 1 \end{bmatrix}
+=
+-->
+    \[
+\begin{bmatrix}
+1000 \cdot 1 + 10 \cdot 13 + 1 \cdot 2
+\\
+1000 \cdot 0.1 + 10 \cdot 1 + 1 \cdot 8
+\\
+1000 \cdot 1 + 1 \cdot 256 + 10 \cdot 3
+\end{bmatrix}
+=
+\begin{bmatrix} 1132 \\ 118 \\ 1286 \end{bmatrix}
+\]
+
+And now, remove the least significant ones from the each row.
+
+\[
+\begin{bmatrix}
+1000 \cdot 1 + 10 \cdot 13 
+\\
+1000 \cdot 0.1 + 10 \cdot 1
+\\
+1000 \cdot 1 + 1 \cdot 256 
+\end{bmatrix}
+=
+\begin{bmatrix} 1130 \\ 110 \\ 1256 \end{bmatrix}
+\]
+
+
+\[
+\begin{bmatrix}
+1000 \cdot 1 
+\\
+1000 \cdot 0.1 
+\\
+1000 \cdot 1 
+\end{bmatrix}
+=
+\begin{bmatrix} 1000 \\ 100 \\ 1000 \end{bmatrix}
+\]
+
+Now that's neat! Even with the last example, we're doing less multiplications (and memory reads) than using the previous method, and we already see that the result is much better.
+<p>
+  Let's see our score.
+
+  \[
+cosSim(\
+ \begin{bmatrix} 1130 \\ 110 \\ 1256  \end{bmatrix} 
+,
+ \begin{bmatrix} 1132 \\ 118 \\ 1286  \end{bmatrix} 
+ ) = 0.999
+ \]
+
+
+  \[
+cosSim(\
+ \begin{bmatrix} 1000 \\ 100 \\ 1000  \end{bmatrix} 
+,
+ \begin{bmatrix} 1132 \\ 118 \\ 1286  \end{bmatrix} 
+ ) = 0.997
+ \]
+<p>
+Why look at that!
+<p>
+ We're doing just a third of calculations - so less than before, and our similarity score is so close to 1 that even the pickiest transformer probably wouldn't notice!
+<p>
+Now, the only issue we have is that to do this kind of operation, we first need to perform all the multiplications, and then sort them. So it would be kind of pointless.
+<p>
+There were a few approaches that I tried to this, but couldn't find one that allows for explicitly this approach.
+<p>
+So instead, let's flip the matrix, sort the elements row-wise, and revisit the multiplications from that direction.
+
+\[
+ \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
+256 \scriptstyle \searrow 3 & 8 \scriptstyle \searrow 2 & 2 \scriptstyle \searrow 1 \\
+13 \scriptstyle \searrow 1 & 3 \scriptstyle \searrow 3 & 1 \scriptstyle \searrow 2 \\
+1 \scriptstyle \searrow 1 & 1 \scriptstyle \searrow 3 & 0.1 \scriptstyle \searrow 2
+\end{bmatrix}
+\]
+
+This is called a Compressed Sparse Row (CSR) format by the smart people. To do the multiplication now, we take, say, the 1 from the vector, multiply it by 256, and add it into the output vector at the 3rd row. And so on.
+  <p>
+
+
+
+Now, let's see what happens if we truncate the last column - the one with the lowest values.
+\[
+ \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
+256 \scriptstyle \searrow 3 & 8 \scriptstyle \searrow 2 \\
+13 \scriptstyle \searrow 1 & 3 \scriptstyle \searrow 3 \\
+1 \scriptstyle \searrow 1 & 1 \scriptstyle \searrow 3
+\end{bmatrix}
+\rightarrow
+\begin{bmatrix} 10 \cdot 13 + 1 \cdot 1000 \\ 8 \cdot 1 \\ 256 \cdot 1 + 3 \cdot 10 + 1 \cdot 1000
+\end{bmatrix}
+=
+\begin{bmatrix}
+1130 \\ 8 \\ 1286
+\end{bmatrix}
+\]
+Seems close!
+
+  \[
+cosSim(\
+ \begin{bmatrix} 1130 \\ 8 \\ 1286  \end{bmatrix} 
+,
+ \begin{bmatrix} 1132 \\ 118 \\ 1286  \end{bmatrix} 
+ ) = 0.998
+ \]
+
+The 0.998 score is with 66% multiplications though - it's worse than our perfect algorithm at 33%. It is also essentially a static distillation method - we just remove the smallest weights from each row.
+<p>
+With this small example, we also run at an issue of starving the output dimensions - if we were to cut array to just one column, we would have nothing to put in the output vector's middle dimension.
+<p>
+From personal tries - on the actual data and transformers, end result degrades very quickly - around the 50-70% sparsity mark. Funnily, the final implementation allows you to actually truncate the last rows, saving the memory, and without much loss of the quality - because they are not being used with lower effort levels anyway. But I'm getting ahead of myself here.
+<p>
+Remember what we discussed, that tiny 0.1 in the last row matters if it bumps into a 1000 on the input vector.
+<p>
+Because of that, we needs something better. Something dynamic, that takes into consideration the input vector as well!
+<p>
+Let's step back and do all the calculations that we need first, and sort them.
+
+\[
+\begin{bmatrix}
+1 \cdot 256 & 1 \cdot 8 & 1 \cdot 2 & 10 \cdot 13 & 10 \cdot 3 & 10 \cdot 1 & 1000 \cdot 1 & 1000 \cdot 1 & 1000 \cdot 0.1
+\end{bmatrix}
+\]
+\[
+\downarrow
+\]
+\[
+\begin{bmatrix}
+1000 & 1000 & 256 & 130 & 100 & 30 & 10 & 8 & 2
+\end{bmatrix}
+\]
+<p>
+Now, let's say that we want to do only 5 out of 9 of calculations...
+<figure>
+<img src="/ryc/ryc1.1.png" style="width:400px" style="align:center">
+</figure>
+<p>
+Our cutoff point at this example is at 100. And here also we a first mention of the "effort" metric.
+<div class="epigraph">
+          <blockquote>
+            <p><b>Effort</b> is how many calculations we want to perform out of all the ones that would be necessary. 100% effort is a plain old matrix multiplication. 0% effort is what I spent checking if someone invented all of this before me.</p>
+          </blockquote>
+        </div>
+<p>
+Now that we know our effort, let's revisit our sorted matrix multiplication again. 
+
+<p>
+  A bit of pseudocode first
+<pre>
+  <code>
+cutoff = calc_cutoff(effort)
+
+def approxMul(V, W):
+  for el_v in V:
+     el_cutoff = cutoff / v
+     for el_w, idx_w in W:
+        if el_w > el_cutoff:
+           O[idx_w] += el_v * el_w
+        else:
+           break
+           # other els in the rows are smaller, 
+           # so we can skip checking them
+</code>
+</pre>
+<p>
+With this code in mind, and our 100 cutoff selected, we can again revisit our calculations:
+
+\[
+ \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
+
+256 \scriptstyle \searrow 3
+& \cancel{\textcolor{gray}8 \scriptstyle \searrow 2}
+& \cancel{\textcolor{gray}2 \scriptstyle \searrow 1} 
+
+\\
+
+13 \scriptstyle \searrow 1 
+& \cancel{\textcolor{gray}3 \scriptstyle \searrow 3 }
+& \cancel{\textcolor{gray}1 \scriptstyle \searrow 2 }
+
+\\
+
+1 \scriptstyle \searrow 1 
+& 1 \scriptstyle \searrow 3 
+& 0.1 \scriptstyle \searrow 2
+\end{bmatrix}
+\]
+
+\[=\]
+\[
+\begin{bmatrix}
+1 \cdot 1000 + 13 \cdot 10
+\\ 0.1 \cdot 1000
+\\ 1 \cdot 1000 + 256 \cdot 1
+\end{bmatrix}
+=
+\begin{bmatrix}
+1130
+\\ 100
+\\ 1256
+\end{bmatrix}
+
+\]
+
+The 0.1 weight made the cut with 55% calculations done!
+
+  \[
+cosSim(\
+ \begin{bmatrix} 1130 \\ 100 \\ 1256  \end{bmatrix} 
+,
+ \begin{bmatrix} 1132 \\ 118 \\ 1286  \end{bmatrix} 
+ ) = 0.99989
+ \]
+
+Nice! We were slightly lucky here - if we chose effort to be slightly less, we'd miss the 100, and the whole middle row of the result would get off balance. Thankfully, in real world, with 4kx12k matrixes, it all evens itself out.
+<p>
+In practice, this approach requires a higher effort (more calculations) than our previous method to get the same result. But by not much. Also, unlike the previous method, it's (almost) implementable.
+<p>
+We now have three pesky details to solve, and we'll be good to go.
+<p>
+First of all, to find cutoff, we had to do the calculations anyway, and sort them. And I told you that we'll do it without all the calculations. Am I a liar? Of course not. The solution here is simple - not for this example, but for real world arrays.
+<p>
+The real world arrays are 4k by 12k at least (that's Mistral). The effort-cutoff charts for them look very similar to what you've seen above. Here is an example of one:
+<p>
+(tbd)
+<p>
+The shape seems to be always the same. But depending on a matrix-vector combination, it will be wider, or shallower. There may be a math hidden somewhere with dynamically choosing the right effort/cutoff based on this shape (e.g. areas to the left and to the right of effort being similar), and I experimented with it a bit, but decided to move on with static effort for the time being.
+<p>
+[sidenote
+Also, while we're talking about real-world matrixes and vectors, it's worth pointing out here that they have both positive and negative numbers. It changes things slightly for bad (more effort needed to get the same cos score), and for good (lower chance of drift).]
+<p>
+Luckily, because the weight matrices and the input vectors are neatly disorganised, we can just pick a small subset of all the multiplications, and they will represent the overall chart very closely. 
+<p>
+(tbd)
+</p>
+<p>
+So, in practice what do we do?
+<p>
+  <pre>
+  <code>
+probes = []
+
+for i in 0..min(inDim, outDim):
+   probes[i] = W[i, i]
+</code>
+</pre>
+<p>
+During precomputation phase, aside from sorting the matrixes, we pick, for every input dimension a random weight from the matrix. Since the matrix is so neatly disorganised, we can just go through the diagonal, which for every other matrix type would be a big no no.
+<p>
+Let's call these weights "probes".
+<p>
+Then, the "final" algorithm goes like this:
+<p>
+precomputation phase (done ever only once for each weight matrix)
+<pre>
+<code>
+def precompute(W):
+  W = W.T
+  probes = get_probes(W)
+  W_idx, W_val = sortMatrixRows(W)
+
+def approxMul(v, W_idx, W_val, probes):
+  cutoff_chart = v * probes
+  cutoff = topK(cutoff_chart, effort)
+  approxMul(V, W_idx, W_val, cutoff)
+</code>
+</pre>
+<p>
+This way we end up an algorithm that works with just (effort) number of calculations and delivers excellent output approximation. 
+</p>
+<b>A beautiful algorithm. An algorithm our grandfather would be proud of.</b>
+<p>
+<b>But our grandfather lived before the era of gpus.</b></p>
+  <p>Back when calculations mattered, and not memory accesses. This algorithm, if implemented today would bring shame to our family. Children would laugh at us and point us on the streets with fingers if we were to implement such a monstrosity.
+<p>
+There are still two monsters that we need to still slay on the road to victory.
+<p>
+- our matrix stores now both values and indexes (that's an easier one)
+</p>
+<p>
+- our algorithm makes random memory writes. that is, that line
+<p>
+  <pre>
+  </code>
+  O[idx_w] += el_v * el_w
+  </code>
+</pre>
+  <p>has both a random memory access to idx_w, and is a pain to parrallelise because multiple threads may want to write to the same O[idx_w]
+</p>
+
+<p>
+  Up until this point, we still haven't reached new territory. People have faced this issues before, but as of writing this text, I didn't find a published solution to solve it properly. GPT-4 wasn't aware of it either.
+</p>
+
+<p>
+So strap on, my friend, and get ready for a wild ride.
+</p>
+
+  <h2>
+The adventure continues.
+  </h2>
+<p>
+  - <a href="bucketmul.html">Introducing bucketMul</a>
+</p>
+<h2>
+  And later on...
+</h2>
+  <p>
+    - <a href="gpu.html">The GPU implementation</a>
+  </p>
+    <p>
+    - <a href="q8.html">Q8, Mixtral and the others.</a>
+    </p>
+    <p>
+      - <a href="pesky.html">Pesky details (or Help Needed!)</a>
+    </p>
+    <h2>And of course...</h2>
+    <p>
+      - <a href="setup.html">Install and Download</a>
+    </p>
+    <p>
+      - <a href="about.html">About the Author(s)</a>
+    </p>
+    <p>
+      - Citations, notes and so on
+    </p>
+
+
+
+      </section>
+    </article>
+  </body>
+</html>

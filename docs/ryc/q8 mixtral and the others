@@ -1,0 +1,31 @@
+Turbo Mode!
+
+Right now, Effort is set statically for all the multiplications. But that absolutely doesn't have to be the case. I'm quite sure w2's effort can be lowered without the loss of quality (hint: look at the histogram of the input to w2), and this paper (link) suggests middle-layers are not too necessary for good results. There are many experiments that could be done here, and very many low hanging research fruits to be picked.
+
+Also, although slightly more difficult - a variable Effort, depending on a given context and the cutoff calculations. One of the early iterations had effort/cutoff chosen such that the areas to the left and to the right of cutoff, on the probe chart, were similar in size. I removed this functionality to simplify the code for now, but there is research to be done here.
+
+One of the things I was tracking originally was a divergence of states between the effort model and the original model. It was super-interesting, at least in LLama, the states diverged up until the layer ~10, their cos similarity scores lowering to as low as 80% and then it either went downhill from there, or back up to 98-99% in the final layer.
+
+Having said all of the above, I can imagine variable token by token effort selection. You ask a dumb question, the model answers quickly, you ask a difficult question, the model takes more time to be precise. Or more realistically - probably half of the words are easily predictable in any given text (or 95% in case of Code of Davinci's author) - so a model could perhaps get by with a way lower precision.
+
+Attention and longer contexts.
+
+I didn't bother optimising attention calculations so far, so the model will slow down very fast the moment you go into larger contexts. Also, above 2048 I think there may be some memory leaks here and there. I didn't bother yet to fix those, but if someone's up to a task, help would be welcome.
+
+I know that with Q8 and other quantizations, the drop in quality is first visible with longer contexts, so I'd love to do serious testing in this area as well. By myself it's been just too many tasks to handle so far and I decided to publish before these tests are done.
+
+Vector search
+
+I didn't tackle here at all, a subject of vector database search. But vector search can be seen as just another matrix multiplication. I wonder how this solution stacks up with sota algorithms of vector search.
+
+Mixtral and the other models.
+
+Llama 7B can work no problem - the model was originally developed and tested with it.
+
+Mixtral is one bug away from working fully and nicely. It was working perfectly a few iterations ago, with an even higher tolerance for low Effort levels (~16-20% giving decent results iirc). But I messed something up when implementing Mistral, and I just cannot find the bug. Since I changed the data structure in the meantime, I cannot roll back to the prev version easily.
+
+I hope someone helps find the bug here, although probably the best idea would be to refactor the whole code, clean everything up and the bug should pop up then.
+
+By "one bug away" I mean, it will deliver somewhat consistent text when loaded up at 100% effort and 0xC mem load, but it is obviously broken. There's probably some stupid typo somewhere - no idea.
+
+As for bigger models - my bet is that bigger models will be even more robust against effort lowering. Having said that, this implementation has the Mistral/Mixtral weights hardcoded in multiple places, and also you may start bumping into GPU cache limitations with the larger models - shouldn't be too difficult to fix, because you can always cut up a weight matrix into smaller ones, but someone needs to do the engineering part for this.

@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Effort Engine</title>
+    <link rel="stylesheet" href="tufte.css"/>
+    <link rel="stylesheet" href="latex.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  </head>
+
+  <body>
+
+    <article>
+
+      <h1 id="tufte-css">Introducing BucketMul</h1>
+      <p class="subtitle"></p>
+      <section>
+
+<p>
+There is a saying that it's data structures that matter, not the algorithms. This is definitely true here.
+<p>
+We'll start with an example matrix of weights of a model. 
+<p>16x16. Breaks formatting, but the least practical to show the concept.
+<p>
+It's transposed from the regular implementation, so each full row (not column) is multiplied by a given input vector.
+<p>
+\[
+\begin{bmatrix}
+.46 & .87 & -.19 & .27 & .18 & -.39 & -.29 & -.62 & -.81 & -.34 & -.84 & .33 & .49 & .63 & -.69 & -.42 \\
+-.87 & .11 & .03 & .5 & .43 & .87 & -.49 & .59 & .5 & -.42 & -.23 & .02 & .24 & .17 & -.65 & -.21 \\
+-.44 & .35 & .76 & .85 & -.5 & -.4 & -.26 & .05 & -.37 & .0 & -.36 & -.07 & .71 & .61 & .85 & -.0 \\
+...
+\end{bmatrix}
+\]
+<p>
+Now, let's focus on the first row. Elements from this row will be multiplied by the first element in the state vector.
+
+\[
+\begin{bmatrix}
+.46 & .87 & -.19 & .27 & .18 & -.39 & -.29 & -.62 & -.81 & -.34 & -.84 & .33 & .49 & .63 & -.69 & -.42
+\end{bmatrix}
+\]
+
+Let's sort these elements in a descending order, by their absolute values. And keep track of the original indexes.
+
+\[
+\begin{bmatrix}
+.87 \scriptstyle \searrow 1 & -.84 \scriptstyle \searrow 10 & -.81 \scriptstyle \searrow 8 & -.69 \scriptstyle \searrow 14 & .63 \scriptstyle \searrow 13 & -.62 \scriptstyle \searrow 7 & .49 \scriptstyle \searrow 12 & .46 \scriptstyle \searrow 0 & -.42 \scriptstyle \searrow 15 & -.39 \scriptstyle \searrow 5 & -.34 \scriptstyle \searrow 9 & .33 \scriptstyle \searrow 11 & -.29 \scriptstyle \searrow 6 & .27 \scriptstyle \searrow 3 & -.19 \scriptstyle \searrow 2 & .18 \scriptstyle \searrow 4
+\end{bmatrix}
+\]
+
+We'll be splitting elements into buckets now. Buckets of size 4.
+
+Let's mark all the elemements of the array that are indexed 0-3.
+
+\[
+\begin{bmatrix}
+\textcolor{red}{.87 \scriptstyle \searrow 1} 
+& -.84 \scriptstyle \searrow 10
+& -.81 \scriptstyle \searrow 8 
+& -.69 \scriptstyle \searrow 14 
+& .63 \scriptstyle \searrow 13 
+& -.62 \scriptstyle \searrow 7 
+& .49 \scriptstyle \searrow 12 
+&\textcolor{red}{ .46 \scriptstyle \searrow 0}
+& -.42 \scriptstyle \searrow 15 
+& -.39 \scriptstyle \searrow 5 
+& -.34 \scriptstyle \searrow 9 
+& .33 \scriptstyle \searrow 11 
+& -.29 \scriptstyle \searrow 6 
+&\textcolor{red}{ .27 \scriptstyle \searrow 3 }
+&\textcolor{red}{ -.19 \scriptstyle \searrow 2 }
+& .18 \scriptstyle \searrow 4 
+\end{bmatrix}
+\]
+\[\downarrow\]
+\[
+\begin{bmatrix}
+\textcolor{red}{.87 \scriptstyle \searrow 1} \\
+\textcolor{red}{ .46 \scriptstyle \searrow 0} \\
+\textcolor{red}{ .27 \scriptstyle \searrow 3 } \\
+\textcolor{red}{ -.19 \scriptstyle \searrow 2 }
+\end{bmatrix}
+\]
+
+
+Now all the indexed 4-7...
+
+\[
+\begin{bmatrix}
+.87 \scriptstyle \searrow 1
+& -.84 \scriptstyle \searrow 10
+& -.81 \scriptstyle \searrow 8 
+& -.69 \scriptstyle \searrow 14 
+& .63 \scriptstyle \searrow 13 
+&\textcolor{red}{ -.62 \scriptstyle \searrow 7 }
+& .49 \scriptstyle \searrow 12 
+& .46 \scriptstyle \searrow 0
+& -.42 \scriptstyle \searrow 15 
+&\textcolor{red}{ -.39 \scriptstyle \searrow 5 }
+& -.34 \scriptstyle \searrow 9 
+& .33 \scriptstyle \searrow 11 
+&\textcolor{red}{ -.29 \scriptstyle \searrow 6 }
+& .27 \scriptstyle \searrow 3 
+& -.19 \scriptstyle \searrow 2 
+&\textcolor{red}{ .18 \scriptstyle \searrow 4}
+\end{bmatrix}
+\]
+\[\downarrow\]
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+\textcolor{red}{ -.62 \scriptstyle \searrow 7 } \\
+\textcolor{red}{ -.39 \scriptstyle \searrow 5 } \\
+\textcolor{red}{ -.29 \scriptstyle \searrow 6 } \\
+\textcolor{red}{ .18 \scriptstyle \searrow 4}
+\end{bmatrix}
+\]
+
+For 8-11...
+
+\[
+\begin{bmatrix}
+.87 \scriptstyle \searrow 1 
+& \textcolor{red}{-.84 \scriptstyle \searrow 10}
+&\textcolor{red}{ -.81 \scriptstyle \searrow 8 }
+& -.69 \scriptstyle \searrow 14 
+& .63 \scriptstyle \searrow 13 
+& -.62 \scriptstyle \searrow 7 
+& .49 \scriptstyle \searrow 12 
+& .46 \scriptstyle \searrow 0
+& -.42 \scriptstyle \searrow 15 
+& -.39 \scriptstyle \searrow 5 
+&\textcolor{red}{ -.34 \scriptstyle \searrow 9 }
+& \textcolor{red}{.33 \scriptstyle \searrow 11 }
+& -.29 \scriptstyle \searrow 6 
+& .27 \scriptstyle \searrow 3 
+& -.19 \scriptstyle \searrow 2 
+& .18 \scriptstyle \searrow 4 
+\end{bmatrix}
+\]
+
+\[\downarrow\]
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+-.62 \scriptstyle \searrow 7  \\
+-.39 \scriptstyle \searrow 5  \\
+-.29 \scriptstyle \searrow 6  \\
+.18 \scriptstyle \searrow 4
+\end{bmatrix}
+\begin{bmatrix}
+\textcolor{red}{-.84 \scriptstyle \searrow 10} \\
+\textcolor{red}{ -.81 \scriptstyle \searrow 8 } \\
+\textcolor{red}{ -.34 \scriptstyle \searrow 9 } \\
+ \textcolor{red}{.33 \scriptstyle \searrow 11 }
+\end{bmatrix}
+\]
+
+And 12-15...
+
+\[
+\begin{bmatrix}
+.87 \scriptstyle \searrow 1 
+& -.84 \scriptstyle \searrow 10
+& -.81 \scriptstyle \searrow 8 
+& \textcolor{red}{ -.69 \scriptstyle \searrow 14 }
+& \textcolor{red}{.63 \scriptstyle \searrow 13 }
+& -.62 \scriptstyle \searrow 7 
+& \textcolor{red}{.49 \scriptstyle \searrow 12 }
+& .46 \scriptstyle \searrow 0
+& \textcolor{red}{-.42 \scriptstyle \searrow 15 }
+& -.39 \scriptstyle \searrow 5 
+& -.34 \scriptstyle \searrow 9 
+& .33 \scriptstyle \searrow 11 
+& -.29 \scriptstyle \searrow 6 
+& .27 \scriptstyle \searrow 3 
+& -.19 \scriptstyle \searrow 2 
+& .18 \scriptstyle \searrow 4 
+\end{bmatrix}
+\]
+
+\[\downarrow\]
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+-.62 \scriptstyle \searrow 7  \\
+-.39 \scriptstyle \searrow 5  \\
+-.29 \scriptstyle \searrow 6  \\
+.18 \scriptstyle \searrow 4
+\end{bmatrix}
+\begin{bmatrix}
+-.84 \scriptstyle \searrow 10 \\
+ -.81 \scriptstyle \searrow 8  \\
+ -.34 \scriptstyle \searrow 9  \\
+.33 \scriptstyle \searrow 11 
+\end{bmatrix}
+\begin{bmatrix}
+\textcolor{red}{ -.69 \scriptstyle \searrow 14 } \\
+\textcolor{red}{.63 \scriptstyle \searrow 13 } \\
+\textcolor{red}{.49 \scriptstyle \searrow 12 } \\
+\textcolor{red}{-.42 \scriptstyle \searrow 15 }
+\end{bmatrix}
+\]
+
+As a brief reminder of what we're doing here - it will be matrix multiplication, and we're dealing with a reorganised first row of the matrix. 
+
+<p>Soon, will want to multiply the first element of the vector by all these elemenets, and put the output into the rows of the output vector.
+
+\[
+v_0 \cdot
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+-.62 \scriptstyle \searrow 7  \\
+-.39 \scriptstyle \searrow 5  \\
+-.29 \scriptstyle \searrow 6  \\
+.18 \scriptstyle \searrow 4
+\end{bmatrix}
+\begin{bmatrix}
+-.84 \scriptstyle \searrow 10 \\
+ -.81 \scriptstyle \searrow 8  \\
+ -.34 \scriptstyle \searrow 9  \\
+.33 \scriptstyle \searrow 11 
+\end{bmatrix}
+\begin{bmatrix}
+ -.69 \scriptstyle \searrow 14  \\
+.63 \scriptstyle \searrow 13  \\
+.49 \scriptstyle \searrow 12  \\
+-.42 \scriptstyle \searrow 15 
+\end{bmatrix}
+\rightarrow o
+
+\]
+
+Now, since every column has a known offset, so say column 1 has only elements from 4-7, column 2 has elements 8-11, and so on, we can subtract the offset from the numbers.
+
+
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+-.62 \scriptstyle \searrow 3  \\
+-.39 \scriptstyle \searrow 1  \\
+-.29 \scriptstyle \searrow 2  \\
+.18 \scriptstyle \searrow 0
+\end{bmatrix}
+\begin{bmatrix}
+-.84 \scriptstyle \searrow 2 \\
+ -.81 \scriptstyle \searrow 0  \\
+ -.34 \scriptstyle \searrow 1  \\
+.33 \scriptstyle \searrow 3 
+\end{bmatrix}
+\begin{bmatrix}
+ -.69 \scriptstyle \searrow 2  \\
+.63 \scriptstyle \searrow 1  \\
+.49 \scriptstyle \searrow 0  \\
+-.42 \scriptstyle \searrow 3 
+\end{bmatrix}
+\]
+
+It's a technicality, but thanks to this subtraction, we just shaved bits needed to store the index of each weight - we now only need 2 bits instead of 4 (or 4 bits instead of 16 in the real world).
+<p>
+Remembering that weights are usually stored as float-16s/bfloats, and that nobody cares about least significant parts of the numbers in ML, we can sacrifice them and shove the index there with no loss of quality of the output model. I mean - there may be a tiny one, but if anyone cares, there is a method described in Q8 chapter that allows to store the positional bits with almost no loss of precision - if not even an increase in precision!
+<p>
+And now back to the algorithm.
+
+Let's now reshape our matrix.
+
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 \\
+\ .46 \scriptstyle \searrow 0 \\
+\ .27 \scriptstyle \searrow 3 \\
+\ -.19 \scriptstyle \searrow 2
+\end{bmatrix}
+\begin{bmatrix}
+-.62 \scriptstyle \searrow 3  \\
+-.39 \scriptstyle \searrow 1  \\
+-.29 \scriptstyle \searrow 2  \\
+.18 \scriptstyle \searrow 0
+\end{bmatrix}
+\begin{bmatrix}
+-.84 \scriptstyle \searrow 2 \\
+ -.81 \scriptstyle \searrow 0  \\
+ -.34 \scriptstyle \searrow 1  \\
+.33 \scriptstyle \searrow 3 
+\end{bmatrix}
+\begin{bmatrix}
+ -.69 \scriptstyle \searrow 2  \\
+.63 \scriptstyle \searrow 1  \\
+.49 \scriptstyle \searrow 0  \\
+-.42 \scriptstyle \searrow 3 
+\end{bmatrix}
+\]
+
+\[\downarrow\]
+
+
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 &
+-.62 \scriptstyle \searrow 3  &
+-.84 \scriptstyle \searrow 2 &
+ -.69 \scriptstyle \searrow 2
+\end{bmatrix}
+\]
+
+\[
+\begin{bmatrix}
+.46 \scriptstyle \searrow 0 &
+-.39 \scriptstyle \searrow 1  &
+ -.81 \scriptstyle \searrow 0  &
+.63 \scriptstyle \searrow 1
+\end{bmatrix}
+\]
+
+\[
+\begin{bmatrix}
+\ .27 \scriptstyle \searrow 3 &
+-.29 \scriptstyle \searrow 2  &
+ -.34 \scriptstyle \searrow 1  &
+.49 \scriptstyle \searrow 0  
+\end{bmatrix}
+\]
+\[
+\begin{bmatrix}
+\ -.19 \scriptstyle \searrow 2 &
+.18 \scriptstyle \searrow 0 &
+.33 \scriptstyle \searrow 3 &
+-.42 \scriptstyle \searrow 3 
+\end{bmatrix}
+\]
+
+And let's calculate the averages for absolute values of each row.
+
+
+\[
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 &
+-.62 \scriptstyle \searrow 3  &
+-.84 \scriptstyle \searrow 2 &
+ -.69 \scriptstyle \searrow 2
+\end{bmatrix}
+\rightarrow avg. abs. 0.755
+\]
+
+\[
+\begin{bmatrix}
+.46 \scriptstyle \searrow 0 &
+-.39 \scriptstyle \searrow 1  &
+ -.81 \scriptstyle \searrow 0  &
+.63 \scriptstyle \searrow 1
+\end{bmatrix}
+\rightarrow avg. abs. 0.572
+\]
+
+\[
+\begin{bmatrix}
+\ .27 \scriptstyle \searrow 3 &
+-.29 \scriptstyle \searrow 2  &
+ -.34 \scriptstyle \searrow 1  &
+.49 \scriptstyle \searrow 0  
+\end{bmatrix}
+\rightarrow avg. abs. 
+0.347
+\]
+\[
+\begin{bmatrix}
+\ -.19 \scriptstyle \searrow 2 &
+.18 \scriptstyle \searrow 0 &
+.33 \scriptstyle \searrow 3 &
+-.42 \scriptstyle \searrow 3 
+\end{bmatrix}
+\rightarrow avg. abs. 
+0.28
+\]
+
+Look what happened here!
+<p>
+We now have the input row split into buckets of roughly lowering average scores. It's not perfect - .39 doesn't deserve it's spot in row 2, and .42 should aspire to a slot higher. But with larger matrixes and larger buckets once again statistics play into our favour, and this turns out to be good enough.
+<p>
+Remember that it was just the first row though. We have other rows in our source matrix W. 
+
+<p>
+We proceed the same with these other rows, interleaving them within the output structure.
+
+\[
+v_o :
+\begin{bmatrix}
+\ .87 \scriptstyle \searrow 1 &
+-.62 \scriptstyle \searrow 3  &
+-.84 \scriptstyle \searrow 2 &
+ -.69 \scriptstyle \searrow 2
+\end{bmatrix}
+\rightarrow avg. abs. 0.755
+\]
+
+\[
+v_1 :
+\begin{bmatrix}
+-0.87 \scriptstyle \searrow 0 & 
+0.87 \scriptstyle \searrow 1 & 
+0.5 \scriptstyle \searrow 0 & 
+-0.65 \scriptstyle \searrow 2
+\end{bmatrix}
+\rightarrow avg. abs. 0.72
+\]
+\[
+...
+\]
+\[
+v_o :
+\begin{bmatrix}
+.46 \scriptstyle \searrow 0 &
+-.39 \scriptstyle \searrow 1  &
+ -.81 \scriptstyle \searrow 0  &
+.63 \scriptstyle \searrow 1
+\end{bmatrix}
+\rightarrow avg. abs. 0.572
+\]
+
+\[
+v_1 : 
+\begin{bmatrix}
+0.5 \scriptstyle \searrow 3 &
+0.59 \scriptstyle \searrow 3 &
+-0.42 \scriptstyle \searrow 2 &
+-0.21 \scriptstyle \searrow 3 
+\end{bmatrix}
+\rightarrow avg. abs.  0.43
+\]
+
+\[...\]
+
+\[
+v_o :
+\begin{bmatrix}
+\ .27 \scriptstyle \searrow 3 &
+-.29 \scriptstyle \searrow 2  &
+ -.34 \scriptstyle \searrow 1  &
+.49 \scriptstyle \searrow 0  
+\end{bmatrix}
+\rightarrow avg. abs. 
+0.347
+\]
+
+\[
+v_1 :
+\begin{bmatrix}
+0.11 \scriptstyle \searrow 1 &
+-0.49 \scriptstyle \searrow 2 &
+-0.23 \scriptstyle \searrow 2 &
+0.24 \scriptstyle \searrow 0 
+\end{bmatrix}
+\rightarrow avg. abs. 0.27
+\]
+
+\[...\]
+
+\[
+v_o :
+\begin{bmatrix}
+\ -.19 \scriptstyle \searrow 2 &
+.18 \scriptstyle \searrow 0 &
+.33 \scriptstyle \searrow 3 &
+-.42 \scriptstyle \searrow 3 
+\end{bmatrix}
+\rightarrow avg. abs. 
+0.28
+\]
+
+\[
+v_1 :
+\begin{bmatrix}
+0.03 \scriptstyle \searrow 2 &
+0.43 \scriptstyle \searrow 0 &
+0.02 \scriptstyle \searrow 3 &
+0.17 \scriptstyle \searrow 1
+\end{bmatrix}
+\rightarrow avg. abs. 0.16
+\]
+</p>
+The output shape of the matrix will be [16*4, 4], or in real world [inDim * bSize, outDim / bSize].
+<p>
+  <div class="epigraph">
+          <blockquote>
+            <p>
+Let's call this list our <b>bucket list</b>, and the averages - <b>bucket stats</b>.
+</p>
+</blockquote></div>
+<p>
+These, along with <b>probes</b> from the previous chapter, are the three structures we need from the preprocessing stage.
+<p>
+  We don't need to calculate them efficiently, we only do this once per model, and that's it.
+<p>
+Oh, and by the way - since the bucket list is organised such that the least important weights are at the end, unlike traditional matrixes, we don't need to load it whole into the memory. <b>We can just skip however many last rows we want during load time</b>, and from practice - if it's 20-30%, the model may not even notice. 
+<p>
+There you go, ad hoc distillation. you're welcome.
+
+<h2>Inference time!</h2>
+<p>
+I encourage you at this moment to review the bucket list above, and - as an exercise - pick few weights at random, and figure out into which dimensions of the output they will go once they get multiplied. For example that 0.87 from the second row, or -0.42 from the fourth. (spoilers: 0.87 will go to 1+4*1 = 5th row in the output, and -042 will go into 2+4*2 = 6th.)
+<p>
+Let's review the original algorithm from the previous chapter, the one children were laughing at us for.
+<p>
+(copy paste)
+<p>
+The beginning stays the same as before. We choose <b>effort</b>, we find a <b>cutoff</b>. With multiplications we'll do something new.
+<p>
+We'll split the algorithm into two parts. 
+<p>
+First one I call "calculating dispatch".
+
+<pre>
+  <code>
+for each row from the bucket list:
+  if cutoff > stat[rowId] * v[rowId % inDim]
+      dispatchList.append((rowId, v[rowId % inDim]))
+</code>
+</pre>
+<p>
+This filters out our bucket list and creates a dispatch list with rowId and value to be multiplied. It is easily parralelizable, and fast.</p>
+<div class="epigraph" style="margin-top:0px"><blockquote style="margin-top:1em"><p>
+                <b>Dispatch</b> contains a list of buckets that will be multiplied, along with the value to be multiplied by them. We can throw out our source vector once we have the dispatch.
+            </p></blockquote></div>
+<p>
+And now, the bucketMul itself:
+<pre>
+for (bucket_id, v_val) in dispatch list:
+    for (weight, id) in buckets[bucket_id]:
+       myVal[id] += weight*v_val
+</pre>
+
+<p>
+And is that it? You may ask? Is it really that simple?
+</p>
+<p>
+Well, nothing is simple in the land of GPUs. But more or less that's it for the algorithm.
+</p>
+<p>
+<h2>Where do we go from here?</h2>
+  <p>
+    - <a href="gpu.html">The GPU implementation</a>
+  </p>
+    <p>
+    - <a href="q8.html">MoE, Quantization and the others.</a>
+    </p>
+    <p>
+      - Pesky details (or: Help Needed!)
+    </p>
+    <h2>
+      At any time
+    <p>
+      - Install and Download
+    </p>
+    <h2>And of course...</h2>
+    <p>
+      - About the Author(s)
+    </p>
+    <p>
+      - Citations, notes and so on
+    </p>
+    <h2>Or going back...</h2>
+    <p>
+      - The landing page.
+    </p>
+    <p>
+      - The basics.
+    </p>
+
+
+      </section>
+    </article>
+  </body>
+</html>
