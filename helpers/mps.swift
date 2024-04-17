@@ -1,8 +1,8 @@
 //
 //  mps.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 18/03/2024.
+//  Created 18/03/2024.
 //
 
 import Foundation

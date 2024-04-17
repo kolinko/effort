@@ -1,27 +1,65 @@
-//
-//  main.swift
-//  mul_col
-//
-//  Created by Tomasz Kolinko on 24/01/2024.
-//
+/*
+ 
+ Main.
+ 
+ Overall code structure of other files:
+
+ - runNetwork - main inference loop
+
+ - model - computations like rmsnorm, also definitions of Vector/Matrix class
+
+ - loader - holds layer information and loads it up
+ 
+ - bucketMul - main multiplication algorithm
+ 
+ - convert - converts from .safetensors into the bucketized version.
+             you'll probably better off just getting the bucketed weights from HF
+ 
+ */
+
+
 import os
 import Foundation
 import Metal
 import simd
-var serverReady = false
 
+/*
+ 
+ A ton of hotfixes went here last minute, needs to be refactored.
+ 
+ Especially the parameter handling.
+ 
+ Should be readable though.
+ 
+ */
+
+var serverReady = false
 let gpu = Gpu()
 print("\nEffort Engine v.0.0.1 BETA")
 
 //runConvert([.mistral, .fp16])
+// ^ uncomment to run conversion for other models.
+//   be sure to check the convert script comments before
 
 let args = CommandLine.arguments
+
+/*
+ 
+ below should be refactored into a Conf class.
+ Need to do it smartly though, because during testing of larger models you want to easily
+ be able to load fewer layers / fewer experts to pass by tests
+ 
+ */
 
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
 assert(!goQ8, "Q8 not implemented fully yet!")
-var percentLoad = goQ8 ? 0x8 : 0x10 // works decently for mixtral// from 0 to max binSize
+var percentLoad = goQ8 ? 0x8 : 0x10
+                  // a number from 0x00 to 0x10 for FP16, or 0x0 to 0x8.
+                  // not really percent, need to make design decision here - either switch to real percent
+                  // or stick with the current convention but make it clear why.
+
 let bSize: Int
 
 var numLayers = 32
@@ -33,6 +71,8 @@ let goMistral = numExperts == 1
 let goVerify = numLayers == 10 && ((numExperts == 2 && !goNoMuls && !goMistral) || goMistral)
 let goSaveTests = false
 var quickStart = false
+
+// arg handling needs to be refactored
 
 if args.count > 1 && args[1] == "quickstart" {
     quickStart = true

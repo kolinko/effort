@@ -1,9 +1,9 @@
 
 //
 //  q8.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 02/04/2024.
+//  Created 02/04/2024.
 //
 
 import Foundation
@@ -20,8 +20,20 @@ struct ConvertOptions: OptionSet {
 func runConvert(_ options: ConvertOptions) {
 
     if options.contains(.mixtral) {
-//        assertionFailure("don't touch for now")
-
+        assert(false, "Won't work now, see comments in code")
+        /*
+         
+         Mixtral seems to have their weights messed up on HF / safetensors.
+         https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1/discussions/191
+         
+         So you need to convert the weights from .pt format into safetensors in python,
+         and then load them up.
+         
+         Also, they recently changed their naming conventions from w1/w2/w3 to to gate/down/up etc
+         Which caused a ton of chaos with renaming things and whatnot.
+         
+         */
+        
         if options.contains(.fp16) {
             convertMixtral(goQ8: false)//goQ8: false)
         }
@@ -36,7 +48,7 @@ func runConvert(_ options: ConvertOptions) {
             convertMistral(goQ8: false)//goQ8: false)
         }
         if options.contains(.q8) {
-//            assertionFailure("not implemented yet")
+            // it was working at some point for sure, not tested with the current version
             convertMistral(goQ8: true)//goQ8: true)
         }
     }

@@ -1,6 +1,6 @@
 //
 //  tokeniser2.swift
-//  mul_col
+//  effort
 //
 //  Ported from the Javascript implementation by belladore.ai
 //  github.com/imoneoi/mistral-tokenizer/blob/master/mistral-tokenizer.js

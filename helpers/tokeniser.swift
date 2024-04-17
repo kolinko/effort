@@ -1,8 +1,8 @@
 //
 //  tokeniser.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 25/03/2024.
+//  Created 25/03/2024.
 //
 
 import Foundation

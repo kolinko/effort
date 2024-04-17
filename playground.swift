@@ -1,12 +1,14 @@
 //
 //  tests.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 24/03/2024.
+//  Created 24/03/2024.
 //
 
 /*
-     
+  
+ For quick testing of various functionalities.
+ 
  */
 
 import Foundation

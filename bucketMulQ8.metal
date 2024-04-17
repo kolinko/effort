@@ -1,8 +1,8 @@
 //
 //  bucketMulQ8.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 08/04/2024.
+//  Created 08/04/2024.
 //
 
 #include <metal_stdlib>
@@ -11,9 +11,9 @@ using namespace metal;
 
 //
 //  mulQ8.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 03/04/2024.
+//  Created 03/04/2024.
 //
 
 #include <metal_stdlib>

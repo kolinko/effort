@@ -1,8 +1,8 @@
 //
 //  safetensors.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 03/04/2024.
+//  Created 03/04/2024.
 //
 
 import Foundation

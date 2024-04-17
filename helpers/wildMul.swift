@@ -1,6 +1,6 @@
 //
 //  wildMul.swift
-//  mul_col
+//  effort
 //
 
 /*

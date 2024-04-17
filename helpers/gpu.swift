@@ -1,9 +1,16 @@
 //
 //  gpu.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 11/03/2024.
-//
+
+/*
+ 
+ A wrapper for the MTLClasses. Makes the code more readable.
+ Perhaps could be refactored away, or just refactored.
+ 
+ Riddled with remnants of various optimization attempts.
+ 
+ */
 
 import Foundation
 import Metal

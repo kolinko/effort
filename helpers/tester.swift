@@ -1,8 +1,8 @@
 //
 //  tester.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 08/04/2024.
+//  Created 08/04/2024.
 //
 
 /*

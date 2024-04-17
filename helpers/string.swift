@@ -1,8 +1,8 @@
 //
 //  string.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 17/04/2024.
+//  Created 17/04/2024.
 //
 
 import Foundation

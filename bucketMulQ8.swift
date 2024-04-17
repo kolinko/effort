@@ -1,8 +1,8 @@
 //
 //  q8.swift
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 02/04/2024.
+//  Created 02/04/2024.
 //
 
 

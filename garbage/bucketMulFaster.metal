@@ -1,8 +1,8 @@
 //
 //  bucketMulFaster.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 12/04/2024.
+//  Created 12/04/2024.
 //
 /*
 #include <metal_stdlib>

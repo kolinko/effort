@@ -1,8 +1,8 @@
 //
 //  matrix.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 26/01/2024.
+//  Created 26/01/2024.
 //
 
 #include <metal_stdlib>

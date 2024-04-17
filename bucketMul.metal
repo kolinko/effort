@@ -1,6 +1,6 @@
 //
 //  bucketMul.metal
-//  mul_col
+//  effort
 //
 
 

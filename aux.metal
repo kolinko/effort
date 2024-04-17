@@ -1,8 +1,8 @@
 //
 //  aux.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 10/03/2024.
+//  Created 10/03/2024.
 //
 
 #include <metal_stdlib>

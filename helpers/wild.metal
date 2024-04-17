@@ -1,8 +1,8 @@
 //
 //  wild.metal
-//  mul_col
+//  effort
 //
-//  Created by Tomasz Kolinko on 09/04/2024.
+//  Created 09/04/2024.
 //
 
 #include <metal_stdlib>
