@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import HeapModule
 
 /**
  * Helper function to decode the vocabulary.
@@ -182,7 +183,7 @@ func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool =
     if prompt == "" { return [Int]() }
     let tokenIds = mapCharactersToTokenIds(prompt: prompt, addBosToken:addBosToken, addPrecedingSpace: addPrecedingSpace)
     
-    let mergeQueue = PriorityQueue<Node>()
+    var mergeQueue = Heap<Node>()
     
     func addToMergeQueue(_ leftNode: Node) {
 
@@ -196,7 +197,7 @@ func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool =
         if let mergePrio = mistralTokenizer.merges[mergeIdentifierString] {
             leftNode.mergePrio = Double(mergePrio) + Double(leftNode.origPos) / Double(prompt.count)
             leftNode.mergeToString = mergeIdentifierString.replacingOccurrences(of: " ", with: "")
-            _ = mergeQueue.push(leftNode)
+            _ = mergeQueue.insert(leftNode)
         }
     }
    
@@ -223,7 +224,7 @@ func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool =
 
     // Perform merges in priority order
     while (!mergeQueue.isEmpty) {
-        let leftOfMerge = mergeQueue.pop()
+        let leftOfMerge = mergeQueue.popMin()!
 
         // Check that this merge is still possible
         if (leftOfMerge.deleted) { continue }
@@ -290,77 +291,6 @@ func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool =
 
     return mergedTokenIds
 }
-
-
-class PriorityQueue<Type: Comparable> {
-    var _heap = [Type]()
-    // PriorityQueue implementation is copied from stackoverflow.com/a/42919752 with minor refactoring
-    // then ported to Swift and replaced with a list, because I'm lazy (TK)
-    
-    var size : Int { _heap.count }
-    var bottom : Int { _heap.count-1 }
-
-    var isEmpty : Bool { _heap.count == 0}
-    
-    func peek() -> Type {
-        return _heap[0]
-    }
-    
-    func push(_ el: Type) -> Int {
-        _heap.append(el)
-        _siftUp()
-        return self.size
-    }
-    
-    func push(_ values: [Type]) -> Int {
-        for el in values {
-            _ = push(el)
-        }
-        return self.size
-    }
-    
-    func pop() -> Type {
-        let poppedValue = peek()
-        if bottom > 0 {
-            _swap(0, bottom)
-        }
-        _heap.removeLast()
-        _siftDown()
-        return poppedValue
-    }
-    
-    func replace(_ value: Type) -> Type {
-        let replacedValue = peek()
-        _heap[0] = value;
-        _siftDown()
-        return replacedValue
-    }
-    
-    func _swap(_ a: Int, _ b: Int) {
-        let tmp = _heap[a]
-        _heap[a] = _heap[b]
-        _heap[b] = tmp
-    }
-    
-    func _siftUp() {
-        for i in 0..<size-1 {
-            if _heap[i] > _heap[i+1] {
-                _swap(i, i+1)
-            }
-        }
-    }
-    
-    func _siftDown() {
-        if size > 1 {
-            for i in (0..<size-1).reversed() {
-                if _heap[i] > _heap[i+1] {
-                    _swap(i, i+1)
-                }
-            }
-        }
-    }
-}
-
 
 
 func runTokenizerTests() {
