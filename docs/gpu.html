@@ -34,9 +34,7 @@
       <section>
 
 <p>
-Let's see a <b>simplified</b> version of the main bucketMul function.
-
-It receives dispatch as a parameter, model weights, and outputs muls into the result.
+Below is a simplified version of the main <b>bucketMul</b> function. This function takes dispatch as a parameter, along with model weights, and outputs multiplications into the result.
 
 <pre>
 kernel void bucketMul(
@@ -49,17 +47,18 @@ kernel void bucketMul(
     float myVal[16] = {0};
       
     for (uint r=0; r&lt;dispatchSize; r+=1) {
-            float2 d = dispatch[rowOffset];
-            half w = weights[int(d[1]) + bucketID];
+            float2 d = dispatch[rowOffset]; // d[0] is weight, d[1] is rowId
+            half w = weights[int(d[1]) + bucketID]; // Get weight based on dispatch
 
-            float v = d[0]*float(w);
-            ushort pos = as_type&lt;ushort>(w) & 15;
+            float v = d[0]*float(w); // Perform multiplication
+            ushort pos = as_type&lt;ushort>(w) & 15; // Get position for the result
             
             for (int i=0; i&lt;16; i++) {
-                myVal[i] += (pos == i) ? v : 0;
+                myVal[i] += (pos == i) ? v : 0; 
             }
     }
 
+    // Store results in the output buffer
     for (int i = 0; i&lt;16; i++) {
         result[myOff + i] = myVal[i];
     }
@@ -68,15 +67,19 @@ kernel void bucketMul(
 </pre>
 
 <p>
-Readers fresh to GPU programming may ask now - <b>how does it work?</b>
+Readers new to GPU programming might wonder, <b>'How does it work?'</b>?
 <p>
-Readers experienced with GPU programming may ask - <b>how the hell does it work?</b>
+Readers experienced with GPU programming might ask, <b>'How on earth does it work?'</b>
 
 <h2>Basics of Metal</h2>
 <p>
-The code above is a so-called shader function. It gets called from swift, from a line like this:
+The above code is what's known as a shader function. It is invoked from Swift with a line like this:
+<p><span class="marginnote">
+wrapper to actual Swift functions - makes for easier reading
+</span>
 
 <pre>
+
 gpu.deploy("bucketMulFast",
            buffers:     [ weightBuckets,
                           dispatch,
@@ -85,17 +88,17 @@ gpu.deploy("bucketMulFast",
            threadCount: [ weightBuckets.cols ])
 </pre>
 <p>
-It gets called threadCount times.
+This function is invoked <b>`threadCount`</b> times, each time receiving the same parameters. The only difference is the bucketID, which represents each thread's position in the grid—defined here as <b>[weightBuckets.cols]</b>.
 <p>
 Each call gets the same parameters, with the only difference being, in this case - bucketID, which is a thread's position in the grid. Grid in this case is simply [ weightBuckets.cols ].
 <p>
 Each call performs the computations, and writes out the result into the result buffer.
 <p>
-What will be important in our case is that - simplifying <b>wildly</b> - Apple's GPUs organise threads into SIMD-groups of 32.
+Crucially, Apple's GPUs organize threads into SIMD-groups of 32, simplyfing <i>wildly</i>.
 <p>
-SIMD (same instruction multiple data) groups execute all the operations at the same pace, doing exactly the same operations - just with possibly different data.
+SIMD (Same Instruction, Multiple Data) groups execute all operations in lockstep, performing identical operations but potentially on different data.
 <p>
-You don't need to sync-up the threads within one group - they always go at the same pace. If one has an "if", the others will wait for it to finish the if to proceed.
+There is no need to synchronize the threads within a single group, as they always operate in unison. If one thread encounters an 'if' condition, the others will wait for this condition to resolve before proceeding.
 <p>
 That's it for the basics. If you did any programming in your life, the code should be quite simple to understand:
 <p>
@@ -116,11 +119,11 @@ That's it for the basics. If you did any programming in your life, the code shou
 <p>
 A better explaination will be most welcome.
 <p>
-My theories why such a simple code works:
+Here are my theories on why such straightforward code is effective:
 <p>
-- <b>dispatch load</b> - it's very little data, it gets cached, so we don't need to coordinate loading it too much. The real implementation has an inner loop that gets unrolled, and dispatch loads end up batched together by the optimizer
+- <b>Dispatch Load</b>: The data involved is minimal and gets cached quickly, reducing the need for extensive coordination during loading.
 <p>
-- <b>weights load</b> - since we have implicitly coordinated reads (threads from each simdgroup load elements that are next to each other), the reads get treated as consecutive, and we can perform them at a high speed. We're going against every known manual that says the reads should be consecutive within a single thread, not across threads - but somehow it seems to work?
+- <b>Weights load</b> - since we have implicitly coordinated reads (threads from each simdgroup load elements that are next to each other), the reads get treated as consecutive, and we can perform them at a high speed. We're going against every known manual that says the reads should be consecutive within a single thread, not across threads - but somehow it seems to work?
 
 <p>
 
