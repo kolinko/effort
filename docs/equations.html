@@ -34,14 +34,14 @@
       <section>
 
 <p style="align: left;">
+The most time-consuming aspect of LLM inference involves vector-matrix multiplication, where a state vector (h) is multiplied by a weight matrix (w) to produce an output state (o).
 
-The most time-consuming part of LLM inference is a vector-matrix multiplication. You multiply some state (h) by a weight matrix (w) to get an output state (o).
 <p>
-Within inference there are some attention calculations as well, but we're not takling them here. Everything else takes virtually no time.
+Within inference, there are also some attention calculations, but we won't be discussing those here. All other processes take virtually no time.
 <p>
-Also, it's worth noting - it's memory reads, not really multiplications that we should care about. That will be the essence of the next chapter.
+It’s also crucial to point out that it’s the memory reads, not the multiplications, that deserve our spotlight. We'll dive deeper into this drama in the next chapter.
 <p>
-Let's go. Here is a baby version of the monster we'll face.
+Let's dive in. Here's a miniature version of the behemoth we're up against.
 <p>
     \[
  \begin{bmatrix} h_{1} \\ h_{2} \\ h_{3} \end{bmatrix} \times \begin{bmatrix} w_{11} & w_{12} & w_{13} \\ w_{21} & w_{22} & w_{23} \\ w_{31} & w_{32} & w_{33} \end{bmatrix}
@@ -87,7 +87,7 @@ For a concrete example.
 \end{bmatrix}
 \]
 
-A first instinct of anyone approaching the weights would be to try and remove the lowest weights.
+An initial instinct might be to remove the weights with the lowest values.
 
 
     \[
@@ -111,14 +111,14 @@ but look what happened to the output!
 \end{bmatrix}
 
 \]
-Judging by the eye, it changed vastly.
+At first glance, the changes appear significant.
 <p>
-A bit of it can be solved of course by normalization, but even then the second dimension's value is way smaller than originally, and the third is much higher than the first.
+Some issues can be mitigated by normalization; however, the value in the second dimension remains significantly lower than originally, while the third dimension's value is much higher
 <p>
-<b>Even a small 0.1 weight matters</b>, if it's lucky enough to be multiplied by a high value of vector - in this case 1000.
+Even a <b>seemingly insignificant weight, like 0.1,</b> can punch above its weight class if it's lucky enough to pair with a high vector value—1000 in this scenario.
 
 <p>
-Let's normalize the vectors and calculate their distance (or cosine similarity score):
+Now, let's normalize the vectors and calculate their distance, or cosine similarity score:
   \[
 d(\
  \begin{bmatrix} 0.67 \\ 0.07 \\ 0.75  \end{bmatrix} 
@@ -127,9 +127,9 @@ d(\
  ) = 0.88 
  \]
 
-We know that this approach works nevertheless. To some extent that's how distillation works, Quantization would replace 0.1 with 0 and 1s with 2s in the example, and LORA/PCA would do other kinds of changes. (needs more details here)
+This approach is effective to some extent; it resembles how distillation functions. For instance, quantization might replace a weight of 0.1 with 0, and weights of 1 with 2, as seen in this example. Similar adjustments occur in techniques like LORA and PCA. (This section requires further details.)
 <p>
-Let's try another approach though. A <b>dynamic</b> one. Instead of statically changing the matrix, we will focus on multiplications from now on. And choose only the top 1 or 2 multiplications from each output.
+However, let's consider another, more dynamic approach. Instead of making static changes to the matrix, we'll now concentrate on the multiplications and select only the top one or two from each output.
 <p>
 Let's start by sorting the multiplications row-wise.
 <p>
@@ -149,7 +149,7 @@ Let's start by sorting the multiplications row-wise.
 \begin{bmatrix} 1132 \\ 118 \\ 1286 \end{bmatrix}
 \]
 
-And now, remove the least significant ones from the each row.
+Now, let's remove the least significant multiplications from each row.
 
 \[
 \begin{bmatrix}
@@ -176,7 +176,7 @@ And now, remove the least significant ones from the each row.
 \begin{bmatrix} 1000 \\ 100 \\ 1000 \end{bmatrix}
 \]
 
-Now that's neat! Even with the last example, we're doing less multiplications (and memory reads) than using the previous method, and we already see that the result is much better.
+That's quite efficient! Even with this last example, we're performing fewer multiplications&mdash;and consequently fewer memory reads&mdash;than with the previous method, and the results are already noticeably better.
 <p>
   Let's see our score.
 
@@ -197,15 +197,15 @@ cosSim(\
  ) = 0.997
  \]
 <p>
-Why look at that!
+Look at that!
 <p>
- We're doing just a third of calculations - so less than before, and our similarity score is so close to 1 that even the pickiest transformer probably wouldn't notice!
+ We're now performing only a third of the calculations compared to before, and our similarity score is so close to 1 that even the most discerning transformer would likely not detect a difference!
 <p>
-Now, the only issue we have is that to do this kind of operation, we first need to perform all the multiplications, and then sort them. So it would be kind of pointless.
+However, there is one issue: to execute this operation, we must first perform all the multiplications and then sort them, which might seem somewhat counterproductive.
 <p>
-There were a few approaches that I tried to this, but couldn't find one that allows for explicitly this approach.
+I explored several methods but couldn't find one that specifically allows for this approach.
 <p>
-So instead, let's flip the matrix, sort the elements row-wise, and revisit the multiplications from that direction.
+Instead, we'll flip the matrix, sort the elements row-wise, and reconsider the multiplications from this new perspective.
 
 \[
  \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
@@ -215,12 +215,12 @@ So instead, let's flip the matrix, sort the elements row-wise, and revisit the m
 \end{bmatrix}
 \]
 
-This is called a Compressed Sparse Row (CSR) format by the smart people. To do the multiplication now, we take, say, the 1 from the vector, multiply it by 256, and add it into the output vector at the 3rd row. And so on.
+This is known as the Compressed Sparse Row (CSR) format. To perform the multiplication now, we might take the 1 from the vector, multiply it by 256, and place the result in the third row of the output vector, and so forth.
   <p>
 
 
 
-Now, let's see what happens if we truncate the last column - the one with the lowest values.
+Let's observe what happens when we truncate the last column, which contains the lowest values.
 \[
  \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
 256 \scriptstyle \searrow 3 & 8 \scriptstyle \searrow 2 \\
@@ -235,7 +235,7 @@ Now, let's see what happens if we truncate the last column - the one with the lo
 1130 \\ 8 \\ 1286
 \end{bmatrix}
 \]
-Seems close!
+The results are quite close!
 
   \[
 cosSim(\
@@ -245,17 +245,17 @@ cosSim(\
  ) = 0.998
  \]
 
-The 0.998 score is with 66% multiplications though - it's worse than our perfect algorithm at 33%. It is also essentially a static distillation method - we just remove the smallest weights from each row.
+This score of 0.998 was achieved with 66% of the multiplications, which is less efficient than our optimal algorithm at 33%. Essentially, this is a static distillation method where we simply remove the smallest weights from each row.
 <p>
-With this small example, we also run at an issue of starving the output dimensions - if we were to cut array to just one column, we would have nothing to put in the output vector's middle dimension.
+This small example also illustrates an issue of under-serving the output dimensions—if we reduce the array to just one column, the middle dimension of the output vector would have no data.
 <p>
-From personal tries - on the actual data and transformers, end result degrades very quickly - around the 50-70% sparsity mark. Funnily, the final implementation allows you to actually truncate the last rows, saving the memory, and without much loss of the quality - because they are not being used with lower effort levels anyway. But I'm getting ahead of myself here.
+In my personal experiments with actual data and transformers, the results begin to degrade quite rapidly after the removal of 30% weights. Interestingly, the final implementation enables truncation of the last rows, which saves memory without significantly reducing quality—mainly because these rows aren't utilized at lower effort levels. However, I'm getting a bit ahead of myself here.
 <p>
-Remember what we discussed, that tiny 0.1 in the last row matters if it bumps into a 1000 on the input vector.
+Recall our earlier discussion: even a tiny weight of 0.1 in the last row becomes significant if it multiplies against a 1000 in the input vector.
 <p>
-Because of that, we needs something better. Something dynamic, that takes into consideration the input vector as well!
+Therefore, we need a better, more dynamic solution—one that also considers the input vector.
 <p>
-Let's step back and do all the calculations that we need first, and sort them.
+First, let’s step back, perform all the necessary calculations, and then sort them.
 
 \[
 \begin{bmatrix}
@@ -271,19 +271,20 @@ Let's step back and do all the calculations that we need first, and sort them.
 \end{bmatrix}
 \]
 <p>
-Now, let's say that we want to do only 5 out of 9 of calculations...
+Now, suppose we decide to perform only 5 out of the 9 necessary calculations...
 <figure>
 <img src="ryc/ryc1.1.png" style="width:400px" style="align:center">
 </figure>
 <p>
-Our cutoff point at this example is at 100. And here also we a first mention of the "effort" metric.
+In this example, our cutoff point is at 100. This also introduces our first mention of the 'effort' metric.
+
 <div class="epigraph">
           <blockquote>
             <p><b>Effort</b> is how many calculations we want to perform out of all the ones that would be necessary. 100% effort is a plain old matrix multiplication. 0% effort is what I spent checking if someone invented all of this before me.</p>
           </blockquote>
         </div>
 <p>
-Now that we know our effort, let's revisit our sorted matrix multiplication again. 
+Now that we understand the 'effort' metric, let’s revisit the sorted matrix multiplication.
 
 <p>
   A bit of pseudocode first
@@ -304,7 +305,7 @@ def approxMul(V, W):
 </code>
 </pre>
 <p>
-With this code in mind, and our 100 cutoff selected, we can again revisit our calculations:
+With this code and a cutoff of 100 in mind, let's revisit our calculations:
 
 \[
  \begin{bmatrix} 1 \\ 10 \\ 1000  \end{bmatrix} \times \begin{bmatrix}
@@ -343,7 +344,7 @@ With this code in mind, and our 100 cutoff selected, we can again revisit our ca
 
 \]
 
-The 0.1 weight made the cut with 55% calculations done!
+The 0.1 weight made the cut, with 55% of the calculations completed!
 
   \[
 cosSim(\
@@ -353,29 +354,32 @@ cosSim(\
  ) = 0.99989
  \]
 
-Nice! We were slightly lucky here - if we chose effort to be slightly less, we'd miss the 100, and the whole middle row of the result would get off balance. Thankfully, in real world, with 4kx12k matrixes, it all evens itself out.
+Nice! We were fortunate here—if we had chosen a slightly lower effort level, we would have missed the 100, and the entire middle row of the result would have become unbalanced. Fortunately, in the real world with 4kx12k matrices, these issues tend to even out.
 <p>
-In practice, this approach requires a higher effort (more calculations) than our previous method to get the same result. But by not much. Also, unlike the previous method, it's (almost) implementable.
+In practice, this method requires slightly more effort—meaning more calculations—than our previous approach to achieve the same result. However, it is nearly implementable, unlike the previous method.
 <p>
-We now have three pesky details to solve, and we'll be good to go.
+Now, we just have three challenging details to resolve, and we'll be ready to proceed.
 <p>
-First of all, to find cutoff, we had to do the calculations anyway, and sort them. And I told you that we'll do it without all the calculations. Am I a liar? Of course not. The solution here is simple - not for this example, but for real world arrays.
+Firstly, to determine the cutoff, we need to perform and sort all the calculations. I mentioned earlier that we could do this without completing all calculations. Am I contradicting myself? Certainly not. The solution, while simple, is more applicable to real-world arrays than to this particular example.
 <p>
-The real world arrays are 4k by 12k at least (that's Mistral). The effort-cutoff charts for them look very similar to what you've seen above. Here is an example of one:
+In the real world, arrays are at least 4k by 12k in size (like those in Mistral). The effort-cutoff charts for these arrays resemble what you've seen previously. Here's an example of such a chart:
 <p>
-(tbd)
+(tbd, sorry)
 <p>
-The shape seems to be always the same. But depending on a matrix-vector combination, it will be wider, or shallower. There may be a math hidden somewhere with dynamically choosing the right effort/cutoff based on this shape (e.g. areas to the left and to the right of effort being similar), and I experimented with it a bit, but decided to move on with static effort for the time being.
+The shape is consistently similar; however, it varies—becoming wider or shallower—depending on the matrix-vector combination.
 <p>
-[sidenote
-Also, while we're talking about real-world matrixes and vectors, it's worth pointing out here that they have both positive and negative numbers. It changes things slightly for bad (more effort needed to get the same cos score), and for good (lower chance of drift).]
+Potentially, there is an underlying mathematical principle for dynamically selecting the optimal effort/cutoff based on this shape, such as ensuring the areas to the left and right of the effort are similar. I have experimented with this concept, but for now, I have opted to continue with a static effort approach.
 <p>
-Luckily, because the weight matrices and the input vectors are neatly disorganised, we can just pick a small subset of all the multiplications, and they will represent the overall chart very closely. 
+<span class="marginnote">
+Additionally, it's important to note that real-world matrices and vectors contain both positive and negative numbers. This fact slightly complicates matters, as more effort is required to achieve the same cosine similarity score, though it also reduces the likelihood of drift.
+</span>
+<p>
+Fortunately, since the weight matrices and input vectors are neatly disorganized, we can effectively choose a small subset of all multiplications that will closely represent the overall chart.
 <p>
 (tbd)
 </p>
 <p>
-So, in practice what do we do?
+So, what do we do in practice?
 <p>
   <pre>
   <code>
@@ -386,13 +390,12 @@ for i in 0..min(inDim, outDim):
 </code>
 </pre>
 <p>
-During precomputation phase, aside from sorting the matrixes, we pick, for every input dimension a random weight from the matrix. Since the matrix is so neatly disorganised, we can just go through the diagonal, which for every other matrix type would be a big no no.
+During the precomputation phase, in addition to sorting the matrices, we select a random weight for each input dimension from the matrix. Given the matrix's neatly disorganized nature, we can traverse the diagonal—a method generally discouraged for other types of matrices.
 <p>
-Let's call these weights "probes".
+We'll refer to these weights as <b>'probes'.</b>
 <p>
-Then, the "final" algorithm goes like this:
+The "final" algorithm is as follows:
 <p>
-precomputation phase (done ever only once for each weight matrix)
 <pre>
 <code>
 def precompute(W):
@@ -403,42 +406,55 @@ def precompute(W):
 def approxMul(v, W_idx, W_val, probes):
   cutoff_chart = v * probes
   cutoff = topK(cutoff_chart, effort)
-  approxMul(V, W_idx, W_val, cutoff)
+
+  # the rest is the same as beffore
+  for el_v in V:
+   el_cutoff = cutoff / el_v
+   for el_w, idx_w in W:
+      if el_w > el_cutoff:
+         O[idx_w] += el_v * el_w
+      else:
+         break
+         # other els in the rows are smaller, 
+         # so we can skip checking them
 </code>
 </pre>
 <p>
-This way we end up an algorithm that works with just (effort) number of calculations and delivers excellent output approximation. 
+TIn this way, we develop an algorithm that operates with only a number of calculations determined by the effort level and still delivers an excellent output approximation.
 </p>
-<b>A beautiful algorithm. An algorithm our grandfather would be proud of.</b>
+<b>A beautiful algorithm&mdash;one that our grandfather would be proud of.</b>
 <p>
-<b>But our grandfather lived before the era of gpus.</b></p>
-  <p>Back when calculations mattered, and not memory accesses. This algorithm, if implemented today would bring shame to our family. Children would laugh at us and point us on the streets with fingers if we were to implement such a monstrosity.
+<b>However, our grandfather lived before the era of GPUs.</b></p>
+  <p>In those days, calculations were crucial, not memory accesses. If implemented today, this algorithm could embarrass our family, drawing laughter and pointing fingers from children if we were to use such a monstrosity.
 <p>
-There are still two monsters that we need to still slay on the road to victory.
+However, there are still two significant challenges to overcome on our path to victory.
 <p>
-- our matrix stores now both values and indexes (that's an easier one)
+- - our matrices now store both values and indexes - doubling the memory
 </p>
 <p>
-- our algorithm makes random memory writes. that is, that line
+-  our algorithm performs random memory writes, particularly evident in the following line:
 <p>
   <pre>
   </code>
   O[idx_w] += el_v * el_w
   </code>
 </pre>
-  <p>has both a random memory access to idx_w, and is a pain to parrallelise because multiple threads may want to write to the same O[idx_w]
+  <p>this involves random memory access to idx_w, complicating parallelization as multiple threads may attempt to write to the same O[idx_w].
 </p>
-
 <p>
+<span class="marginnote">
+            "As of my last update, I am not aware of any solutions specifically addressing this approach to matrix multiplication optimization for LLM inference." — ChatGPT
+          </span>
+
   Up until this point, we still haven't reached new territory. People have faced this issues before, but as of writing this text, I didn't find a published solution to solve it properly. GPT-4 wasn't aware of it either.
 </p>
 
 <p>
-So strap on, my friend, and get ready for a wild ride.
+So buckle up, my friend, and prepare for a wild ride ahead.
 </p>
 
   <h2>
-The adventure continues.
+Our adventure continues.
   </h2>
 <p>
   - <a href="bucketmul.html">Introducing bucketMul</a>
