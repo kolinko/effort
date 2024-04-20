@@ -34,12 +34,11 @@
       <section>
 
 <p>
-There is a saying that it's data structures that matter, not the algorithms. This is definitely true here.
+There's a saying that data structures matter more than algorithms. This is certainly true in this case.
 <p>
-We'll start with an example matrix of weights of a model. 
-<p>16x16. Breaks formatting, but the least practical to show the concept.
+We'll start with a 16x16 example weight matrix of a model. Although it breaks the formatting, it's the simplest way to demonstrate the concept.
 <p>
-It's transposed from the regular implementation, so each full row (not column) is multiplied by a given input vector.
+It's transposed from the regular implementation; hence, each full row—not column—is multiplied by a given input vector.
 <p>
 \[
 \begin{bmatrix}
@@ -58,7 +57,7 @@ Now, let's focus on the first row. Elements from this row will be multiplied by 
 \end{bmatrix}
 \]
 
-Let's sort these elements in a descending order, by their absolute values. And keep track of the original indexes.
+Let's sort these elements in descending order by their absolute values, while keeping track of their original indexes.
 
 \[
 \begin{bmatrix}
@@ -66,9 +65,9 @@ Let's sort these elements in a descending order, by their absolute values. And k
 \end{bmatrix}
 \]
 
-We'll be splitting elements into buckets now. Buckets of size 4.
+We'll now split the elements into buckets, each containing four elements.
 
-Let's mark all the elemements of the array that are indexed 0-3.
+Let's highlight all the elements in the array that are indexed from 0 to 3.
 
 \[
 \begin{bmatrix}
@@ -235,7 +234,7 @@ And 12-15...
 \end{bmatrix}
 \]
 
-As a brief reminder of what we're doing here - it will be matrix multiplication, and we're dealing with a reorganised first row of the matrix. 
+As a brief reminder of our task&mdash;we'll be performing matrix multiplication with a reorganized first row of the matrix.
 
 <p>Soon, will want to multiply the first element of the vector by all these elemenets, and put the output into the rows of the output vector.
 
@@ -301,11 +300,9 @@ Now, since every column has a known offset, so say column 1 has only elements fr
 
 It's a technicality, but thanks to this subtraction, we just shaved bits needed to store the index of each weight - we now only need 2 bits instead of 4 (or 4 bits instead of 16 in the real world).
 <p>
-Remembering that weights are usually stored as float-16s/bfloats, and that nobody cares about least significant parts of the numbers in ML, we can sacrifice them and shove the index there with no loss of quality of the output model. I mean - there may be a tiny one, but if anyone cares, there is a method described in Q8 chapter that allows to store the positional bits with almost no loss of precision - if not even an increase in precision!
+Given that weights are typically stored as float-16s or bfloats, and considering the negligible importance of the least significant bits in machine learning, we can repurpose these bits for storing indices without impacting the model's output quality.
 <p>
-And now back to the algorithm.
-
-Let's now reshape our matrix.
+Now, let's reshape our matrix.
 
 \[
 \begin{bmatrix}
@@ -418,12 +415,12 @@ And let's calculate the averages for absolute values of each row.
 
 Look what happened here!
 <p>
-We now have the input row split into buckets of roughly lowering average scores. It's not perfect - .39 doesn't deserve it's spot in row 2, and .42 should aspire to a slot higher. But with larger matrixes and larger buckets once again statistics play into our favour, and this turns out to be good enough.
+Now, we have the input row divided into buckets with decreasing average scores. It's not perfect—.39 may not ideally belong in row 2, and .42 might be better suited for a higher position. But with larger matrices and larger buckets once again statistics play into our favour, and this turns out to be good enough.
 <p>
-Remember that it was just the first row though. We have other rows in our source matrix W. 
+Keep in mind, however, that this was only the first row. We have additional rows in our source matrix W.
 
 <p>
-We proceed the same with these other rows, interleaving them within the output structure.
+We will proceed similarly with the other rows, interleaving them within the output structure.
 
 \[
 v_o :
@@ -536,17 +533,38 @@ These, along with <b>probes</b> from the previous chapter, are the three structu
 <p>
 Oh, and by the way - since the bucket list is organised such that the least important weights are at the end, unlike traditional matrixes, we don't need to load it whole into the memory. <b>We can just skip however many last rows we want during load time</b>, and from practice - if it's 20-30%, the model may not even notice. 
 <p>
-There you go, ad hoc distillation. you're welcome.
+There you have it: ad hoc distillation. You're welcome.
 
 <h2>Inference time!</h2>
 <p>
-I encourage you at this moment to review the bucket list above, and - as an exercise - pick few weights at random, and figure out into which dimensions of the output they will go once they get multiplied. For example that 0.87 from the second row, or -0.42 from the fourth. (spoilers: 0.87 will go to 1+4*1 = 5th row in the output, and -042 will go into 2+4*2 = 6th.)
+I encourage you to review the bucket list above and, as an exercise, select a few weights at random to determine which dimensions of the output they will affect once multiplied. For example that 0.87 from the second row, or -0.42 from the fourth. (spoilers: 0.87 will go to 1+4*1 = 5th row in the output, and -042 will go into 2+4*2 = 6th.)
 <p>
-Let's review the original algorithm from the previous chapter, the one children were laughing at us for.
+Let's revisit the original algorithm from the previous chapter, the one that drew laughter from children.
+<pre>
+<code>
+def precompute(W):
+  W = W.T
+  probes = get_probes(W)
+  W_idx, W_val = sortMatrixRows(W)
+
+def approxMul(v, W_idx, W_val, probes):
+  cutoff_chart = v * probes
+  cutoff = topK(cutoff_chart, effort)
+
+  # the rest is the same as beffore
+  for el_v in V:
+   el_cutoff = cutoff / el_v
+   for el_w, idx_w in W:
+      if el_w > el_cutoff:
+         O[idx_w] += el_v * el_w
+      else:
+         break
+         # other els in the rows are smaller, 
+         # so we can skip checking them
+</code>
+</pre>
 <p>
-(copy paste)
-<p>
-The beginning stays the same as before. We choose <b>effort</b>, we find a <b>cutoff</b>. With multiplications we'll do something new.
+The initial steps remain unchanged. We select an effort level, determine a cutoff. But we introduce a new approach to multiplications.
 <p>
 We'll split the algorithm into two parts. 
 <p>
@@ -554,29 +572,26 @@ First one I call "calculating dispatch".
 
 <pre>
   <code>
-for each row from the bucket list:
+for rowId in bucketList:
   if cutoff > stat[rowId] * v[rowId % inDim]
       dispatchList.append((rowId, v[rowId % inDim]))
 </code>
 </pre>
 <p>
-This filters out our bucket list and creates a dispatch list with rowId and value to be multiplied. It is easily parralelizable, and fast.</p>
+This process filters our bucket list, creating a dispatch list that pairs each rowId with its corresponding value for multiplication. This step is efficiently parallelizable.</p>
 <div class="epigraph" style="margin-top:0px"><blockquote style="margin-top:1em"><p>
-                <b>Dispatch</b> contains a list of buckets that will be multiplied, along with the value to be multiplied by them. We can throw out our source vector once we have the dispatch.
+                <b>Dispatch</b> contains a list of buckets that will be multiplied, along with the value to be multiplied by them. Once we have created the dispatch, we can discard the source vector.
             </p></blockquote></div>
 <p>
 And now, the bucketMul itself:
 <pre>
-for (bucket_id, v_val) in dispatch list:
+for (bucket_id, v_val) in dispatchList:
     for (weight, id) in buckets[bucket_id]:
-       myVal[id] += weight*v_val
+       output_vec[id] += weight*v_val
 </pre>
 
 <p>
-And is that it? You may ask? Is it really that simple?
-</p>
-<p>
-Well, nothing is simple in the land of GPUs. But more or less that's it for the algorithm.
+  But wait, how is this different from before? Now, we need to delve into more technical details and discuss <a href="gpu.html">the GPU implementation</a>.
 </p>
 <p>
 <h2>Where do we go from here?</h2>
