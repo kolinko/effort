@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1EF1865A2BD28CC800CE7067 /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = 1EF186592BD28CC800CE7067 /* HeapModule */; };
 		A40B31962B9DAAA300095AF5 /* aux.metal in Sources */ = {isa = PBXBuildFile; fileRef = A40B31952B9DAAA300095AF5 /* aux.metal */; };
 		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
 		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
@@ -166,12 +167,20 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1EF1865A2BD28CC800CE7067 /* HeapModule in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1EF186582BD28CC800CE7067 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		A456C2BE2BC845AB00C7B79F /* helpers */ = {
 			isa = PBXGroup;
 			children = (
@@ -322,6 +331,7 @@
 				A40B31992BA06D5800095AF5 /* info.plist */,
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
 				A4AB4DC22B6144350098B05D /* Products */,
+				1EF186582BD28CC800CE7067 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -369,6 +379,7 @@
 			);
 			name = effort;
 			packageProductDependencies = (
+				1EF186592BD28CC800CE7067 /* HeapModule */,
 			);
 			productName = mul_col;
 			productReference = A4AB4DC12B6144350098B05D /* effort */;
@@ -400,6 +411,7 @@
 			mainGroup = A4AB4DB82B6144350098B05D;
 			packageReferences = (
 				A4FB86C82BCA49A50093C9BE /* XCRemoteSwiftPackageReference "swift-nio" */,
+				1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */,
 			);
 			productRefGroup = A4AB4DC22B6144350098B05D /* Products */;
 			projectDirPath = "";
@@ -660,6 +672,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
 		A4FB86C82BCA49A50093C9BE /* XCRemoteSwiftPackageReference "swift-nio" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-nio.git";
@@ -669,6 +689,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1EF186592BD28CC800CE7067 /* HeapModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = HeapModule;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A4AB4DB92B6144350098B05D /* Project object */;
 }
