@@ -34,6 +34,12 @@
       <section>
 
 <p style="align: left;">
+<h3>Quick summary</h3>
+<p>
+We determine a cutoff point and only perform multiplications that exceed this threshold. This section explains how we select the cutoff and manage calculations, while the following section details the multiplication algorithm that optimizes memory read patterns and achieves high performance on GPUs.
+
+<h3>Details</h3>
+<p>
 The most time-consuming aspect of LLM inference involves vector-matrix multiplication, where a state vector (h) is multiplied by a weight matrix (w) to produce an output state (o).
 
 <p>
