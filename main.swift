@@ -30,10 +30,9 @@ var serverReady = false
 let gpu = Gpu()
 print("\nEffort Engine v.0.0.2 BETA")
 
-//runConvert([.mistral, .fp16])
-// ^ uncomment to run conversion for other models.
-//   be sure to check the convert script comments before
-
+if runMode == "convert" {
+    runConvert([.mistral, .fp16])
+}
 
 /*
  
@@ -48,17 +47,14 @@ let hiddenDim = 14336
 let goQ8 = false
 assert(!goQ8, "Q8 not implemented fully yet!")
 var percentLoad = autoAdjustPercent(max: goQ8 ? 0x8 : 0x10)
-                  // a number from 0x00 to 0x10 for FP16, or 0x0 to 0x8.
-                  // not really percent, need to make design decision here - either switch to real percent
-                  // or stick with the current convention but make it clear why.
+                  // % of weights to be loaded
+                  // expressed as a number 0-16 (or 0-8)
 
 
-
-var numLayers = 32
-var numExperts = 1
+let goMistral = true
+let numLayers = 32
+let numExperts = goMistral ? 1 : 8
 var numTokens = 30
-
-let goMistral = numExperts == 1
 
 testSetup("models", "mistral", "buckets-FP16.safetensors.index.json")
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
