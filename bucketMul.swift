@@ -9,7 +9,6 @@
 
 
 func bucketMulFast(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
-    if goNoMuls {return;}
     let bm = BucketMulFast.shared
     bm.fullMul(v: v, ew: by, expNo: expNo, out: out, effort: effort)
 }

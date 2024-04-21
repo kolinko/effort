@@ -15,7 +15,7 @@ class BufferActivityManager {
     private let bsScalar = ScalarFloat(value: 0.0)
     
     init() {
-        if physicalMemoryGB < 30 {
+        if physicalMemoryGB() < 30 {
             self.startPeriodicDispatch(interval: 0.1)
         } else {
             self.startPeriodicDispatch(interval: 1.0)

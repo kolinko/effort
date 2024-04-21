@@ -197,7 +197,7 @@ func encode (prompt: String, addBosToken: Bool = true, addPrecedingSpace: Bool =
         if let mergePrio = mistralTokenizer.merges[mergeIdentifierString] {
             leftNode.mergePrio = Double(mergePrio) + Double(leftNode.origPos) / Double(prompt.count)
             leftNode.mergeToString = mergeIdentifierString.replacingOccurrences(of: " ", with: "")
-            _ = mergeQueue.insert(leftNode)
+            mergeQueue.insert(leftNode)
         }
     }
    

@@ -257,6 +257,25 @@ func readJson() -> [String: [Int]] {
     return dictionary
 }
 
+func testSetup(_ modelsDir: String, _ modelDir: String, _ modelIndex: String) {
+    
+    ensureDirectoryExists(for: "./", createDirectoryAtPath: modelsDir)
+    ensureDirectoryExists(for: "./\(modelsDir)/", createDirectoryAtPath: modelDir)
+
+    let modelIndex = "./\(modelsDir)/\(modelDir)/\(modelIndex)"
+    if !FileManager.default.fileExists(atPath: modelIndex) {
+        print("\nModel data not found at \(modelIndex)")
+        print("\nIf running from XCode and you have the model already:\n>>>   edit scheme -> working directory -> project directory\n")
+        print("If running from terminal:")
+        print(">>>  huggingface-cli download kolinko/mistral-buckets --exclude \"*Q8*\" --local-dir ./\(modelsDir)/\(modelDir)")
+        print("")
+        print("If you don't have huggingface CLI:")
+        print(">>>  pip install -U \"huggingface_hub[cli]\"")
+        print()
+        exit(0)
+    }
+    
+}
 
 func ensureDirectoryExists(for path: String, createDirectoryAtPath createPath: String) {
     let fileManager = FileManager.default
@@ -269,4 +288,36 @@ func ensureDirectoryExists(for path: String, createDirectoryAtPath createPath: S
             print("Failed to create directory: \(error)")
         }
     }
+}
+
+
+
+func physicalMemoryGB() -> Int {
+    return Int(ProcessInfo.processInfo.physicalMemory / 1024 / 1024 / 1024)
+
+}
+
+func autoAdjustPercent(max: Int) -> Int {
+    if max != 0x10 {
+        return max
+    }
+    
+    var percentLoad = max
+    print("Physical Memory: \(physicalMemoryGB()) GB")
+
+    if physicalMemoryGB() <= 8 {
+        print("\nWhat is this? A computer for ants?\n\nI'll load just 37% of weights, the answers will be barely understandable.")
+        print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
+        print("Press Enter to continue")
+        _ = readLine()
+        percentLoad = 0xB
+    } else if physicalMemoryGB() <= 16 {
+        print("\nAw! You're a bit short on memory.\nI'll load just 75% of the model, ok? Quality will suffer, but it should run without swap then.")
+        print("Q8 is in the works and it will require just half the mem and give ~twice the speed, hopefully.\n")
+        print("Press Enter to continue")
+        _ = readLine()
+        percentLoad = 0xB
+    }
+
+    return percentLoad
 }

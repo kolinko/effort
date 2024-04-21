@@ -19,6 +19,10 @@ private var testCount = 0
 private var driftCount = 0
 private let testVer = "5.3" + "-" + (goQ8 ? "Q8" : "FP16") + (goMistral ? "mistral" : "mixtral") + ("-noLay\(numLayers)")
 
+let goVerify = numLayers == 10 && ((numExperts == 2 && !goMistral) || goMistral)
+let goSaveTests = false
+
+
 private let testLoader = goSaveTests ? nil : TensorLoader(path: "./", model: "tests-\(testVer)")
 private let testSaver = TensorSaver(path: "./", model: "tests-\(testVer)")
 
