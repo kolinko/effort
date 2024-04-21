@@ -1,6 +1,12 @@
 # Effort Engine
 
-Welcome to the repository for Effort Engine! This project's source code is compatible with XCode and the latest version of macOS.
+Effort engine is an example implementation of the bucketMul algorithm - you can read [about it here](http://kolinko.github.io/effort/).
+
+With it you can smoothly adjust—in real time—the number of calculations performed during the inference of an LLM model.
+
+At 50% effort, it performs as fast as regular matrix multiplications on Apple Silicon chips; at 25% effort, it is twice as fast while still retaining most of the quality.
+
+You also have the option to skip loading the least important weights.
 
 ## Getting Started
 
