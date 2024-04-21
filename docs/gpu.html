@@ -114,7 +114,7 @@ That's it for the basics. If you did any programming in your life, the code shou
             This whole section needs rewriting and feedback. Please <a href="mailto:kolinko@gmail.com">reach out</a> if you know anything about Metal programming.
           </span>
 
-  Now, this may be obvious to some, but it wasn't obvious for me. Apple's documentation is lacking, disassembly not easily accessible, and I think I broke some rules while writing the code above. 
+  Now, this may be obvious to some, but it wasn't obvious for me. Apple's documentation is lacking, disassembly not easily accessible, and  I believe I may have bent some rules while crafting the code shown above.
 
 <p>
 A better explaination will be most welcome.
@@ -123,20 +123,16 @@ Here are my theories on why such straightforward code is effective:
 <p>
 - <b>Dispatch Load</b>: The data involved is minimal and gets cached quickly, reducing the need for extensive coordination during loading.
 <p>
-- <b>Weights load</b> - since we have implicitly coordinated reads (threads from each simdgroup load elements that are next to each other), the reads get treated as consecutive, and we can perform them at a high speed. We're going against every known manual that says the reads should be consecutive within a single thread, not across threads - but somehow it seems to work?
+- <b>Weights Load</b>: Reads are implicitly synchronized, with SIMD-group threads loading adjacent elements, allowing high-speed, consecutive reads. We're going against every known manual that says the reads should be consecutive within a single thread, not across threads - but somehow it seems to work?
 
 <p>
 
   <pre>
-- myVal[i] loop:
-   - we have a micro-loop that gets unrolled
-   - three-way operator is very cheap in Metal
-   - we avoid random memory access this way
-   - myVal[j] += v might also work, but sometimes I had issues with performance, I think
+- <b>myVal[i] loop</b> An unrolled micro-loop uses cheap three-way operators, minimizing random memory access. A simpler approach like 'myVal[j] += v' didn't work if I checked correctly.
 
-- myVal storage and speed:
+- <b>myVal storage and speed:</b>
    - this is the biggest mystery to me!
-   - it seems it's the main slowdown of the kernel
+   - it seems it's the main bottleneck in calculations
    - increasing size of myVal (say to 32) lowers the speed of operation twice
    - keeping the size intact, but using just a fraction of the values speeds up the operation twice (!) - if you change & 15 to & 7, or modify underlying data to be in a smaller range (!!!), you will get a performance boost
    - where is myVal stored and at what form? it won't fit the registers, it doesn't go to device memory, so I guess some sort of an intermediate cache? If anyone can shine light at it, I will appreciate it
@@ -160,26 +156,48 @@ The higher the bucket size, the more precise the bucket sorting (see previous ch
 If we go into a lower bucket size, say 8, the memory ordering won't be as precise, and we'll need higher effort for the same result. With Q8 that's what we needed to do though. Also, if I remember correctly - with buckets sized 8 - execution slowed down in other places and we ended up in the same place as before - speed-wise.
 
 <h2>
-Other implementation details.</h2>
+Overhead performance challenges</h2>
 
 This is my first program that tackles GPU development, and I could seriously use help here.
-
 <p>
-Most importantly: where does the overhead of overall calculations come from and how to get rid of it?
-
-(performance screenshot here)
-
-I know llama.cpp somehow doesn't have that overhead - judging by their numbers. In my case, even with multiplications set to zero, I keep having the delays between kernel invocations. If you have an idea on how to fix that, please I beg shoot me an e-mail: kolinko@gmail.com.
-
-Without this, we have a Ferrari engine in a Fiat body here - no simple way to show the results here.
-
+  While the bucketMul is implemented fast enough - reaching parity with Apple's MPS at 50-70% effort, the rest of the inference process has an overhead that I have no idea how to fix. It definitely is fixable, since Llama.cpp and others don't seem to have it.
+<p>
+  In the GPU profiler, I can see holes between certain kernel invocations, and I cannot figure out where they come from.
+</p>
+<figure>
+  <img src="ryc/ryc3.1.png">
+</figure>
+<p>
+I think these holes sum up to 15ms overhead to every token generation. In my case, even with multiplications set to zero, I can generate max ~60tps on my laptop. If you have an idea on how to fix that, please I beg shoot me an e-mail: kolinko@gmail.com.
+<p>
+It has probably something to do with the way I call commandQueue etc, or because of the buffers are hazard-tracked. But I spent days trying to figure it out, and just cannot find the reason. The relevant code is in <a href="https://github.com/kolinko/effort/blob/b4257f460ea527f8accac3a809de1e9d7ad79541/runNetwork.swift#L176">here</a>, <a href="https://github.com/kolinko/effort/blob/b4257f460ea527f8accac3a809de1e9d7ad79541/bucketMul.swift#L14"> and <a href="https://github.com/kolinko/effort/blob/b4257f460ea527f8accac3a809de1e9d7ad79541/helpers/gpu.swift#L146">here</a>. 
+<p>
+Without this, we have a Ferrari engine in a Fiat body here - no simple way to show the results and do serious benchmarking.
+<p>
+  <p>
+<h3>Quality issues even at 100% effort</h3>
+<p><span class="marginnote">
+May actually work fine. I began benchmarking KL distance now, and it seems at effort 100% it's giving the same results as the original. Will post an update soon. -- TK 21.04.2024
+</span>
 The second challenge is that the current implementation seems just broken. It used to deliver results that were very close to the original Mistral, and Mixtral used to work. Right now Mistral is not as good as it used to be, and Mixtral barely works. I'm at my wits' end trying to debug it all - if anyone knows enough about both GPU debugging and LLM implementations, I would appreciate any help here.
-
-Another case entirely is of couse the BucketMul implementation itself - could it be improved to get to full 100% memory bandwidth read? I tried simdgroup-coordinated reads and other tricks (you can see them in helpers/wild), but failed to write anything better than this.
-
-And finally - probably the easiest, but I just didn't have the time - right now the hyperparameters (num steps, groups) of multiplications are optimised for matrixes of a certain shape (w1 & w3 of Mistral). Other sizes can work as fast - I've seen it in some experiments, but I'd love to see a robust implementation here scaling to all sizes.
-
-Dispatch uses atomic floats to generate ids - speed aside, it causes the whole run to be nondeterministic - dispatch ends up in a different order every single time, and float adds in bucketmul are executed in a different order, resulting in a small dose of non-determinism. On the one hand it's nice, because we end up with a natural temperature to the model, but it makes testing difficult. Ideas here would be welcome.
+<h2>Could bucketMul run even faster?</h2>
+<p>
+Could we improve bucketMul to get to full 100% memory bandwidth read speed? Right now it's around 50-70%. I tried simdgroup-coordinated reads and other tricks (you can see them in the helpers/wild sources), but failed to write anything better than this.
+</p>
+<figure>
+<img src="ryc/ryc3.2.png">
+Half the max practical memory read speed. Limited by ALU. It's still amazing, but there may be room for improvement.
+</figure>
+<p>
+  Unlike the overhead delays, this is not a priority.
+<p>
+  <h3>Optimisation for different matrix sizes</h3>
+  <p>
+The current implementation is optimised for a matrix shape of 4096x14336 (w1 and w3). It can be just as fast on 14336x4096 and 4096x4096 , but needs hand-tuning the number of threads/groups for every case. An easy fix, just needs some engineering time.
+<p>
+<h3>Dispatch non-determinism</h3>
+<p>
+It's a minor issue, but difficult to fix. Dispatch uses atomic loats to generate ids. It doesn't affect speed much, but it causes the whole token generation to be nondeterministic. It is a bit irritating during testing, but the overall effect is just a slight unpredictibality of the output. Fixing this is a low priority.
 
 
 <h2>Where do we go from here?</h2>
