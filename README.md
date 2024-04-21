@@ -1,6 +1,5 @@
-# Effort Engine
 
-Effort engine is an example implementation of the bucketMul algorithm - you can read [about it here](http://kolinko.github.io/effort/).
+An example implementation of the bucketMul algorithm - you can read [about it here](http://kolinko.github.io/effort/).
 
 With it you can smoothly adjust—in real time—the number of calculations performed during the inference of an LLM model.
 
