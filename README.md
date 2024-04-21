@@ -30,4 +30,5 @@ Download and open effort.xcodeproj. It should work straight away.
 - **See it in Action:** Watch a demo on [Asciinema](https://asciinema.org/a/piP22yYwcaohu5cA2gyuv1W61).
 
 ## Updates
-Stay tuned for updates to this README. After a busy day of website development, refinements are on the way!
+
+Ton of things to fix, looking for collabolators! :)
