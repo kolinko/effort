@@ -29,45 +29,13 @@
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
 		A45C6C922BAEC56E004AE765 /* timeit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C6C912BAEC56D004AE765 /* timeit.swift */; };
 		A45D52FE2BC3DD87007E484D /* safetensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45D52FD2BC3DD87007E484D /* safetensors.swift */; };
-		A467D6482BCF94F600A393AD /* et-book-bold-line-figures.eot in Resources */ = {isa = PBXBuildFile; fileRef = A467D61F2BCF94F600A393AD /* et-book-bold-line-figures.eot */; };
-		A467D6492BCF94F600A393AD /* et-book-bold-line-figures.svg in Resources */ = {isa = PBXBuildFile; fileRef = A467D6202BCF94F600A393AD /* et-book-bold-line-figures.svg */; };
-		A467D64A2BCF94F600A393AD /* et-book-bold-line-figures.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A467D6212BCF94F600A393AD /* et-book-bold-line-figures.ttf */; };
-		A467D64B2BCF94F600A393AD /* et-book-bold-line-figures.woff in Resources */ = {isa = PBXBuildFile; fileRef = A467D6222BCF94F600A393AD /* et-book-bold-line-figures.woff */; };
-		A467D64C2BCF94F600A393AD /* et-book-display-italic-old-style-figures.eot in Resources */ = {isa = PBXBuildFile; fileRef = A467D6242BCF94F600A393AD /* et-book-display-italic-old-style-figures.eot */; };
-		A467D64D2BCF94F600A393AD /* et-book-display-italic-old-style-figures.svg in Resources */ = {isa = PBXBuildFile; fileRef = A467D6252BCF94F600A393AD /* et-book-display-italic-old-style-figures.svg */; };
-		A467D64E2BCF94F600A393AD /* et-book-display-italic-old-style-figures.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A467D6262BCF94F600A393AD /* et-book-display-italic-old-style-figures.ttf */; };
-		A467D64F2BCF94F600A393AD /* et-book-display-italic-old-style-figures.woff in Resources */ = {isa = PBXBuildFile; fileRef = A467D6272BCF94F600A393AD /* et-book-display-italic-old-style-figures.woff */; };
-		A467D6502BCF94F600A393AD /* et-book-roman-line-figures.eot in Resources */ = {isa = PBXBuildFile; fileRef = A467D6292BCF94F600A393AD /* et-book-roman-line-figures.eot */; };
-		A467D6512BCF94F600A393AD /* et-book-roman-line-figures.svg in Resources */ = {isa = PBXBuildFile; fileRef = A467D62A2BCF94F600A393AD /* et-book-roman-line-figures.svg */; };
-		A467D6522BCF94F600A393AD /* et-book-roman-line-figures.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A467D62B2BCF94F600A393AD /* et-book-roman-line-figures.ttf */; };
-		A467D6532BCF94F600A393AD /* et-book-roman-line-figures.woff in Resources */ = {isa = PBXBuildFile; fileRef = A467D62C2BCF94F600A393AD /* et-book-roman-line-figures.woff */; };
-		A467D6542BCF94F600A393AD /* et-book-roman-old-style-figures.eot in Resources */ = {isa = PBXBuildFile; fileRef = A467D62E2BCF94F600A393AD /* et-book-roman-old-style-figures.eot */; };
-		A467D6552BCF94F600A393AD /* et-book-roman-old-style-figures.svg in Resources */ = {isa = PBXBuildFile; fileRef = A467D62F2BCF94F600A393AD /* et-book-roman-old-style-figures.svg */; };
-		A467D6562BCF94F600A393AD /* et-book-roman-old-style-figures.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A467D6302BCF94F600A393AD /* et-book-roman-old-style-figures.ttf */; };
-		A467D6572BCF94F600A393AD /* et-book-roman-old-style-figures.woff in Resources */ = {isa = PBXBuildFile; fileRef = A467D6312BCF94F600A393AD /* et-book-roman-old-style-figures.woff */; };
-		A467D6582BCF94F600A393AD /* et-book-semi-bold-old-style-figures.eot in Resources */ = {isa = PBXBuildFile; fileRef = A467D6332BCF94F600A393AD /* et-book-semi-bold-old-style-figures.eot */; };
-		A467D6592BCF94F600A393AD /* et-book-semi-bold-old-style-figures.svg in Resources */ = {isa = PBXBuildFile; fileRef = A467D6342BCF94F600A393AD /* et-book-semi-bold-old-style-figures.svg */; };
-		A467D65A2BCF94F600A393AD /* et-book-semi-bold-old-style-figures.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A467D6352BCF94F600A393AD /* et-book-semi-bold-old-style-figures.ttf */; };
-		A467D65B2BCF94F600A393AD /* et-book-semi-bold-old-style-figures.woff in Resources */ = {isa = PBXBuildFile; fileRef = A467D6362BCF94F600A393AD /* et-book-semi-bold-old-style-figures.woff */; };
-		A467D65C2BCF94F600A393AD /* exports-imports.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D6392BCF94F600A393AD /* exports-imports.png */; };
-		A467D65D2BCF94F600A393AD /* imagequilt-animal-sounds.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D63A2BCF94F600A393AD /* imagequilt-animal-sounds.png */; };
-		A467D65E2BCF94F600A393AD /* imagequilt-chinese-calligraphy.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D63B2BCF94F600A393AD /* imagequilt-chinese-calligraphy.png */; };
-		A467D65F2BCF94F600A393AD /* napoleons-march.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D63C2BCF94F600A393AD /* napoleons-march.png */; };
-		A467D6602BCF94F600A393AD /* rhino.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D63D2BCF94F600A393AD /* rhino.png */; };
-		A467D6612BCF94F600A393AD /* table-example-be-page-159.png in Resources */ = {isa = PBXBuildFile; fileRef = A467D63E2BCF94F600A393AD /* table-example-be-page-159.png */; };
-		A467D6622BCF94F600A393AD /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = A467D6402BCF94F600A393AD /* index.html */; };
-		A467D6632BCF94F600A393AD /* latex.css in Resources */ = {isa = PBXBuildFile; fileRef = A467D6412BCF94F600A393AD /* latex.css */; };
-		A467D6642BCF94F600A393AD /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = A467D6422BCF94F600A393AD /* LICENSE */; };
-		A467D6652BCF94F600A393AD /* package.json in Resources */ = {isa = PBXBuildFile; fileRef = A467D6432BCF94F600A393AD /* package.json */; };
-		A467D6662BCF94F600A393AD /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A467D6442BCF94F600A393AD /* README.md */; };
-		A467D6672BCF94F600A393AD /* tufte.css in Resources */ = {isa = PBXBuildFile; fileRef = A467D6452BCF94F600A393AD /* tufte.css */; };
-		A467D6682BCF94F600A393AD /* tufte.min.css in Resources */ = {isa = PBXBuildFile; fileRef = A467D6462BCF94F600A393AD /* tufte.min.css */; };
 		A467D66A2BCF956C00A393AD /* string.swift in Sources */ = {isa = PBXBuildFile; fileRef = A467D6692BCF956C00A393AD /* string.swift */; };
 		A467D66D2BCF98B100A393AD /* expertMulSlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A467D66C2BCF98B100A393AD /* expertMulSlow.swift */; };
 		A46EAB172BCE439300004B19 /* wildMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46EAB162BCE439300004B19 /* wildMul.swift */; };
 		A46F18E02BB76FAA00A630B4 /* bam.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18DF2BB76FAA00A630B4 /* bam.swift */; };
 		A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
+		A4C091A72BD4FCE1006DB084 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A4C091A62BD4FCE1006DB084 /* README.md */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
 		A4CE9F7E2B63D41400910766 /* matrix.metal in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F7D2B63D41400910766 /* matrix.metal */; };
 		A4CE9F802B63D82F00910766 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = A4CE9F7F2B63D82F00910766 /* .gitignore */; };
@@ -112,39 +80,6 @@
 		A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulFaster.metal; sourceTree = "<group>"; };
 		A45C6C912BAEC56D004AE765 /* timeit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = timeit.swift; sourceTree = "<group>"; };
 		A45D52FD2BC3DD87007E484D /* safetensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = safetensors.swift; sourceTree = "<group>"; };
-		A467D61F2BCF94F600A393AD /* et-book-bold-line-figures.eot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-bold-line-figures.eot"; sourceTree = "<group>"; };
-		A467D6202BCF94F600A393AD /* et-book-bold-line-figures.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "et-book-bold-line-figures.svg"; sourceTree = "<group>"; };
-		A467D6212BCF94F600A393AD /* et-book-bold-line-figures.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-bold-line-figures.ttf"; sourceTree = "<group>"; };
-		A467D6222BCF94F600A393AD /* et-book-bold-line-figures.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-bold-line-figures.woff"; sourceTree = "<group>"; };
-		A467D6242BCF94F600A393AD /* et-book-display-italic-old-style-figures.eot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-display-italic-old-style-figures.eot"; sourceTree = "<group>"; };
-		A467D6252BCF94F600A393AD /* et-book-display-italic-old-style-figures.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "et-book-display-italic-old-style-figures.svg"; sourceTree = "<group>"; };
-		A467D6262BCF94F600A393AD /* et-book-display-italic-old-style-figures.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-display-italic-old-style-figures.ttf"; sourceTree = "<group>"; };
-		A467D6272BCF94F600A393AD /* et-book-display-italic-old-style-figures.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-display-italic-old-style-figures.woff"; sourceTree = "<group>"; };
-		A467D6292BCF94F600A393AD /* et-book-roman-line-figures.eot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-line-figures.eot"; sourceTree = "<group>"; };
-		A467D62A2BCF94F600A393AD /* et-book-roman-line-figures.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "et-book-roman-line-figures.svg"; sourceTree = "<group>"; };
-		A467D62B2BCF94F600A393AD /* et-book-roman-line-figures.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-line-figures.ttf"; sourceTree = "<group>"; };
-		A467D62C2BCF94F600A393AD /* et-book-roman-line-figures.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-line-figures.woff"; sourceTree = "<group>"; };
-		A467D62E2BCF94F600A393AD /* et-book-roman-old-style-figures.eot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-old-style-figures.eot"; sourceTree = "<group>"; };
-		A467D62F2BCF94F600A393AD /* et-book-roman-old-style-figures.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "et-book-roman-old-style-figures.svg"; sourceTree = "<group>"; };
-		A467D6302BCF94F600A393AD /* et-book-roman-old-style-figures.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-old-style-figures.ttf"; sourceTree = "<group>"; };
-		A467D6312BCF94F600A393AD /* et-book-roman-old-style-figures.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-roman-old-style-figures.woff"; sourceTree = "<group>"; };
-		A467D6332BCF94F600A393AD /* et-book-semi-bold-old-style-figures.eot */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-semi-bold-old-style-figures.eot"; sourceTree = "<group>"; };
-		A467D6342BCF94F600A393AD /* et-book-semi-bold-old-style-figures.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "et-book-semi-bold-old-style-figures.svg"; sourceTree = "<group>"; };
-		A467D6352BCF94F600A393AD /* et-book-semi-bold-old-style-figures.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-semi-bold-old-style-figures.ttf"; sourceTree = "<group>"; };
-		A467D6362BCF94F600A393AD /* et-book-semi-bold-old-style-figures.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "et-book-semi-bold-old-style-figures.woff"; sourceTree = "<group>"; };
-		A467D6392BCF94F600A393AD /* exports-imports.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "exports-imports.png"; sourceTree = "<group>"; };
-		A467D63A2BCF94F600A393AD /* imagequilt-animal-sounds.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "imagequilt-animal-sounds.png"; sourceTree = "<group>"; };
-		A467D63B2BCF94F600A393AD /* imagequilt-chinese-calligraphy.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "imagequilt-chinese-calligraphy.png"; sourceTree = "<group>"; };
-		A467D63C2BCF94F600A393AD /* napoleons-march.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "napoleons-march.png"; sourceTree = "<group>"; };
-		A467D63D2BCF94F600A393AD /* rhino.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = rhino.png; sourceTree = "<group>"; };
-		A467D63E2BCF94F600A393AD /* table-example-be-page-159.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "table-example-be-page-159.png"; sourceTree = "<group>"; };
-		A467D6402BCF94F600A393AD /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
-		A467D6412BCF94F600A393AD /* latex.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = latex.css; sourceTree = "<group>"; };
-		A467D6422BCF94F600A393AD /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
-		A467D6432BCF94F600A393AD /* package.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = package.json; sourceTree = "<group>"; };
-		A467D6442BCF94F600A393AD /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		A467D6452BCF94F600A393AD /* tufte.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = tufte.css; sourceTree = "<group>"; };
-		A467D6462BCF94F600A393AD /* tufte.min.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = tufte.min.css; sourceTree = "<group>"; };
 		A467D6692BCF956C00A393AD /* string.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = string.swift; sourceTree = "<group>"; };
 		A467D66C2BCF98B100A393AD /* expertMulSlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = expertMulSlow.swift; sourceTree = "<group>"; };
 		A46EAB162BCE439300004B19 /* wildMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wildMul.swift; sourceTree = "<group>"; };
@@ -152,6 +87,7 @@
 		A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser2.swift; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* effort */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = effort; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A4C091A62BD4FCE1006DB084 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		A4CE9F6E2B626DB500910766 /* model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = model.swift; sourceTree = "<group>"; };
 		A4CE9F7D2B63D41400910766 /* matrix.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = matrix.metal; sourceTree = "<group>"; };
 		A4CE9F7F2B63D82F00910766 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
@@ -200,102 +136,6 @@
 			path = helpers;
 			sourceTree = "<group>";
 		};
-		A467D6232BCF94F600A393AD /* et-book-bold-line-figures */ = {
-			isa = PBXGroup;
-			children = (
-				A467D61F2BCF94F600A393AD /* et-book-bold-line-figures.eot */,
-				A467D6202BCF94F600A393AD /* et-book-bold-line-figures.svg */,
-				A467D6212BCF94F600A393AD /* et-book-bold-line-figures.ttf */,
-				A467D6222BCF94F600A393AD /* et-book-bold-line-figures.woff */,
-			);
-			path = "et-book-bold-line-figures";
-			sourceTree = "<group>";
-		};
-		A467D6282BCF94F600A393AD /* et-book-display-italic-old-style-figures */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6242BCF94F600A393AD /* et-book-display-italic-old-style-figures.eot */,
-				A467D6252BCF94F600A393AD /* et-book-display-italic-old-style-figures.svg */,
-				A467D6262BCF94F600A393AD /* et-book-display-italic-old-style-figures.ttf */,
-				A467D6272BCF94F600A393AD /* et-book-display-italic-old-style-figures.woff */,
-			);
-			path = "et-book-display-italic-old-style-figures";
-			sourceTree = "<group>";
-		};
-		A467D62D2BCF94F600A393AD /* et-book-roman-line-figures */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6292BCF94F600A393AD /* et-book-roman-line-figures.eot */,
-				A467D62A2BCF94F600A393AD /* et-book-roman-line-figures.svg */,
-				A467D62B2BCF94F600A393AD /* et-book-roman-line-figures.ttf */,
-				A467D62C2BCF94F600A393AD /* et-book-roman-line-figures.woff */,
-			);
-			path = "et-book-roman-line-figures";
-			sourceTree = "<group>";
-		};
-		A467D6322BCF94F600A393AD /* et-book-roman-old-style-figures */ = {
-			isa = PBXGroup;
-			children = (
-				A467D62E2BCF94F600A393AD /* et-book-roman-old-style-figures.eot */,
-				A467D62F2BCF94F600A393AD /* et-book-roman-old-style-figures.svg */,
-				A467D6302BCF94F600A393AD /* et-book-roman-old-style-figures.ttf */,
-				A467D6312BCF94F600A393AD /* et-book-roman-old-style-figures.woff */,
-			);
-			path = "et-book-roman-old-style-figures";
-			sourceTree = "<group>";
-		};
-		A467D6372BCF94F600A393AD /* et-book-semi-bold-old-style-figures */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6332BCF94F600A393AD /* et-book-semi-bold-old-style-figures.eot */,
-				A467D6342BCF94F600A393AD /* et-book-semi-bold-old-style-figures.svg */,
-				A467D6352BCF94F600A393AD /* et-book-semi-bold-old-style-figures.ttf */,
-				A467D6362BCF94F600A393AD /* et-book-semi-bold-old-style-figures.woff */,
-			);
-			path = "et-book-semi-bold-old-style-figures";
-			sourceTree = "<group>";
-		};
-		A467D6382BCF94F600A393AD /* et-book */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6232BCF94F600A393AD /* et-book-bold-line-figures */,
-				A467D6282BCF94F600A393AD /* et-book-display-italic-old-style-figures */,
-				A467D62D2BCF94F600A393AD /* et-book-roman-line-figures */,
-				A467D6322BCF94F600A393AD /* et-book-roman-old-style-figures */,
-				A467D6372BCF94F600A393AD /* et-book-semi-bold-old-style-figures */,
-			);
-			path = "et-book";
-			sourceTree = "<group>";
-		};
-		A467D63F2BCF94F600A393AD /* img */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6392BCF94F600A393AD /* exports-imports.png */,
-				A467D63A2BCF94F600A393AD /* imagequilt-animal-sounds.png */,
-				A467D63B2BCF94F600A393AD /* imagequilt-chinese-calligraphy.png */,
-				A467D63C2BCF94F600A393AD /* napoleons-march.png */,
-				A467D63D2BCF94F600A393AD /* rhino.png */,
-				A467D63E2BCF94F600A393AD /* table-example-be-page-159.png */,
-			);
-			path = img;
-			sourceTree = "<group>";
-		};
-		A467D6472BCF94F600A393AD /* site */ = {
-			isa = PBXGroup;
-			children = (
-				A467D6382BCF94F600A393AD /* et-book */,
-				A467D63F2BCF94F600A393AD /* img */,
-				A467D6402BCF94F600A393AD /* index.html */,
-				A467D6412BCF94F600A393AD /* latex.css */,
-				A467D6422BCF94F600A393AD /* LICENSE */,
-				A467D6432BCF94F600A393AD /* package.json */,
-				A467D6442BCF94F600A393AD /* README.md */,
-				A467D6452BCF94F600A393AD /* tufte.css */,
-				A467D6462BCF94F600A393AD /* tufte.min.css */,
-			);
-			path = site;
-			sourceTree = "<group>";
-		};
 		A467D66B2BCF95F000A393AD /* garbage */ = {
 			isa = PBXGroup;
 			children = (
@@ -310,7 +150,6 @@
 		A4AB4DB82B6144350098B05D = {
 			isa = PBXGroup;
 			children = (
-				A467D6472BCF94F600A393AD /* site */,
 				A456C2BE2BC845AB00C7B79F /* helpers */,
 				A4FB86DF2BCBA9850093C9BE /* benchmarks */,
 				A467D66B2BCF95F000A393AD /* garbage */,
@@ -330,6 +169,7 @@
 				A43361602BC4203E006C12E9 /* convert.metal */,
 				A40B31992BA06D5800095AF5 /* info.plist */,
 				A4CE9F7F2B63D82F00910766 /* .gitignore */,
+				A4C091A62BD4FCE1006DB084 /* README.md */,
 				A4AB4DC22B6144350098B05D /* Products */,
 				1EF186582BD28CC800CE7067 /* Frameworks */,
 			);
@@ -427,43 +267,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A467D6602BCF94F600A393AD /* rhino.png in Resources */,
-				A467D6632BCF94F600A393AD /* latex.css in Resources */,
-				A467D64E2BCF94F600A393AD /* et-book-display-italic-old-style-figures.ttf in Resources */,
-				A467D64A2BCF94F600A393AD /* et-book-bold-line-figures.ttf in Resources */,
-				A467D6582BCF94F600A393AD /* et-book-semi-bold-old-style-figures.eot in Resources */,
-				A467D6642BCF94F600A393AD /* LICENSE in Resources */,
-				A467D6492BCF94F600A393AD /* et-book-bold-line-figures.svg in Resources */,
-				A467D65F2BCF94F600A393AD /* napoleons-march.png in Resources */,
 				A4FB86E72BCBD6A40093C9BE /* quiz.json in Resources */,
-				A467D6552BCF94F600A393AD /* et-book-roman-old-style-figures.svg in Resources */,
 				A4FB86E52BCBD2380093C9BE /* basic.json in Resources */,
-				A467D6542BCF94F600A393AD /* et-book-roman-old-style-figures.eot in Resources */,
-				A467D6682BCF94F600A393AD /* tufte.min.css in Resources */,
-				A467D65C2BCF94F600A393AD /* exports-imports.png in Resources */,
-				A467D64B2BCF94F600A393AD /* et-book-bold-line-figures.woff in Resources */,
-				A467D6562BCF94F600A393AD /* et-book-roman-old-style-figures.ttf in Resources */,
-				A467D65B2BCF94F600A393AD /* et-book-semi-bold-old-style-figures.woff in Resources */,
-				A467D6512BCF94F600A393AD /* et-book-roman-line-figures.svg in Resources */,
-				A467D65A2BCF94F600A393AD /* et-book-semi-bold-old-style-figures.ttf in Resources */,
-				A467D6652BCF94F600A393AD /* package.json in Resources */,
+				A4C091A72BD4FCE1006DB084 /* README.md in Resources */,
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
-				A467D6662BCF94F600A393AD /* README.md in Resources */,
-				A467D6572BCF94F600A393AD /* et-book-roman-old-style-figures.woff in Resources */,
-				A467D64F2BCF94F600A393AD /* et-book-display-italic-old-style-figures.woff in Resources */,
-				A467D6532BCF94F600A393AD /* et-book-roman-line-figures.woff in Resources */,
-				A467D6482BCF94F600A393AD /* et-book-bold-line-figures.eot in Resources */,
-				A467D6522BCF94F600A393AD /* et-book-roman-line-figures.ttf in Resources */,
-				A467D64C2BCF94F600A393AD /* et-book-display-italic-old-style-figures.eot in Resources */,
-				A467D65D2BCF94F600A393AD /* imagequilt-animal-sounds.png in Resources */,
-				A467D65E2BCF94F600A393AD /* imagequilt-chinese-calligraphy.png in Resources */,
 				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
-				A467D6672BCF94F600A393AD /* tufte.css in Resources */,
-				A467D6592BCF94F600A393AD /* et-book-semi-bold-old-style-figures.svg in Resources */,
-				A467D6622BCF94F600A393AD /* index.html in Resources */,
-				A467D64D2BCF94F600A393AD /* et-book-display-italic-old-style-figures.svg in Resources */,
-				A467D6612BCF94F600A393AD /* table-example-be-page-159.png in Resources */,
-				A467D6502BCF94F600A393AD /* et-book-roman-line-figures.eot in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

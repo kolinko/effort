@@ -32,7 +32,6 @@ import simd
  Should be readable though.
  
  */
-
 var serverReady = false
 let gpu = Gpu()
 print("\nEffort Engine v.0.0.1 BETA")

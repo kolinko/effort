@@ -1,19 +1,28 @@
-The sources for Effort Engine are here.
+# Effort Engine
 
-They should run with XCode and the newest MacOS version.
+Welcome to the repository for Effort Engine! This project's source code is compatible with XCode and the latest version of macOS.
 
-You can also download binaries: https://github.com/kolinko/effort/releases/download/0.0.1/effort.0.0.1.zip 
+## Getting Started
 
-and they should work straight away (you'll need option-click them to get through the gatekeeper).
+### Binaries
+You can quickly get started by downloading the precompiled binaries available at:
+[Effort Engine v0.0.1](https://github.com/kolinko/effort/releases/download/0.0.1/effort.0.0.1.zip)
 
-Upon a first run you will be asked to download the converted weights, and then a matrix multiplication benchmark will run.
+To bypass macOS Gatekeeper, hold `option` while clicking to open the downloaded application for the first time.
 
-Remember that this is a tech demo, it's not a chat, it's far from production ready.
+### Initial Setup
+On the first run, you will be prompted to download the converted weights necessary for operation. Subsequently, a matrix multiplication benchmark will execute to demonstrate the capabilities of the engine.
 
-For more info :
-http://kolinko.github.io/effort/
+### Source Code
 
-See it in action:
-https://asciinema.org/a/piP22yYwcaohu5cA2gyuv1W61
+The sources are in Swift & Metal.
 
-I'll fix the Readme.md tomorrow, just spent the whole day building the website, sorry :)
+Download and open effort.xcodeproj. It should work straight away.
+
+## Additional Resources
+
+- **More Information:** Visit our [project page](http://kolinko.github.io/effort/).
+- **See it in Action:** Watch a demo on [Asciinema](https://asciinema.org/a/piP22yYwcaohu5cA2gyuv1W61).
+
+## Updates
+Stay tuned for updates to this README. After a busy day of website development, refinements are on the way!
