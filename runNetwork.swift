@@ -108,6 +108,8 @@ func runNetwork(tokens _tokens: [VectorFloat],
      
      */
     
+    var firstTok = true
+    
     for thisToken in 0...numTokens {
         countTokens += 1
         
@@ -246,7 +248,11 @@ func runNetwork(tokens _tokens: [VectorFloat],
                 }
                 return Reply(reply: String(99), hitMiss: [])
             }
-            
+            if firstTok {
+                gpu.eval()
+                print("out: \(topKVector.scalarAt(0).long)")
+                firstTok = false
+            }
             modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0), out: tokens[thisToken+1])
             gpu.eval()
         

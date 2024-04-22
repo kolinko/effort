@@ -110,7 +110,7 @@ while true {
             if let number = Int(input), (0...100).contains(number) {
                 effort = Double(number)/100.0
                 if prevQuery != nil {
-                    let tokens = t.embed("<s>[INST]\(prevQuery!)[/INST]")
+                    let tokens = t.embed(prevQuery!)
                     _ = runNetwork(tokens: tokens, effort:effort)
                 }
             } else if input == "r" {
@@ -120,8 +120,8 @@ while true {
                 let tokens = t.embed("<s>[INST]\(tq)[/INST]")
                 _ = runNetwork(tokens: tokens, effort:effort, srcTokenIds: encode(prompt:"<s>[INST]\(tq)[/INST]"))
             } else {
-                prevQuery = input
-                let tokens = t.embed("<s>[INST]"+input+"[/INST]")
+                prevQuery = "[INST]"+input+"[/INST] The answer is: "
+                let tokens = t.embed(prevQuery!)
                 _ = runNetwork(tokens: tokens, effort:effort)
             }
         }

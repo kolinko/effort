@@ -46,28 +46,27 @@ If you lower the effort to 0%, you will see that it still takes visible time to 
   This is the single thing I have no idea how to fix myself. To anyone that helps out, I promise to ship a bottle of best whatever you choose, anywhere in the world you are.
 </p>
 
-<h2>Bugs in the base implementation</h2>
-<p>
-It seems that, even with 100% effort, Effort's Mistral has worse quality than a regular Mistral.
-<p>
-  Also, Mixtral is completly broken now, even though it used to work smoothly a few iterations ago. I assume it's not due to the bucketMul - which I tested extensively, but some other bug. Perhaps in RMSNorm, or attention scoring - around the time I was fixing their speed, I evidently broke something I cannot find now.
-<p>
-I could use some help here from someone experienced in implementing LLMs.
-
 <h2>Attention and longer contexts</h2>
 
 <p>
-I didn't bother optimising attention calculations so far, so the model will slow down very fast the moment you go into larger contexts. Also, above 2048 I think there may be some memory leaks here and there. I didn't bother yet to fix those, but if someone's up to a task, help would be welcome.
+I didn't bother optimising attention calculations so far, so the implementation will slow down very fast the moment you go into larger contexts. It is a matter of the current implementation though, and can be fixed to be the same as with regular inference.
 
+<h2>KL Distance metric</h2>
 <p>
-I know that with Q8 and other quantizations, the drop in quality is first visible with longer contexts, so I'd love to do serious testing in this area as well. By myself it's been just too many tasks to handle so far and I decided to publish before these tests are done.
+  Right after the publication, I was provided with a wonderful KL Distance metric, for measuring how far away is an approximation from the base model. It's fast to implement, the initial tests are done and I'll be publishing soon.
+  <p>
+    The gist of the results so far are that the results are okay-ish. The algorithm seems to not win against Quantization yet. It will take a few days to do proper testing, and write a summary, but if you want to see a sneak peak - the first charts are <a href="ryc/ryc4.0.heic">here</a> and <a href="ryc/ryc4.1.heic">here</a>. This is the top priority now, and I will be publishing a detailed writeup to the front page as soon as the testing is completed.
+    <p>
+
+</p>
 
 <h2>Testing on MathEval and HellaSWAG</h2>
 <p>
   Please keep in mind that this all has been a one-person operation so far.
 <p>
-  I'd love to test everything on serious tests, but right now the inference at 100% fails to answer HellaSWAG questions that the base Mistral succeeds on. That shouldn't be the case since it's essentially the same calculations. Again, it used to work way better, I think.
-
+  I would love to have the method tested on MathEval, HumanEval and HellaSWAG, but the main issues right now are the implementation speed, and the lack of proper testing libraries.
+<p>
+  Because of that, it would take a good setup of M2/M3 on the clouds to do the tests above in a sensible time. The existing testing libraries also assume you are testing a model, not an inference method - so I need to either rewrite them to use Effort's API, or rewrite them from scratch in Swift. If anyone's up for the task of doing this, <a href="mailto:kolinko@gmail.com">please reach out</a>. Otherwise, for the time being I will be focusing on simpler tests.
 <p>
   From internal tests so far, the better the model and the implementation, the more resilient it is to a drop in effort, so I feel it's honest to publish it with the tests as they are.
 <p>
