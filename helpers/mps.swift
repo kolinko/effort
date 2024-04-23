@@ -10,18 +10,6 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
-func basicMul(v: VectorFloat, by weights: Matrix) -> VectorFloat {
-    let out = VectorFloat(shape: [weights.rows])
-    basicMul(v: v, by: weights, out: out)
-    return out
-}
-
-func basicMulPrev(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
-    assert(weights.rows == result.rows)
-    assert(weights.cols == v.rows)
-    
-    gpu.deploy("basicMul2", buffers: [v, weights, result], ints: [weights.cols] ,threadCount: result.rows)
-}
 
 func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     assert(weights.rows == result.rows)
@@ -29,29 +17,12 @@ func basicMul(v: VectorFloat, by weights: Matrix, out result: VectorFloat) {
     
     assert(weights.cols % 16 == 0)
     mpsMul(v: v.asFloat16(), by: weights, out: result)
-    /*
-    result.zero()
-    gpu.deploy("basicMul2", buffers: [v, weights, result], ints: [weights.cols, weights.cols/16] ,threadCount: [result.rows, 16])
-     */
-}
-
-func mpsMul(v: Vector, by: Weights) -> VectorFloat {
-    let out = VectorFloat(shape:[by.outSize])
-    mpsMul(v: v, by: by.core, out: out)
-    return out
-}
-
-func mpsMul(v vector: Vector, by weights: Weights, out result: VectorFloat) {
-
-    mpsMul(v: vector, by: weights.core, out: result)
 }
 
 
 func mpsMul(v vector: Vector, by weights: Matrix, out result: VectorFloat) {
-//    if goNoMuls { return }
     result.zero()
-    // Assuming `device` and `commandQueue` are already initialized
-    // Shapes of the matrix and vector
+
     let matrixRows: Int = weights.rows// Number of rows in your matrix
     let matrixColumns: Int = weights.cols// Number of columns in your matrix (also the size of your vector)
     

@@ -37,7 +37,7 @@ let fxn = VectorFloat(shape:[stateDim])
 let gateOut = VectorFloat(shape: [numExperts])
 let gateIdxs = VectorFloat(shape:[2])
 let gateVals = VectorFloat(shape:[2])
-let outputVector = VectorFloat(shape:[modelData.output.outSize])
+let outputVector = VectorFloat(shape:[modelData.output.rows])
 let outNormed = VectorFloat(shape: [stateDim])
 let _layer = modelData.layers[0]!
 let xq = VectorFloat(shape: [_layer.wq.outSize])
@@ -206,7 +206,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
         h.rmsNormFast(out: outNormed)
         outNormed.mul(by: modelData.norm)
         
-        basicMul(v: outNormed, by: modelData.output.core, out: outputVector)
+        basicMul(v: outNormed, by: modelData.output, out: outputVector)
         // ^ could be switched to BucketMul, but doesn't cause a big delay
 
         gpu.warnOfEvals = false

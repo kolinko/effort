@@ -14,9 +14,6 @@ import Foundation
 let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
 let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
 
-let shapeDict = loadJson("./index.json") as! [String: [Int]]
-// ^ leftover from a past loader, needs to be refactored away
-
 private let bam = BufferActivityManager()
 
 /*
@@ -36,15 +33,6 @@ private let bam = BufferActivityManager()
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
-class Weights {
-    let core: Matrix
-    var outSize: Int { return core.rows }
-    var inSize: Int { return core.cols }
-    
-    init(elName: String, shape: [Int]? = nil) {
-        self.core = tLoader.matrix(elName+".core", assertShape: (shape != nil) ? shape : shapeDict[elName]!)
-    }
-}
 
 /*
  
@@ -180,8 +168,8 @@ class Layer {
     init(_ layerNo: Int, numExperts: Int, percentLoad: Int) {
         let layerName = "layers.\(layerNo)."
         
-        self.ffnNorm = tLoader.vector(layerName+"ffn_norm", assertShape:shapeDict[layerName+"ffn_norm"]!)
-        self.attnNorm = tLoader.vector(layerName+"attention_norm", assertShape: shapeDict[layerName+"attention_norm"]!)
+        self.ffnNorm = tLoader.vector(layerName+"ffn_norm")
+        self.attnNorm = tLoader.vector(layerName+"attention_norm")
 
         if numExperts > 1 {
             self.ffnGate = tLoader.matrix(layerName+"feed_forward.gate", assertShape: [numExperts, stateDim])
@@ -226,15 +214,15 @@ class Layer {
 
 class Model {
     let norm: Vector
-    let output: Weights
+    let output: Matrix
     let tokEmbeddings: Matrix
     let layers: [Int: Layer]
     
     init(numLayers: Int, numExperts: Int, percentLoad: Int) {
         let startTime = Date()
-        self.norm = tLoader.vector("model.norm", assertShape: shapeDict["norm"]!)
-        self.output = Weights(elName: "output", shape: shapeDict["output"]!)
-        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core", assertShape: shapeDict["tok_embeddings"]!)
+        self.norm = tLoader.vector("model.norm")
+        self.output = tLoader.matrix("output.core")
+        self.tokEmbeddings = tLoader.matrix("tok_embeddings.core")
 
         print("loading weights")
         var layers = [Int: Layer]()

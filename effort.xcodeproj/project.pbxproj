@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1EF1865A2BD28CC800CE7067 /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = 1EF186592BD28CC800CE7067 /* HeapModule */; };
 		A40B31962B9DAAA300095AF5 /* aux.metal in Sources */ = {isa = PBXBuildFile; fileRef = A40B31952B9DAAA300095AF5 /* aux.metal */; };
 		A40B31982B9F476800095AF5 /* gpu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40B31972B9F476800095AF5 /* gpu.swift */; };
 		A40B319A2BA06D5800095AF5 /* info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A40B31992BA06D5800095AF5 /* info.plist */; };
@@ -28,6 +27,7 @@
 		A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21A2BD77ADF00B81F23 /* helpers.swift */; };
 		A453C21D2BD77C6D00B81F23 /* bucketMulQ4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21C2BD77C6D00B81F23 /* bucketMulQ4.swift */; };
 		A453C21F2BD77C8200B81F23 /* bucketMulQ4.metal in Sources */ = {isa = PBXBuildFile; fileRef = A453C21E2BD77C8200B81F23 /* bucketMulQ4.metal */; };
+		A453EB2F2BD77F3600CB94F9 /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = A453EB2E2BD77F3600CB94F9 /* HeapModule */; };
 		A456C2BD2BC7FC2500C7B79F /* expertMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BC2BC7FC2500C7B79F /* expertMul.swift */; };
 		A456C2C02BC9129B00C7B79F /* bucketMulFaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */; };
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
@@ -111,7 +111,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1EF1865A2BD28CC800CE7067 /* HeapModule in Frameworks */,
+				A453EB2F2BD77F3600CB94F9 /* HeapModule in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -231,7 +231,7 @@
 			);
 			name = effort;
 			packageProductDependencies = (
-				1EF186592BD28CC800CE7067 /* HeapModule */,
+				A453EB2E2BD77F3600CB94F9 /* HeapModule */,
 			);
 			productName = mul_col;
 			productReference = A4AB4DC12B6144350098B05D /* effort */;
@@ -263,7 +263,7 @@
 			mainGroup = A4AB4DB82B6144350098B05D;
 			packageReferences = (
 				A4FB86C82BCA49A50093C9BE /* XCRemoteSwiftPackageReference "swift-nio" */,
-				1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */,
+				A453EB2D2BD77F3600CB94F9 /* XCRemoteSwiftPackageReference "swift-collections" */,
 			);
 			productRefGroup = A4AB4DC22B6144350098B05D /* Products */;
 			projectDirPath = "";
@@ -496,7 +496,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+		A453EB2D2BD77F3600CB94F9 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
 			requirement = {
@@ -515,9 +515,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		1EF186592BD28CC800CE7067 /* HeapModule */ = {
+		A453EB2E2BD77F3600CB94F9 /* HeapModule */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1EF186572BD28BE600CE7067 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			package = A453EB2D2BD77F3600CB94F9 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = HeapModule;
 		};
 /* End XCSwiftPackageProductDependency section */

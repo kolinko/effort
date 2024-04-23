@@ -39,11 +39,9 @@ class BucketMulFastQ4 {
 
         gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
-        let chunkSize = 4//w.stats.rows//16
-        gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+        let chunkSize = 4 //w.stats.rows//16
+        gpu.deploy("prepareDispatchQ4", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
-      //  gpu.eval()
-      //  print("dsize", dispatch.size.getLong(index: 0))
     }
     
     
@@ -55,11 +53,6 @@ class BucketMulFastQ4 {
         
         gpu.deploy("roundUp", buffers:[dispatch.size, prevSize], ints:[2048], threadCount: 1)
         gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
-        // ^ quick patch here.
-        // bucketMulFast goes through dispatch in bucketSize * STEP chunks, and if dispatchSize is not evened
-        // out, the ranges may start to overlap and cause subtle errors at various Effort levels.
-        
-        // not sure if 2048 rounding is right at this iteration, needs testing and fixing probably
         
         mul(by: ew, out: out)
     }
@@ -67,21 +60,20 @@ class BucketMulFastQ4 {
     
    func mul(by: ExpertWeights, out: VectorFloat) {
        let weightBuckets = by.buckets
-       
-       assert(!goQ8, "call BucketMulQ8, not this")
        let bucketSize = 16
        let numBuckets = out.rows / bucketSize
        
        assert(numBuckets % 4 == 0)
 
-       gpu.deploy("bucketMulFast", buffers: [weightBuckets, dispatch, tmpMulVec, dispatch.size],
+       gpu.deploy("bucketMulQ4", buffers: [weightBuckets, dispatch, out, dispatch.size],
                                ints: [weightBuckets.cols, mulGroups],
                                threadCount: [weightBuckets.cols, mulGroups])
-       
+       /*
        let simdSize = 32
        gpu.deploy("bucketIntegrate", buffers: [tmpMulVec, out],
                   threadCount: [simdSize, out.rows/4, 1],
                   threadGroupSize: [simdSize, 1, 1])
+        */
         
 
    }
