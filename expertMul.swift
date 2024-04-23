@@ -15,15 +15,15 @@
 
 import Foundation
 
-private let tmpExpNo = ScalarFloat(value: 0)
+private let tmpExpZero = ScalarFloat(value: 0)
 
 func expertMul(v: VectorFloat, by: ExpertWeights, out: VectorFloat, effort: Double = 0.25) {
-    expertMul(v: v, by: by, expNo: tmpExpNo, out: out, effort: effort)
+    expertMul(v: v, by: by, expNo: tmpExpZero, out: out, effort: effort)
 }
 
 func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     if !goQ8 {
-        bucketMulFast(v: v, by: by, expNo: expNo, out: out, effort: effort)
+        bucketMul(v: v, by: by, expNo: expNo, out: out, effort: effort)
 //        expertMulSlow(v: v, by: by, expNo: expNo, out: out, effort: effort)
     } else {
         assert(false, "not tested with the current iteration")

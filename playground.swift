@@ -22,7 +22,7 @@ func goPlayground() {
     let ew = modelData.layers[12]!.wq
     let control = VectorFloat(shape:[ew.outSize])
 //    timeIt(repeats:2000) { i in
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
+    bucketMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
     gpu.eval()
     let ts = TensorSaver(path: ".", model: "q4data2")
     ts[0]["v"] = v
@@ -63,7 +63,7 @@ func goPlayground() {
         //        print()
     }*/
 
-    bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
+    bucketMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
     print("\(Int(q*100))%: \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")
 
     exit(0)

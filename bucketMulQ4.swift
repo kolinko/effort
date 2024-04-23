@@ -8,13 +8,13 @@
  */
 
 
-func bucketMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
-    let bm = BucketMul.shared
+func bucketMulFastQ4(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
+    let bm = BucketMulFastQ4.shared
     bm.fullMul(v: v, ew: by, expNo: expNo, out: out, effort: effort)
 }
 
 // should be private, but this way is useful for testing
-class BucketMul {
+class BucketMulFastQ4 {
     let probesCount = 4096
     let maxDispatchSize = 229376 * 2//176128
     let dispatch : DynaVectorFloat
@@ -22,7 +22,7 @@ class BucketMul {
     let cutoff : ScalarFloat
     private let prevSize = ScalarFloat(value: 0)
     
-    static let shared = BucketMul()
+    static let shared = BucketMulFastQ4()
     
     private init() {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
@@ -40,7 +40,7 @@ class BucketMul {
         gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
         let chunkSize = 4//w.stats.rows//16
-        gpu.deploy("prepareDispatch", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
+        gpu.deploy("prepareExpertDispatchFast", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
       //  gpu.eval()
       //  print("dsize", dispatch.size.getLong(index: 0))
@@ -74,7 +74,7 @@ class BucketMul {
        
        assert(numBuckets % 4 == 0)
 
-       gpu.deploy("bucketMul", buffers: [weightBuckets, dispatch, tmpMulVec, dispatch.size],
+       gpu.deploy("bucketMulFast", buffers: [weightBuckets, dispatch, tmpMulVec, dispatch.size],
                                ints: [weightBuckets.cols, mulGroups],
                                threadCount: [weightBuckets.cols, mulGroups])
        

@@ -44,7 +44,7 @@ kernel void roundUp(device uint* result [[buffer(0)]],
 // btw. the code should use bfloats instead of halfs for weights, but then it would be a bit more
 // of a hussle to implement
 
-kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
+kernel void prepareDispatch(device const float* v[[buffer(0)]],
                                   device const half4* binStats[[buffer(1)]],
                                   device const int* expertNo[[buffer(2)]],
                                   device const float* cutoff[[buffer(3)]],
@@ -80,7 +80,7 @@ kernel void prepareExpertDispatchFast(device const float* v[[buffer(0)]],
 
 # define STEP 4
 
-kernel void bucketMulFast(
+kernel void bucketMul(
                    device const half *weights [[buffer(0)]],
                    device const float2 *dispatch [[buffer(1)]],
                    device float *result [[buffer(2)]],

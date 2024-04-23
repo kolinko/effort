@@ -26,6 +26,8 @@
 		A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A445AABE2BAF5B63003AD4E7 /* archive.swift */; };
 		A453C2192BD77A7900B81F23 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A453C2182BD77A7900B81F23 /* README.md */; };
 		A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21A2BD77ADF00B81F23 /* helpers.swift */; };
+		A453C21D2BD77C6D00B81F23 /* bucketMulQ4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21C2BD77C6D00B81F23 /* bucketMulQ4.swift */; };
+		A453C21F2BD77C8200B81F23 /* bucketMulQ4.metal in Sources */ = {isa = PBXBuildFile; fileRef = A453C21E2BD77C8200B81F23 /* bucketMulQ4.metal */; };
 		A456C2BD2BC7FC2500C7B79F /* expertMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BC2BC7FC2500C7B79F /* expertMul.swift */; };
 		A456C2C02BC9129B00C7B79F /* bucketMulFaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */; };
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
@@ -79,6 +81,8 @@
 		A445AABE2BAF5B63003AD4E7 /* archive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = archive.swift; sourceTree = "<group>"; };
 		A453C2182BD77A7900B81F23 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		A453C21A2BD77ADF00B81F23 /* helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = helpers.swift; sourceTree = "<group>"; };
+		A453C21C2BD77C6D00B81F23 /* bucketMulQ4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bucketMulQ4.swift; sourceTree = "<group>"; };
+		A453C21E2BD77C8200B81F23 /* bucketMulQ4.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulQ4.metal; sourceTree = "<group>"; };
 		A456C2BC2BC7FC2500C7B79F /* expertMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = expertMul.swift; sourceTree = "<group>"; };
 		A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bucketMulFaster.swift; sourceTree = "<group>"; };
 		A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulFaster.metal; sourceTree = "<group>"; };
@@ -169,6 +173,8 @@
 				A456C2BC2BC7FC2500C7B79F /* expertMul.swift */,
 				A43361662BC54BE5006C12E9 /* bucketMul.swift */,
 				A43361682BC58FB5006C12E9 /* bucketMul.metal */,
+				A453C21C2BD77C6D00B81F23 /* bucketMulQ4.swift */,
+				A453C21E2BD77C8200B81F23 /* bucketMulQ4.metal */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
 				A433615E2BC414C4006C12E9 /* convert.swift */,
@@ -314,7 +320,9 @@
 				A43361652BC43E8C006C12E9 /* bucketMulQ8.metal in Sources */,
 				A4FB86DD2BCAA1100093C9BE /* benchmark.swift in Sources */,
 				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
+				A453C21F2BD77C8200B81F23 /* bucketMulQ4.metal in Sources */,
 				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,
+				A453C21D2BD77C6D00B81F23 /* bucketMulQ4.swift in Sources */,
 				A4FB86D92BCA50F00093C9BE /* runNetwork.swift in Sources */,
 				A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */,
 				A4260AED2BB0CC0900DB76DA /* playground.swift in Sources */,
