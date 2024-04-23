@@ -2,10 +2,12 @@
 //  tokeniser.swift
 //  effort
 //
-//  Created 25/03/2024.
-//
 
 import Foundation
+
+
+// This whole module should be refactored into tokeniser2, and swift-tokeniser.json dependency
+// removed altogether
 
 class Tokeniser {
     let data : [String: String]
@@ -28,9 +30,7 @@ class Tokeniser {
     }
     
     init(_ modelData: Model) {
-        let fileUrl = URL(fileURLWithPath: jsonPath + "swift-tokeniser.json")
-        let data = try! Data(contentsOf: fileUrl)
-        self.data = try! JSONSerialization.jsonObject(with: data, options: []) as! [String:String]
+        self.data = loadJson("./swift-tokeniser.json") as! [String:String]
         self.tokEmbeddings = modelData.tokEmbeddings.asVectorList()
     }
 

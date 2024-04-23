@@ -24,6 +24,8 @@
 		A433616B2BC5EA47006C12E9 /* wild.metal in Sources */ = {isa = PBXBuildFile; fileRef = A433616A2BC5EA47006C12E9 /* wild.metal */; };
 		A43F8F982B6CF5C800578E56 /* loader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43F8F972B6CF5C800578E56 /* loader.swift */; };
 		A445AABF2BAF5B63003AD4E7 /* archive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A445AABE2BAF5B63003AD4E7 /* archive.swift */; };
+		A453C2192BD77A7900B81F23 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A453C2182BD77A7900B81F23 /* README.md */; };
+		A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21A2BD77ADF00B81F23 /* helpers.swift */; };
 		A456C2BD2BC7FC2500C7B79F /* expertMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BC2BC7FC2500C7B79F /* expertMul.swift */; };
 		A456C2C02BC9129B00C7B79F /* bucketMulFaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */; };
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
@@ -75,6 +77,8 @@
 		A433616A2BC5EA47006C12E9 /* wild.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = wild.metal; sourceTree = "<group>"; };
 		A43F8F972B6CF5C800578E56 /* loader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = loader.swift; sourceTree = "<group>"; };
 		A445AABE2BAF5B63003AD4E7 /* archive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = archive.swift; sourceTree = "<group>"; };
+		A453C2182BD77A7900B81F23 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		A453C21A2BD77ADF00B81F23 /* helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = helpers.swift; sourceTree = "<group>"; };
 		A456C2BC2BC7FC2500C7B79F /* expertMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = expertMul.swift; sourceTree = "<group>"; };
 		A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bucketMulFaster.swift; sourceTree = "<group>"; };
 		A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = bucketMulFaster.metal; sourceTree = "<group>"; };
@@ -132,6 +136,7 @@
 				A45C6C912BAEC56D004AE765 /* timeit.swift */,
 				A46EAB162BCE439300004B19 /* wildMul.swift */,
 				A433616A2BC5EA47006C12E9 /* wild.metal */,
+				A453C21A2BD77ADF00B81F23 /* helpers.swift */,
 			);
 			path = helpers;
 			sourceTree = "<group>";
@@ -139,6 +144,9 @@
 		A467D66B2BCF95F000A393AD /* garbage */ = {
 			isa = PBXGroup;
 			children = (
+				A453C2182BD77A7900B81F23 /* README.md */,
+				A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */,
+				A43361622BC43E7E006C12E9 /* bucketMulQ8.swift */,
 				A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */,
 				A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */,
 				A467D66C2BCF98B100A393AD /* expertMulSlow.swift */,
@@ -161,8 +169,6 @@
 				A456C2BC2BC7FC2500C7B79F /* expertMul.swift */,
 				A43361662BC54BE5006C12E9 /* bucketMul.swift */,
 				A43361682BC58FB5006C12E9 /* bucketMul.metal */,
-				A43361622BC43E7E006C12E9 /* bucketMulQ8.swift */,
-				A43361642BC43E8C006C12E9 /* bucketMulQ8.metal */,
 				A40B31952B9DAAA300095AF5 /* aux.metal */,
 				A4CE9F7D2B63D41400910766 /* matrix.metal */,
 				A433615E2BC414C4006C12E9 /* convert.swift */,
@@ -267,6 +273,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A453C2192BD77A7900B81F23 /* README.md in Resources */,
 				A4FB86E72BCBD6A40093C9BE /* quiz.json in Resources */,
 				A4FB86E52BCBD2380093C9BE /* basic.json in Resources */,
 				A4C091A72BD4FCE1006DB084 /* README.md in Resources */,
@@ -309,6 +316,7 @@
 				A40B31962B9DAAA300095AF5 /* aux.metal in Sources */,
 				A40B31982B9F476800095AF5 /* gpu.swift in Sources */,
 				A4FB86D92BCA50F00093C9BE /* runNetwork.swift in Sources */,
+				A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */,
 				A4260AED2BB0CC0900DB76DA /* playground.swift in Sources */,
 				A4FB86D42BCA4B7A0093C9BE /* server.swift in Sources */,
 				A467D66A2BCF956C00A393AD /* string.swift in Sources */,

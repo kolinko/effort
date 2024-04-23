@@ -10,7 +10,14 @@
 
 import Metal
 import Foundation
-let shapeDict = readJson()
+
+let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
+let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+
+let shapeDict = loadJson("./index.json") as! [String: [Int]]
+// ^ leftover from a past loader, needs to be refactored away
+
+private let bam = BufferActivityManager()
 
 /*
  
@@ -25,11 +32,7 @@ let shapeDict = readJson()
  
  */
 
-private let bam = BufferActivityManager()
 
-let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
-let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
-let jsonPath = "./"
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
@@ -248,14 +251,6 @@ class Model {
     }
 }
 
-
-func readJson() -> [String: [Int]] {
-    let fileUrl = URL(fileURLWithPath: jsonPath + "index.json")
-    let data = try! Data(contentsOf: fileUrl)
-    let dictionary = try! JSONSerialization.jsonObject(with: data, options: []) as! [String: [Int]]
-
-    return dictionary
-}
 
 func testSetup(_ modelsDir: String, _ modelDir: String, _ modelIndex: String) {
     
