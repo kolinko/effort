@@ -15,14 +15,21 @@ import Foundation
 
 func goPlayground() {
   
-    let modelData = Model(numLayers: 1, numExperts: 1, percentLoad: 0x10)
+    let modelData = Model(numLayers: 13, numExperts: 1, percentLoad: 0x10)
     let t = Tokeniser(modelData)
     
     let v = TensorLoader.loadVec("xq_broken") //tokens[0]
-    let ew = modelData.layers[0]!.w1
+    let ew = modelData.layers[12]!.wq
     let control = VectorFloat(shape:[ew.outSize])
 //    timeIt(repeats:2000) { i in
     bucketMulFast(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
+    gpu.eval()
+    let ts = TensorSaver(path: ".", model: "q4data2")
+    ts[0]["v"] = v
+    ts[0]["core"] = ew.core!
+    ts[0]["control"] = control
+    ts.save()
+    
     gpu.stopCapture()
 
     //    }

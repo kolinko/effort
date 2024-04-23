@@ -56,6 +56,10 @@ let numLayers = 32
 let numExperts = goMistral ? 1 : 8
 var numTokens = 30
 
+if runMode == "playground" {
+    goPlayground()
+}
+
 testSetup("models", "mistral", "buckets-FP16.safetensors.index.json")
 let modelData = Model(numLayers: numLayers, numExperts: numExperts, percentLoad: percentLoad)
 let t = Tokeniser(modelData)
