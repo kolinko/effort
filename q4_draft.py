@@ -1,15 +1,36 @@
 '''
-- load weight, sample vector, perfect output - from safetensors
-- row by row, extract top 2% outliers, replace them with zeroes
-- for every bucket - sort and replace with positional encoding + sign
-- do mmul, compare cos sim score
 
+Hacked very quickly with help of GPT-4, apologies for the less than stellar clarity here.
+
+The code does the following:
+- extracts outliers and zeroes out them in the original array
+- creates bucket rows
+- converts buckets into 4-bit representations
+
+Also, at the end there is a basic implementation of bucketMul+effort - useful for testing
+various quantisation/bucketisation ideas and their effect on the final cossim score.
 
 '''
+
 
 import numpy as np
 from safetensors import safe_open
 import pdb
+
+def cossim(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    magnitude_vec1 = np.linalg.norm(vec1)
+    magnitude_vec2 = np.linalg.norm(vec2)
+    if magnitude_vec1 == 0 or magnitude_vec2 == 0:
+        return 0  # Return 0 if either vector has zero magnitude to avoid division by zero
+    cosine_sim = dot_product / (magnitude_vec1 * magnitude_vec2)
+    return cosine_sim
+
+
+
+'''
+If you want to experiment with improving the score, save an example weight matrix 
+and an example input vector into safetensors and use this code at the beginning:
 
 tensors = {}
 with safe_open("../q4data2-00001-of-00001.safetensors", framework="np") as f:
@@ -22,16 +43,8 @@ v = tensors['v']
 
 print(control)
 print(v @ core2.T)
+'''
 
-
-def cossim(vec1, vec2):
-    dot_product = np.dot(vec1, vec2)
-    magnitude_vec1 = np.linalg.norm(vec1)
-    magnitude_vec2 = np.linalg.norm(vec2)
-    if magnitude_vec1 == 0 or magnitude_vec2 == 0:
-        return 0  # Return 0 if either vector has zero magnitude to avoid division by zero
-    cosine_sim = dot_product / (magnitude_vec1 * magnitude_vec2)
-    return cosine_sim
 
 def rearrange8(arr):
     # Generate the new order of indices
@@ -53,7 +66,6 @@ def rearrangeOutliers(arr):
     new_arr[:, :3] = arr
     return new_arr
 
-print("cos sim:", cossim(control, v @ core2.T))
 
 def convert(core2):
     def extract_outliers(core, perc):
@@ -89,10 +101,7 @@ def convert(core2):
         print(core[top_indices_2d[0][0:5], top_indices_2d[1][0:5]])
         return outliers_table, core
 
-    #old_core = core.copy()
-
     for perc in [0.02]:#[0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.04]:
-        #core = core2.copy()
         outliers, core = extract_outliers(core2.copy(), perc)
 
         outCore = np.zeros(core.shape)
@@ -102,7 +111,6 @@ def convert(core2):
 #        print(f"{perc*100:.2g}%", cossim(control, v @ outCore.T), cossim(control, v @ core.T))
 
         '''bucketize'''
-
 
         # Process each row
         sorted_buckets = []
@@ -133,10 +141,7 @@ def convert(core2):
         print(sorted_buckets[0][1])
         print(sorted_buckets[0][2])
 
-
-
         '''transpose'''
-
 
         # Assuming sorted_buckets is already defined as described in previous steps
         num_rows = core.shape[0]
@@ -170,7 +175,6 @@ def convert(core2):
             print("New row", i, ":", output_rows[i][:5])  # Print first few elements of each new row
 
 
-
         # Calculate statistics for each row
         stats = []
 
@@ -194,31 +198,13 @@ def convert(core2):
             print(f"Row {i+1} - Avg: {stats[i][0]:.4f}, Min: {stats[i][1]:.4f}, Max: {stats[i][2]:.4f}")
 
 
-        ''' mul for testing '''
-        '''
-        # Assuming V is your input vector of length matching the number of rows in 'core'
-        V =v
+        ''' 
 
-        # Initialize output vector
-        output_vector = np.zeros(core.shape[1])  # Length equal to the number of columns in the original matrix
+        basic mulCol implementation for testing, no cutoff/effort
 
-        # Iterate through each row in V
-        for inputRowID, scalar in enumerate(V):
-            # Iterate over each bucket within the row (0 to 7)
-            for n in range(8):
-                # Get the specific row from output_rows
-                row = output_rows[inputRowID * 8 + n]
-                
-                # Process each element in the row
-                for value, original_index in row:
-                    #if value == 0:
-                    #    print('jest zero', original_index)
-                    # Multiply the input scalar with the value and add to the corresponding index in the output vector
-                    output_vector[original_index] += scalar * value
-
-        print(output_vector)
 
         '''
+        
         # Assuming V is your input vector of length matching the number of rows in 'core'
         V =v
 
@@ -238,15 +224,18 @@ def convert(core2):
                     contribution = scalar * np.sign(value) * avg_abs_value
                     # Multiply the input scalar with the value and add to the corresponding index in the output vector
                     output_vector2[original_index] += contribution
-#                pdb.set_trace()
 
         print(output_vector2)
 
 #        print(f"{perc*100:.2g}%", cossim(v @ core2, (v @ outCore) + (output_vector2)))
         
         '''
+        
+
         extract probes
         prepare for serialization
+
+
         '''
         diagonal_vector = np.diag(core)
         probes = v * diagonal_vector
@@ -269,6 +258,7 @@ def convert(core2):
 
         # convert output_rows into a half-byte representation
         # Process each bucket
+
         processed_buckets = []
 
         for row in output_rows:
@@ -293,8 +283,10 @@ def convert(core2):
     #    print(processed_buckets[0][0])  # Print the first processed bucket of the first row
 
         '''
+
             merge words, and bit-convert into float16, because that's what the Swift implementation
             is ready for
+
         '''
 
         processed_bucket_words = []
@@ -331,13 +323,26 @@ def convert(core2):
 
     '''
 
-    other
+    bucketMul implementation for testing - 
+
+    you can uncomment this to see how quantization affects the outputted cos sim
+    scores at various effort levels.
+
+    I expect that at around ~0.15 effort the final implementation should be twice as fast as
+    vanilla q4. may be wrong here.
+
+    Also, my estimates are that you need at the bare minimum ~0.96 cos sim score for the results to not fall
+    apart completely - if you have a flat effort setting for all the weights at all the layers.
+
+    The easiest way to play with this is to find which % outliers is optimal - more outliers mean higher output
+    score, because we keep outliers in float16 and calc all of them. But calculating each outlier is ~5-20x slower
+    than of any other Q4 weight (4x bc more memory read, additional 1-5x because of a random memory access. both
+    can probably be optimised away)
+
     '''
 
 
     '''
-    bucketMul implementation for testing
-
     abs_probes = np.abs(probes)
     sorted_indices = np.argsort(-abs_probes)
     sorted_probes = probes[sorted_indices]

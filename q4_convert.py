@@ -1,3 +1,7 @@
+'''
+ unlikely to run out of the box - you probably will need to fix the dirs at least.
+'''
+
 
 import numpy as np
 from safetensors import safe_open
