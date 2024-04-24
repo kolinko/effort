@@ -11,8 +11,9 @@
 import Metal
 import Foundation
 
-let modelPath = "./models/\(goMistral ? "mistral" : "mixtral-new")"
-let modelName = "buckets-\(goQ8 ? "Q8" : "FP16")"
+let modelPath = "./models/\(goMistral ? "mistral\( goQ4 ? "-q4" : "")" : "mixtral-new")"
+let modelName = goQ4 ? "model" : ("buckets-\(goQ8 ? "Q8" : "FP16")")
+// ^ needs to be a command line arg really
 
 private let bam = BufferActivityManager()
 
@@ -28,8 +29,6 @@ private let bam = BufferActivityManager()
  There is a system setting to increase allowed wired memory size, but BAM seems to work better.
  
  */
-
-
 
 private let tLoader = TensorLoader(path: modelPath, model: modelName)
 
@@ -54,19 +53,20 @@ class ExpertWeights {
     let stats: Matrix3D
     let probes: Matrix
     let sliceStats: Matrix3DFloat?
-    let core: Matrix?
+    var core: Matrix?
+    let outliers: MatrixFloat?
     
     init(elName: String) {
         self.core = tLoader.matrix(elName+".core")
         self.inSize = core!.cols
         self.outSize = core!.rows
-        self.percentLoad = goQ8 ? 8 : 16
+        self.percentLoad = (goQ8 || goQ4) ? 8 : 16
         
         let probesCount = 4096
         self.probes = Matrix(shape: [1, probesCount])
         let probesList: [Vector] = probes.asVectorList()
         
-        self.buckets = Matrix3D(shape: [1, inSize*percentLoad, outSize/16])
+        self.buckets = Matrix3D(shape: [1, inSize*percentLoad, goQ4 ? (outSize / 8) / 4 : outSize/16])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
         bam.addBuffer(self.buckets)
         
@@ -82,16 +82,30 @@ class ExpertWeights {
         } else {
             self.sliceStats = nil
         }
+
+        if tLoader.hasTensor(elName+".outliers") {
+            self.outliers = tLoader[elName+".outliers"] as! MatrixFloat
+        } else {
+            self.outliers = nil
+        }
         
-        probesList[0].copyFrom(tLoader.vector(elName+".probes"))//, mySize: true)
-        bucketList[0].copyFrom(tLoader.matrix(elName+".buckets"))//, mySize: true)
-        statList[0].copyFrom(tLoader.matrix(elName+".bucket.stats"))//, mySize: true)
-        if goQ8 {
-            sliceStatsList![0].copyFrom(tLoader.matrix(elName+".sliceStats"))//, mySize: true)
+        if tLoader.hasTensor(elName+".probes") {
+            probesList[0].copyFrom(tLoader.vector(elName+".probes"))//, mySize: true)
+            bucketList[0].copyFrom(tLoader.matrix(elName+".buckets"))//, mySize: true)
+            if goQ4 {
+                statList[0].copyFromAndCast(tLoader[elName+".bucket.stats"] as! MatrixFloat)//, mySize: true)
+            } else {
+                statList[0].copyFrom(tLoader.matrix(elName+".bucket.stats"))//, mySize: true)
+            }
+            if goQ8 {
+                sliceStatsList![0].copyFrom(tLoader.matrix(elName+".sliceStats"))//, mySize: true)
+            }
+        } else {
+            print("WARN: buckets not loaded for \(elName)")
         }
 
     }
-
+    
     
     init(_ prefix: String, _ wId: String? = nil, inDim: Int, outDim: Int, numExperts: Int, percentLoad: Int) {
         self.core = nil
@@ -104,7 +118,7 @@ class ExpertWeights {
         self.probes = Matrix(shape: [numExperts, probesCount])
         let probesList: [Vector] = probes.asVectorList()
         
-        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, outDim/16])
+        self.buckets = Matrix3D(shape: [numExperts, inDim*percentLoad, goQ4 ? (outSize / 8) / 4 : outSize/16])
         let bucketList: [Matrix] = self.buckets.asMatrixList()
         bam.addBuffer(self.buckets)
         
@@ -120,9 +134,23 @@ class ExpertWeights {
         } else {
             self.sliceStats = nil
         }
+
+        do {
+            let eNo = 0
+            let fName = prefix + (wId != nil ? "\(eNo).\(wId!)." : "")
+            if tLoader.hasTensor(fName+"outliers") {
+                self.outliers = tLoader[fName+"outliers"] as! MatrixFloat
+            } else {
+                self.outliers = nil
+            }
+        }
         
         for eNo in 0..<numExperts {
             let fName = prefix + (wId != nil ? "\(eNo).\(wId!)." : "")
+            if tLoader.hasTensor(fName+"core") { // for Q4 tests
+                core = tLoader.matrix(fName+"core")
+            }
+            
             probesList[eNo].copyFrom(tLoader[fName+"probes"], mySize: true)
             bucketList[eNo].copyFrom(tLoader[fName+"buckets"], mySize: true)
             statList[eNo].copyFrom(tLoader[fName+"bucket.stats"], mySize: true)

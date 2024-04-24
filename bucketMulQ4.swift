@@ -8,13 +8,15 @@
  */
 
 
-func bucketMulFastQ4(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
-    let bm = BucketMulFastQ4.shared
+func bucketMulQ4(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
+    let bm = BucketMulQ4.shared
+//    gpu.startCapture()
     bm.fullMul(v: v, ew: by, expNo: expNo, out: out, effort: effort)
+//    gpu.stopCapture()
 }
 
 // should be private, but this way is useful for testing
-class BucketMulFastQ4 {
+class BucketMulQ4 {
     let probesCount = 4096
     let maxDispatchSize = 229376 * 2//176128
     let dispatch : DynaVectorFloat
@@ -22,7 +24,7 @@ class BucketMulFastQ4 {
     let cutoff : ScalarFloat
     private let prevSize = ScalarFloat(value: 0)
     
-    static let shared = BucketMulFastQ4()
+    static let shared = BucketMulQ4()
     
     private init() {
         self.dispatch = DynaVectorFloat(shape: [maxDispatchSize*2])
@@ -39,7 +41,8 @@ class BucketMulFastQ4 {
 
         gpu.deploy("findCutoff32", buffers: [v, ew.probes, expNo, cutoff], ints:[q], threadCount: 1024, threadGroupSize: [1024, 1, 1])
         
-        let chunkSize = 4 //w.stats.rows//16
+        let singleThread = true
+        let chunkSize = singleThread ? ew.stats.rows : 4 //w.stats.rows//16
         gpu.deploy("prepareDispatchQ4", buffers:[v, ew.stats, expNo, cutoff, dispatch, dispatch.size],
                    ints:[chunkSize, ew.inSize, ew.buckets.cols, ew.expertSize], threadCount: ew.stats.rows/chunkSize)
     }
@@ -55,6 +58,8 @@ class BucketMulFastQ4 {
         gpu.deploy("zeroRange32", buffers: [dispatch, prevSize, dispatch.size], threadCount: 2048 )
         
         mul(by: ew, out: out)
+        gpu.deploy("calcOutliers", buffers:[v, ew.outliers!, out], threadCount: ew.outliers!.rows)
+
     }
 
     
@@ -64,9 +69,10 @@ class BucketMulFastQ4 {
        let numBuckets = out.rows / bucketSize
        
        assert(numBuckets % 4 == 0)
+       
 
        gpu.deploy("bucketMulQ4", buffers: [weightBuckets, dispatch, out, dispatch.size],
-                               ints: [weightBuckets.cols, mulGroups],
+                               ints: [mulGroups],
                                threadCount: [weightBuckets.cols, mulGroups])
        /*
        let simdSize = 32

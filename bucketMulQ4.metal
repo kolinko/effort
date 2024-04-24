@@ -9,10 +9,21 @@
 using namespace metal;
 
 
+// effort given to optimise this: 0%
+kernel void calcOutliers(device const float* v[[buffer(0)]],
+                         device const float4* outliers[[buffer(1)]],
+                         device atomic_float* out[[buffer(2)]],
+                         uint id [[thread_position_in_grid]]) {
+        
+    float4 o = outliers[id];
+    atomic_fetch_add_explicit(&out[uint(o.z)], v[uint(o.y)] * o.x, memory_order_relaxed);
+    
+}
+
 #define CUTOFF_SCALE 100000
 
 kernel void prepareDispatchQ4(device const float* v[[buffer(0)]],
-                                  device const half4* binStats[[buffer(1)]],
+                                  device const float2* binStats[[buffer(1)]],
                                   device const int* expertNo[[buffer(2)]],
                                   device const float* cutoff[[buffer(3)]],
                                   device float2* dispatch[[buffer(4)]],
@@ -31,14 +42,14 @@ kernel void prepareDispatchQ4(device const float* v[[buffer(0)]],
     ushort counter = idxIncr;
     
     for (uint i = begin; i<end; i++) {
-        half4 s = binStats[i]; // row, min, max, mean
-        float val = v[i % rowsCount]; // int(s[0])
-        if (cutoff[0] < CUTOFF_SCALE * float(s[3]) * abs(val)) {
+        float2 s = binStats[i]; // avg abs x 2
+        float val = v[i / 8];// % rowsCount - accidental different organisation than regular bucketMul - to be fixed
+        if (cutoff[0] < CUTOFF_SCALE * float(s[1]) * abs(val)) {
             if (counter == idxIncr) {
                 idx = atomic_fetch_add_explicit(dispatchCount, idxIncr, memory_order_relaxed);
                 counter = 0;
             }
-            dispatch[idx+counter] = {val*s[3], float(i*colsCount)}; // multiplying by avg here
+            dispatch[idx+counter] = {val*s[1], float(i*colsCount)}; // multiplying by avg here
             counter += 1;
         }
     }
@@ -52,31 +63,30 @@ kernel void bucketMulQ4(
                    device const float2 *dispatch [[buffer(1)]],
                    device atomic_float *result [[buffer(2)]],
                    constant uint *dispatchSize [[buffer(3)]],
-                   constant uint &cols [[buffer(4)]],
-                   constant uint &groups [[buffer(5)]],
+                   constant uint &groups [[buffer(4)]],
                    uint2 id [[thread_position_in_grid]]) {
                       
-    float myVal[8] = {0};
+    float myVal[8*4] = {0}; // switch to bfloat to save mem/registries?
       
     const uint rowOffset = id.y*dispatchSize[0]/groups;
     for (uint r=0; r<dispatchSize[0]/groups; r+=STEP) {
         for (int s=0; s<STEP; s++) { // gets unrolled and speeds up calcs
             float2 d = dispatch[rowOffset + r + s];
             ushort w = weights[int(d[1]) + id.x];
-            float v = w & 8 ? -d[0] : d[0];
-            ushort pos = w&7;
-            
-            for (int i=0; i<16; i++) {
-                myVal[i] += (pos == i) ? v : 0;
+            for (int i = 3; i>=0; i--) {
+                float v = w & 8 ? -d[0] : d[0];
+                ushort pos = w&7;
+                myVal[pos+i*8] += v;
+                w >>= 4;
             }
-            
         }
     }
 
 //    uint myOff = (id.y*16384);
-    for (int i = 0; i<16; i++) {
-//        result[myOff + id.x*16 + i] = myVal[i];
-        atomic_fetch_add_explicit(&result[id.x*16+i], myVal[i], memory_order_relaxed);
+    for (int i = 0; i<8*4; i++) {
+//        result[myOff + id.x*16 + i] = myVal[i]; // todo: get back to this. atomic_fetch is
+                                                  // used for faster dev & testing, but slows down, of course
+        atomic_fetch_add_explicit(&result[id.x*8*4+i], myVal[i], memory_order_relaxed);
     }
                           
 }

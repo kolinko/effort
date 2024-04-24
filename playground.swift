@@ -15,31 +15,27 @@ import Foundation
 
 func goPlayground() {
   
-    let modelData = Model(numLayers: 13, numExperts: 1, percentLoad: 0x10)
+    let modelData = Model(numLayers: 1, numExperts: 1, percentLoad: 0x8)
     let t = Tokeniser(modelData)
     
     let v = TensorLoader.loadVec("xq_broken") //tokens[0]
-    let ew = modelData.layers[12]!.wq
+    let ew = modelData.layers[0]!.w1
     let control = VectorFloat(shape:[ew.outSize])
 //    timeIt(repeats:2000) { i in
     bucketMul(v: v, by: ew, expNo: ScalarFloat(value: 0), out: control, effort: 1.0)
     gpu.eval()
-    let ts = TensorSaver(path: ".", model: "q4data2")
+   /* let ts = TensorSaver(path: ".", model: "q4data2")
     ts[0]["v"] = v
     ts[0]["core"] = ew.core!
     ts[0]["control"] = control
-    ts.save()
+    ts.save()*/
     
     gpu.stopCapture()
 
-    //    }
     let test = VectorFloat(shape:[ew.outSize])
     let q = 1.0
-
-        gpu.startCapture()
-        bucketMulWild(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
-    gpu.stopCapture()
-//    }
+    basicMul(v: v, by: ew.core!, out: control)
+    bucketMulQ4(v: v, by: ew, expNo: ScalarFloat(value: 0), out: test, effort: q)
     let score = test.cosineSimilarityTo(control)
 
     print("\(perc: q): \(Double(score), precision:5)", score>0.99 ? "✓" : "✗")

@@ -151,6 +151,14 @@ class Bufferable<Type> : MTLBufferable {
         }
         gpu.copyBuffer(src: src, dst: self, size: min(src.countBytes, self.countBytes))
     }
+
+    func copyFromAndCast(_ src: Bufferable<Float>, smallerSize: Bool = false) {
+        if !smallerSize {
+            assert(src.countBytes == self.countBytes)
+        }
+        gpu.copyBuffer(src: src, dst: self, size: min(src.countBytes, self.countBytes))
+    }
+
     
     
     func copyFrom(_ src: Bufferable<Float>) {
