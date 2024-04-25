@@ -45,7 +45,7 @@ if runMode == "convert" {
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let goQ4 = true
+let goQ4 = false
 assert(!goQ8, "Q8 not implemented fully yet!")
 var percentLoad = autoAdjustPercent(max: (goQ8 || goQ4) ? 0x8 : 0x10)
                   // % of weights to be loaded
@@ -53,7 +53,7 @@ var percentLoad = autoAdjustPercent(max: (goQ8 || goQ4) ? 0x8 : 0x10)
 
 
 let goMistral = true
-let numLayers = 1
+let numLayers = 32
 let numExperts = goMistral ? 1 : 8
 var numTokens = 30
 

@@ -23,7 +23,12 @@ func expertMul(v: VectorFloat, by: ExpertWeights, out: VectorFloat, effort: Doub
 
 func expertMul(v: VectorFloat, by: ExpertWeights, expNo: ScalarFloat, out: VectorFloat, effort: Double = 0.25) {
     if goQ4 {
-        bucketMulQ4(v: v, by: by, expNo: expNo, out: out, effort: effort)
+        if by.bucketsLoaded {
+            out.zero()
+            bucketMulQ4(v: v, by: by, expNo: expNo, out: out, effort: effort)
+        } else {
+            basicMul(v: v, by: by.core!, out: out)
+        }
     } else if !goQ8 {
         bucketMul(v: v, by: by, expNo: expNo, out: out, effort: effort)
     } else {

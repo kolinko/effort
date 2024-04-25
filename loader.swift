@@ -55,6 +55,7 @@ class ExpertWeights {
     let sliceStats: Matrix3DFloat?
     var core: Matrix?
     let outliers: MatrixFloat?
+    let bucketsLoaded: Bool
     
     init(elName: String) {
         self.core = tLoader.matrix(elName+".core")
@@ -90,6 +91,7 @@ class ExpertWeights {
         }
         
         if tLoader.hasTensor(elName+".probes") {
+            self.bucketsLoaded = true
             probesList[0].copyFrom(tLoader.vector(elName+".probes"))//, mySize: true)
             bucketList[0].copyFrom(tLoader.matrix(elName+".buckets"))//, mySize: true)
             if goQ4 {
@@ -101,6 +103,7 @@ class ExpertWeights {
                 sliceStatsList![0].copyFrom(tLoader.matrix(elName+".sliceStats"))//, mySize: true)
             }
         } else {
+            self.bucketsLoaded = false
             print("WARN: buckets not loaded for \(elName)")
         }
 
@@ -158,6 +161,8 @@ class ExpertWeights {
                 sliceStatsList![eNo].copyFrom(tLoader[fName+"sliceStats"], mySize: true)
             }
         }
+        
+        self.bucketsLoaded = true
     }
 }
 
