@@ -42,8 +42,12 @@ func makeScale() -> [Double] {
     }
     print(out+"]")
     return scale
-
 }
+
+func makeShortScale()  -> [Double] {
+    return [1.0, 0.5, 0.4, 0.30, 0.25]
+}
+
 
 func goQuiz() {
     print("Testing BoolQ")
@@ -62,6 +66,9 @@ func goQuiz() {
         var prompt = "Answer this question: \"\(test.prompt)\". Choices:"
         test.shuffle()
         for i in 0..<test.choices.count {
+            if i > 0 {
+                prompt += ", "
+            }
             prompt += "\(i+1). \(test.choices[i])"
         }
         print(test.prompt)
@@ -151,7 +158,7 @@ func goBenchmarkSimilarity() {
 
 func goBucketPerformance() {
     let scale = makeScale()
-    let modelData = Model(numLayers: 32, numExperts: 1, percentLoad: 0x10)
+//    let modelData = Model(numLayers: 32, numExperts: 1, percentLoad: 0x10)
     let t = Tokeniser(modelData)
     
     let v = t.embed([1])[0]// random token embeded to get a state vector
@@ -161,7 +168,7 @@ func goBucketPerformance() {
     let control = VectorFloat(shape:[ew.outSize])
     
     basicMul(v: v, by: ew.core!, out: control)
-    expertMul(v: v, by: ew, out: control, effort: 1.0)
+//    expertMul(v: v, by: ew, out: control, effort: 1.0)
     
     for s in scale {
         let test = VectorFloat(shape:[ew.outSize])
@@ -188,6 +195,10 @@ func goBucketPerformance() {
     }
     print("^ MPS")
 
+    if goQ4 {
+        print("Performance is be extremely slow on Q4.\n Skipping for now.")
+        return
+    }
     
     for s in scale {
         let test = VectorFloat(shape:[ew.outSize])
@@ -195,11 +206,13 @@ func goBucketPerformance() {
             expertMul(v: v, by: modelData.layers[i % 32]!.w1, out: test, effort: s)
         }
         expertMul(v: v, by: ew, out: test, effort: s)
-        print("^ BucketMul (\(s, perc: ())")
+        print("^ BucketMul \(s, perc: ())")
     }
 
     
 }
+
+
 
 
 func goQuickBucketPerformance() {

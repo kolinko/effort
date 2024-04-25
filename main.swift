@@ -45,7 +45,7 @@ if runMode == "convert" {
 let stateDim = 4096
 let hiddenDim = 14336
 let goQ8 = false
-let goQ4 = false
+let goQ4 = true
 assert(!goQ8, "Q8 not implemented fully yet!")
 var percentLoad = autoAdjustPercent(max: (goQ8 || goQ4) ? 0x8 : 0x10)
                   // % of weights to be loaded
@@ -77,6 +77,7 @@ let maxSeqLen = 2048
 let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
+goBucketPerformance()
 print()
 if runMode != "quickstart" {
     print("»»» How are ", terminator: "")
@@ -89,8 +90,9 @@ numTokens = 150
 
 var effort: Double = 1.0
 
+
+
 switch runMode {
-    
     case "playground":
         goPlayground()
     case "quiz":
