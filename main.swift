@@ -77,7 +77,6 @@ let maxSeqLen = 2048
 let maxTokens = maxSeqLen
 let freqsCis = createFreqsCis2(headDim: headDim, maxSeqLen: maxSeqLen)
 
-goBucketPerformance()
 print()
 if runMode != "quickstart" {
     print("»»» How are ", terminator: "")
