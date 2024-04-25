@@ -27,7 +27,6 @@
 		A453C21B2BD77ADF00B81F23 /* helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21A2BD77ADF00B81F23 /* helpers.swift */; };
 		A453C21D2BD77C6D00B81F23 /* bucketMulQ4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A453C21C2BD77C6D00B81F23 /* bucketMulQ4.swift */; };
 		A453C21F2BD77C8200B81F23 /* bucketMulQ4.metal in Sources */ = {isa = PBXBuildFile; fileRef = A453C21E2BD77C8200B81F23 /* bucketMulQ4.metal */; };
-		A453EB2F2BD77F3600CB94F9 /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = A453EB2E2BD77F3600CB94F9 /* HeapModule */; };
 		A456C2BD2BC7FC2500C7B79F /* expertMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BC2BC7FC2500C7B79F /* expertMul.swift */; };
 		A456C2C02BC9129B00C7B79F /* bucketMulFaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = A456C2BF2BC9129B00C7B79F /* bucketMulFaster.swift */; };
 		A456C2C22BC912B700C7B79F /* bucketMulFaster.metal in Sources */ = {isa = PBXBuildFile; fileRef = A456C2C12BC912B700C7B79F /* bucketMulFaster.metal */; };
@@ -38,6 +37,8 @@
 		A46EAB172BCE439300004B19 /* wildMul.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46EAB162BCE439300004B19 /* wildMul.swift */; };
 		A46F18E02BB76FAA00A630B4 /* bam.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46F18DF2BB76FAA00A630B4 /* bam.swift */; };
 		A4735A1F2BBAC8DF00E5AC05 /* tokeniser2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */; };
+		A486A9B52BDA265C00DAECDE /* article.json in Resources */ = {isa = PBXBuildFile; fileRef = A486A9B42BDA265C00DAECDE /* article.json */; };
+		A486A9B72BDA26E300DAECDE /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = A486A9B62BDA26E300DAECDE /* HeapModule */; };
 		A4AB4DC52B6144350098B05D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4AB4DC42B6144350098B05D /* main.swift */; };
 		A4C091A72BD4FCE1006DB084 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A4C091A62BD4FCE1006DB084 /* README.md */; };
 		A4CE9F6F2B626DB500910766 /* model.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CE9F6E2B626DB500910766 /* model.swift */; };
@@ -93,6 +94,7 @@
 		A46EAB162BCE439300004B19 /* wildMul.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wildMul.swift; sourceTree = "<group>"; };
 		A46F18DF2BB76FAA00A630B4 /* bam.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bam.swift; sourceTree = "<group>"; };
 		A4735A1E2BBAC8DF00E5AC05 /* tokeniser2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = tokeniser2.swift; sourceTree = "<group>"; };
+		A486A9B42BDA265C00DAECDE /* article.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = article.json; sourceTree = "<group>"; };
 		A4AB4DC12B6144350098B05D /* effort */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = effort; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4AB4DC42B6144350098B05D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A4C091A62BD4FCE1006DB084 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -111,7 +113,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A453EB2F2BD77F3600CB94F9 /* HeapModule in Frameworks */,
+				A486A9B72BDA26E300DAECDE /* HeapModule in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -198,6 +200,7 @@
 		A4FB86DE2BCBA9850093C9BE /* data */ = {
 			isa = PBXGroup;
 			children = (
+				A486A9B42BDA265C00DAECDE /* article.json */,
 				A4FB86E42BCBD2380093C9BE /* basic.json */,
 				A4FB86E62BCBD6A40093C9BE /* quiz.json */,
 			);
@@ -231,7 +234,7 @@
 			);
 			name = effort;
 			packageProductDependencies = (
-				A453EB2E2BD77F3600CB94F9 /* HeapModule */,
+				A486A9B62BDA26E300DAECDE /* HeapModule */,
 			);
 			productName = mul_col;
 			productReference = A4AB4DC12B6144350098B05D /* effort */;
@@ -283,6 +286,7 @@
 				A4FB86E72BCBD6A40093C9BE /* quiz.json in Resources */,
 				A4FB86E52BCBD2380093C9BE /* basic.json in Resources */,
 				A4C091A72BD4FCE1006DB084 /* README.md in Resources */,
+				A486A9B52BDA265C00DAECDE /* article.json in Resources */,
 				A4CE9F802B63D82F00910766 /* .gitignore in Resources */,
 				A40B319A2BA06D5800095AF5 /* info.plist in Resources */,
 			);
@@ -515,7 +519,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A453EB2E2BD77F3600CB94F9 /* HeapModule */ = {
+		A486A9B62BDA26E300DAECDE /* HeapModule */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A453EB2D2BD77F3600CB94F9 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = HeapModule;

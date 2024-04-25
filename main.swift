@@ -122,10 +122,10 @@ while true {
                 // a nice simple test case
                 let tq = "What's larger - Radom, Poland, or Sydney, Australia?"
                 print("? \(tq)")
-                let tokens = t.embed("<s>[INST]\(tq)[/INST]")
-                _ = runNetwork(tokens: tokens, effort:effort, srcTokenIds: encode(prompt:"<s>[INST]\(tq)[/INST]"))
+                let tokens = t.embed(" [INST]\(tq)[/INST]")
+                _ = runNetwork(tokens: tokens, effort:effort)
             } else {
-                prevQuery = "[INST]"+input+"[/INST] The answer is: "
+                prevQuery = " [INST]"+input+"[/INST]"
                 let tokens = t.embed(prevQuery!)
                 _ = runNetwork(tokens: tokens, effort:effort)
             }

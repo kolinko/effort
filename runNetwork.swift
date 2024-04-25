@@ -250,7 +250,7 @@ func runNetwork(tokens _tokens: [VectorFloat],
             }
             if firstTok {
                 gpu.eval()
-                print("out: \(topKVector.scalarAt(0).long)")
+            //    print("out: \(topKVector.scalarAt(0).long)")
                 firstTok = false
             }
             modelData.tokEmbeddings.fetchRow(topKVector.scalarAt(0), out: tokens[thisToken+1])

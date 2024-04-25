@@ -8,7 +8,7 @@
 import Foundation
 
 func testABCD(_ _query: String) {
-    let query = "<s>[INST]\(_query)[/INST] The answer is number:"
+    let query = " [INST]\(_query)[/INST] The answer is number: "
     let logits = [28740, 28750, 28770, 28781]
     let embeded = t.embed(query)
     for effort in [1, 0.5, 0.4, 0.3, 0.25, 0.22, 0.20, 0.15, 0.10, 0.08] {
@@ -19,7 +19,7 @@ func testABCD(_ _query: String) {
 }
 
 func verifyABCD(_ _query: String, answer: Int, scale: [Double]) -> [Bool] {
-    let query = "<s>[INST]\(_query)[/INST] The answer is number: "
+    let query = " [INST]\(_query)[/INST] The answer is number: "
     let logits = [28740, 28750, 28770, 28781]
     let embeded = t.embed(query)
     var outputs = [Bool]()
